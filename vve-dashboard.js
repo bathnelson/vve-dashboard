@@ -174,7 +174,7 @@
         const VVE_ENRICHMENT_KEY = 'vve_enrichment_data';
 
         // Verrijkte VvE data laden uit LocalStorage
-        // Bij eerste keer: merge KVK_HANDMATIG (uit kvk_handmatig.js) in localStorage
+        // Bij eerste keer: merge KVK_HANDMATIG (uit kvk_handmatig.txt) in localStorage
         const _mergeHandmatigeKvk = () => {
             try {
                 if (typeof KVK_HANDMATIG === 'undefined' || !KVK_HANDMATIG) return;
@@ -7950,7 +7950,7 @@ var App = () => {
     { label: 'Statistieken', id: 'h-stats' },
     { label: 'Sneltoetsen', id: 'h-keys' },
     { label: 'Exporteren', id: 'h-export' },
-    { label: 'Labs', id: 'h-labs' }
+    { label: 'Labs', id: 'h-labs' }, { label: 'Laden en versies', id: 'h-versie' }
   ].map(function(item) {
     return /*#__PURE__*/React.createElement("a", {
       key: item.id,
@@ -8081,7 +8081,7 @@ var App = () => {
     };
     return /*#__PURE__*/React.createElement(React.Fragment, null,
       /*#__PURE__*/React.createElement(H2, { id: 'h-wat', first: true }, "Wat is het dashboard"),
-      /*#__PURE__*/React.createElement(P, null, "Het VvE Dashboard toont alle Haarlemse VvE-adressen verdeeld over circa 4.400 VvE's. Per VvE zie je adressen, energielabels, WOZ-waarden, monumentstatus en (indien verrijking actief) dossiergegevens."),
+      /*#__PURE__*/React.createElement(P, null, "Het VvE Dashboard toont alle Haarlemse VvE-adressen verdeeld over circa 4.450 VvE's. Per VvE zie je adressen, energielabels, WOZ-waarden, monumentstatus, het warmteprogramma en de dossiergegevens."),
       /*#__PURE__*/React.createElement(P, null, "Het dashboard draait volledig in de browser — er is geen login nodig en geen data wordt verstuurd naar een server."),
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-navigatie' }, "Navigatie"),
@@ -8152,7 +8152,7 @@ var App = () => {
       /*#__PURE__*/React.createElement(Tip, null, "Beide waarden staan ook als kolom in de lijst (Warmtew. voor tijdvak, Warmte voor de voorziening) en in het detailpaneel onder Appartement."),
 
       /*#__PURE__*/React.createElement(H3, null, "Dossierdata tonen of verbergen"),
-      /*#__PURE__*/React.createElement(P, null, "Heb je toegang tot dossiergegevens, dan staat bovenin de filterzijbalk het vinkje Dossier. Daarmee schakel je de dossierkolommen (Traj., Bureau, Intake, Beheerder) en de zeven dossierfilters in de lijstweergave aan of uit."),
+      /*#__PURE__*/React.createElement(P, null, "Bovenin de filterzijbalk staat het vinkje Dossier. Daarmee schakel je de dossierkolommen (Traj., Bureau, Intake, Beheerder) en de zeven dossierfilters in de lijstweergave aan of uit. Handig als je even alleen naar de basisgegevens wilt kijken."),
       /*#__PURE__*/React.createElement(Tip, null, "Zet je het vinkje uit terwijl er een dossierfilter aanstaat, dan wordt dat filter opgeheven — zo perkt een onzichtbaar filter je selectie nooit stilletjes in. De keuze wordt onthouden in je browser; het detailpaneel en de exports blijven gewoon werken."),
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-detail' }, "Detailpaneel"),
@@ -8213,7 +8213,12 @@ var App = () => {
       /*#__PURE__*/React.createElement(P, null, "Via de Export-knop kun je de gefilterde selectie exporteren als Excel (VvE-niveau of adres-niveau)."),
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-labs' }, "Labs-menu"),
-      /*#__PURE__*/React.createElement(P, null, "Het Labs-menu (rechtsboven) bevat experimentele functies, waaronder de Herbouwwaarde-inschatting op basis van BVO, bouwlagen, bouwjaar en staat van onderhoud.")
+      /*#__PURE__*/React.createElement(P, null, "Het Labs-menu (rechtsboven) bevat experimentele functies, waaronder de Herbouwwaarde-inschatting op basis van BVO, bouwlagen, bouwjaar en staat van onderhoud."),
+
+      /*#__PURE__*/React.createElement(H2, { id: 'h-versie' }, "Laden en versies"),
+      /*#__PURE__*/React.createElement(P, null, "Het dashboard bestaat uit twee delen. De gegevens staan in de map waar je het dashboard vandaan opent; de programmacode wordt bij het openen van internet opgehaald. Daardoor krijg je verbeteringen automatisch, zonder dat er bestanden gekopieerd hoeven te worden."),
+      /*#__PURE__*/React.createElement(P, null, "Bij het openen zie je kort een laadscherm \u2014 bij grote bestanden kan dat een paar tellen duren. Lukt het ophalen niet, dan verschijnt een melding met een knop om het opnieuw te proberen. Je gegevens blijven in dat geval gewoon staan; alleen de programmacode ontbreekt dan even."),
+      /*#__PURE__*/React.createElement(Tip, null, "Achter het buildnummer linksboven staat een 'e' wanneer de code van internet komt. Staat die er niet, dan draait er een lokale kopie. Na een verbetering kan je browser de oude versie nog tot tien minuten vasthouden \u2014 Ctrl+F5 haalt hem meteen op.")
     );
   })())))), document.body), parsedEmail && /*#__PURE__*/React.createElement(ParsedEmailCard, {
     data: parsedEmail,
