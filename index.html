@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VvE Dashboard Haarlem</title>
+<meta name="description" content="Applicatiecode van een intern hulpmiddel voor Verenigingen van Eigenaren.">
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #fbfbfa; --kaart: #ffffff; --rand: #e6e4e0;
+    --tekst: #24292f; --zacht: #6b7280; --groen: #217346;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a; --kaart: #1c2024; --rand: #2c3238;
+      --tekst: #e6e4e0; --zacht: #9aa2ab; --groen: #4c9a6e;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--tekst);
+    font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 24px;
+  }
+  .kaart {
+    background: var(--kaart); border: 1px solid var(--rand);
+    border-radius: 8px; padding: 34px 36px; max-width: 480px; width: 100%;
+  }
+  .merk {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    letter-spacing: .07em; text-transform: uppercase;
+    color: var(--groen); margin-bottom: 14px;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+  p { color: var(--zacht); margin-bottom: 14px; }
+  p:last-of-type { margin-bottom: 0; }
+  .scheiding { border: 0; border-top: 1px solid var(--rand); margin: 24px 0 18px; }
+  a { color: var(--groen); }
+  .voet { font-size: 13px; color: var(--zacht); }
+</style>
+</head>
+<body>
+  <main class="kaart">
+    <span class="merk">Gemeente Haarlem</span>
+    <h1>VvE Dashboard</h1>
+
+    <p>Deze locatie bevat de applicatiecode van een intern hulpmiddel voor het
+    werken met Verenigingen van Eigenaren.</p>
+
+    <p>Er staan hier geen gegevens. Die worden uitsluitend verwerkt binnen de
+    beveiligde omgeving van de gemeente en zijn via deze locatie niet
+    benaderbaar. Ook het hulpmiddel zelf is hier niet te gebruiken.</p>
+
+    <hr class="scheiding">
+
+    <p class="voet">Vragen hierover? Laat een bericht achter via
+    <a href="https://github.com/bathnelson/vve-dashboard/issues">de issues van
+    deze repository</a>.</p>
+  </main>
+</body>
+</html>
