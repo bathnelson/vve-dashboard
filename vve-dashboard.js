@@ -2190,7 +2190,7 @@ var VveGroupCard = ({
     }, (naam.match(/\((\d{9})\)$/) || ['', ''])[1])];
     return /*#__PURE__*/React.createElement("div", {
       className: "xl-cell xl-cell-map" + (url ? "" : " xl-cell-map-kopie"),
-      title: naam + (url ? '\nKlik om de map te openen' : '\nKlik om te kopi\u00EBren'),
+      title: naam + (url ? '\nKlik om de map te openen' : '\nKlik om te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
       onClick: e => url ? e.stopPropagation() : kopieerMapnaam(e, naam)
     }, url ? /*#__PURE__*/React.createElement("a", {
       href: url,
@@ -2200,7 +2200,14 @@ var VveGroupCard = ({
       onClick: e => e.stopPropagation()
     }, tekst) : /*#__PURE__*/React.createElement("span", {
       className: "truncate"
-    }, tekst), url && /*#__PURE__*/React.createElement("button", {
+    }, tekst), url && /*#__PURE__*/React.createElement("a", {
+      href: url,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      className: "xl-map-open",
+      title: "Map openen",
+      onClick: e => e.stopPropagation()
+    }, "\u2197"), url && /*#__PURE__*/React.createElement("button", {
       type: "button",
       className: "xl-map-kopieer",
       title: "Mapnaam kopi\u00EBren",
@@ -3438,7 +3445,40 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     target: "_blank",
     rel: "noopener noreferrer",
     className: "text-pa-blue-500 hover:underline"
-  }, "Google Maps"))), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr))), activeDetailTab === 'pand' && uniquePandIds.length > 0 && /*#__PURE__*/React.createElement("div", {className: "border-t border-pa-gray-200 pt-3"}, /*#__PURE__*/React.createElement("div", {className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"}, "Pand(en)"), /*#__PURE__*/React.createElement("div", {className: "flex flex-col gap-2"}, uniquePandIds.map((pandId) => /*#__PURE__*/React.createElement("a", {key: pandId, href: `https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${pandId}`, target: "_blank", rel: "noopener noreferrer", className: "font-mono text-pa-blue-500 hover:underline text-xs"}, pandId)))), activeDetailTab === 'dossier' && dossierVisible && enrichment && /*#__PURE__*/React.createElement("div", {
+  }, "Google Maps"))), MAPNAMEN_AAN && (() => {
+    var naam = getMapnaam(item.vve_identificatie);
+    if (!naam) return null;
+    var url = dossierUrl(naam);
+    return /*#__PURE__*/React.createElement("tr", {
+      className: "border-t border-pa-gray-100"
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5 text-pa-gray-500 align-top"
+    }, "Dossiermap"), /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5"
+    }, url ? /*#__PURE__*/React.createElement("a", {
+      href: url,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      className: "text-pa-blue-500 hover:underline font-medium"
+    }, "Map openen \u2197") : null, /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-pa-gray-500 mt-0.5 flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "break-all"
+    }, naam), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "xl-map-kopieer-los",
+      title: "Mapnaam kopi\u00EBren",
+      onClick: e => {
+        e.stopPropagation();
+        if (!navigator.clipboard) return;
+        var knop = e.currentTarget;
+        navigator.clipboard.writeText(naam).then(() => {
+          knop.textContent = '\u2713';
+          setTimeout(() => { knop.textContent = '\u29C9'; }, 1000);
+        });
+      }
+    }, "\u29C9"))));
+  })(), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr))), activeDetailTab === 'pand' && uniquePandIds.length > 0 && /*#__PURE__*/React.createElement("div", {className: "border-t border-pa-gray-200 pt-3"}, /*#__PURE__*/React.createElement("div", {className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"}, "Pand(en)"), /*#__PURE__*/React.createElement("div", {className: "flex flex-col gap-2"}, uniquePandIds.map((pandId) => /*#__PURE__*/React.createElement("a", {key: pandId, href: `https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${pandId}`, target: "_blank", rel: "noopener noreferrer", className: "font-mono text-pa-blue-500 hover:underline text-xs"}, pandId)))), activeDetailTab === 'dossier' && dossierVisible && enrichment && /*#__PURE__*/React.createElement("div", {
     className: "border-t border-pa-gray-200 pt-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"
