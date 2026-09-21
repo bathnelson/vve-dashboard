@@ -653,12 +653,32 @@ var APP_BUILD = 7;
 var MAPNAMEN_AAN = typeof VVE_MAPNAMEN !== 'undefined';
 var getMapnaam = vveId => MAPNAMEN_AAN && VVE_MAPNAMEN[vveId] || '';
 // Link naar de VvE-map; de locatie komt uit DOSSIER_BASIS in team_config.js (lokaal).
-var dossierUrl = naam => {
-  if (!naam || typeof DOSSIER_BASIS === 'undefined' || !DOSSIER_BASIS || !DOSSIER_BASIS.site) return '';
+// Mini-VvE's (VVE_MINI uit vve_mapnamen.js) staan op een eigen locatie: DOSSIER_BASIS.mini,
+// met als standaard de submap _mini's in dezelfde bibliotheek.
+var _miniSet = null;
+var isMiniVve = vveId => {
+  if (_miniSet === null) _miniSet = new Set(typeof VVE_MINI !== 'undefined' ? VVE_MINI : []);
+  return _miniSet.has(vveId);
+};
+var dossierLocatie = vveId => {
+  if (typeof DOSSIER_BASIS === 'undefined' || !DOSSIER_BASIS || !DOSSIER_BASIS.site) return null;
+  var b = DOSSIER_BASIS;
+  if (!isMiniVve(vveId)) return { site: b.site, bibliotheek: b.bibliotheek, map: b.map || '' };
+  var m = b.mini || {};
+  return {
+    site: m.site || b.site,
+    bibliotheek: m.bibliotheek || b.bibliotheek,
+    map: Object.prototype.hasOwnProperty.call(m, 'map') ? m.map || '' : "_mini's"
+  };
+};
+var dossierUrl = vveId => {
+  var naam = getMapnaam(vveId);
+  var loc = naam && dossierLocatie(vveId);
+  if (!loc) return '';
   try {
-    var site = String(DOSSIER_BASIS.site).replace(/\/+$/, '');
-    var bib = String(DOSSIER_BASIS.bibliotheek || '').replace(/^\/+|\/+$/g, '');
-    var sub = String(DOSSIER_BASIS.map || '').replace(/^\/+|\/+$/g, '');
+    var site = String(loc.site).replace(/\/+$/, '');
+    var bib = String(loc.bibliotheek || '').replace(/^\/+|\/+$/g, '');
+    var sub = String(loc.map || '').replace(/^\/+|\/+$/g, '');
     var pad = new URL(site).pathname.replace(/\/+$/, '') + '/' + bib + (sub ? '/' + sub : '') + '/' + naam;
     return site + '/' + bib + '/Forms/AllItems.aspx?id=' + encodeURIComponent(pad);
   } catch (err) { return ''; }
@@ -2183,7 +2203,7 @@ var VveGroupCard = ({
     "data-nickname": enrichment.nickname
   })), MAPNAMEN_AAN && (() => {
     var naam = getMapnaam(vve.vve_identificatie);
-    var url = dossierUrl(naam);
+    var url = dossierUrl(vve.vve_identificatie);
     var tekst = [naam.replace(/ \(\d{9}\)$/, ''), /*#__PURE__*/React.createElement("span", {
       key: "id",
       className: "xl-map-id"
@@ -3416,7 +3436,14 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     }, nr), /*#__PURE__*/React.createElement("span", {
       className: `text-[9px] px-1 py-0.5 rounded border ${kvkSourceBg[src]}`
     }, kvkSourceLabel[src]));
-  })())), /*#__PURE__*/React.createElement("tr", {
+  })())), item.vve_identificatie && /*#__PURE__*/React.createElement("tr", {
+    className: "border-b border-pa-gray-100"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-500",
+    title: "Identificatienummer van de VvE bij het Kadaster. Dit is geen RSIN."
+  }, "Kadaster-ID"), /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 font-mono text-pa-gray-800"
+  }, String(item.vve_identificatie).replace(/^.*\./, ''))), /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
@@ -3448,7 +3475,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
   }, "Google Maps"))), MAPNAMEN_AAN && (() => {
     var naam = getMapnaam(item.vve_identificatie);
     if (!naam) return null;
-    var url = dossierUrl(naam);
+    var url = dossierUrl(item.vve_identificatie);
     return /*#__PURE__*/React.createElement("tr", {
       className: "border-t border-pa-gray-100"
     }, /*#__PURE__*/React.createElement("td", {
