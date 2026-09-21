@@ -198,3 +198,8 @@
 .xl-cell-map[data-gekopieerd] { background: #d4edda; }
 .xl-cell-map[data-gekopieerd]::after { content: '✓ gekopieerd'; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
   background: #217346; color: #fff; font: 600 10px "Segoe UI", system-ui, sans-serif; padding: 1px 6px; border-radius: 2px; }
+.xl-map-open { margin-left: auto; flex-shrink: 0; color: #217346; text-decoration: none; font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; font-weight: 600; padding: 0 2px; }
+.xl-map-open:hover { color: #1a5c38; background: #d4edda; border-radius: 2px; }
+.xl-map-open + .xl-map-kopieer { margin-left: 0; }
+.xl-map-kopieer-los { border: 0; background: none; padding: 0 2px; cursor: copy; color: #7a9082; font-size: 13px; line-height: 1; flex-shrink: 0; }
+.xl-map-kopieer-los:hover { color: #217346; }
