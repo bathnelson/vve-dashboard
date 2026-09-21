@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 10;
+var APP_BUILD = 11;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -2243,10 +2243,10 @@ var VveGroupCard = ({
   })), MAPNAMEN_AAN && (() => {
     var naam = getMapnaam(vve.vve_identificatie);
     var url = dossierUrl(vve.vve_identificatie);
-    var tekst = [naam.replace(/ \(\d{9}\)$/, ''), /*#__PURE__*/React.createElement("span", {
+    var tekst = [naam.replace(/ \((KvK \d{8}|\d{9})\)$/, ''), /*#__PURE__*/React.createElement("span", {
       key: "id",
       className: "xl-map-id"
-    }, (naam.match(/\((\d{9})\)$/) || ['', ''])[1])];
+    }, (naam.match(/\((KvK \d{8}|\d{9})\)$/) || ['', ''])[1])];
     return /*#__PURE__*/React.createElement("div", {
       className: "xl-cell xl-cell-map" + (url ? "" : " xl-cell-map-kopie"),
       title: naam + (url ? '\nKlik om de map te openen' : '\nKlik om te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
@@ -8292,7 +8292,7 @@ var App = () => {
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-vves' }, "VvE's werkblad"),
       /*#__PURE__*/React.createElement(P, null, "De lijst toont VvE's als samengevouwen groepen. Klik op een VvE-rij om hem uit te klappen en de afzonderlijke adressen te zien. Klik op een adres om het in het detailpaneel te openen."),
-      /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een vaste, leesbare mapnaam: eventueel de gebouwnaam, dan de hoofdstraat met huisnummers, en tussen haakjes het Kadaster-nummer. Dat nummer is de sleutel en verandert nooit. Klik op een mapnaam om de bijbehorende map in het VvE-dossier te openen; het kopieerknopje dat verschijnt als je eroverheen beweegt, kopieert de naam. Bestaat de map nog niet, dan kun je hem met die gekopieerde naam aanmaken."),
+      /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een vaste, leesbare mapnaam: eventueel de gebouwnaam, dan de hoofdstraat met huisnummers, en tussen haakjes het KvK-nummer. Heeft de VvE (nog) geen KvK-nummer, dan staat daar het 9-cijferige Kadaster-nummer. Komt er later een KvK-nummer bij, dan verandert de mapnaam mee. Klik op een mapnaam om de bijbehorende map in het VvE-dossier te openen; het kopieerknopje dat verschijnt als je eroverheen beweegt, kopieert de naam. Bestaat de map nog niet, dan kun je hem met die gekopieerde naam aanmaken."),
       /*#__PURE__*/React.createElement(P, null, "De kolom Won. telt alleen de woningen. Beweeg over het getal voor de volledige telling: niet-woonadressen (winkels, bedrijfsruimtes), overige (garageboxen, bergingen) en het aantal appartementsrechten."),
       /*#__PURE__*/React.createElement(P, null, "Het label hoofdsplitsing staat bij VvE's waar de woningen onder onderverenigingen vallen. Die onderverenigingen staan niet in de data, maar beslissen wel over de afzonderlijke woningen. Het dashboard herkent een hoofdsplitsing aan de naam, of aan veel meer woningen dan appartementsrechten; dat is een benadering, dus controleer het bij twijfel. Met het filter Hoofdsplitsing kun je ze apart bekijken."),
       /*#__PURE__*/React.createElement(Tip, null, /*#__PURE__*/React.createElement("strong", null, "Groot aantal resultaten? "), "De lijst laadt 50 VvE's tegelijk. Scroll naar beneden om meer te laden, of verfijn de zoekopdracht."),
