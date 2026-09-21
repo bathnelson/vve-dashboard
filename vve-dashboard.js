@@ -481,6 +481,16 @@
             return rows.length;
         };
 
+        // Handmatig gecontroleerde KvK-nummers (kvk_correcties.js) gaan voor op
+        // vve_data.js en kvk_lookup.js. Een lege waarde betekent: geen KvK-nummer.
+        (function pasKvkCorrectiesToe() {
+            if (typeof KVK_CORRECTIES === 'undefined') return;
+            if (typeof VVE_DATA !== 'undefined') VVE_DATA.forEach(item => {
+                if (Object.prototype.hasOwnProperty.call(KVK_CORRECTIES, item.vve_identificatie)) item.kvknummer = KVK_CORRECTIES[item.vve_identificatie] || '';
+            });
+            if (typeof KVK_LOOKUP !== 'undefined') Object.keys(KVK_CORRECTIES).forEach(vveId => { delete KVK_LOOKUP[vveId]; });
+        })();
+
         // KvK lookup uit alternatieve dataset (vve_haarlem.csv)
         const lookupKvkNummer = (vveId) => {
             if (!vveId || typeof KVK_LOOKUP === 'undefined') return null;
@@ -646,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 9;
+var APP_BUILD = 10;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
