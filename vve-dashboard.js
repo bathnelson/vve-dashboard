@@ -652,10 +652,21 @@ var APP_BUILD = 7;
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
 var MAPNAMEN_AAN = typeof VVE_MAPNAMEN !== 'undefined';
 var getMapnaam = vveId => MAPNAMEN_AAN && VVE_MAPNAMEN[vveId] || '';
+// Link naar de VvE-map; de locatie komt uit DOSSIER_BASIS in team_config.js (lokaal).
+var dossierUrl = naam => {
+  if (!naam || typeof DOSSIER_BASIS === 'undefined' || !DOSSIER_BASIS || !DOSSIER_BASIS.site) return '';
+  try {
+    var site = String(DOSSIER_BASIS.site).replace(/\/+$/, '');
+    var bib = String(DOSSIER_BASIS.bibliotheek || '').replace(/^\/+|\/+$/g, '');
+    var sub = String(DOSSIER_BASIS.map || '').replace(/^\/+|\/+$/g, '');
+    var pad = new URL(site).pathname.replace(/\/+$/, '') + '/' + bib + (sub ? '/' + sub : '') + '/' + naam;
+    return site + '/' + bib + '/Forms/AllItems.aspx?id=' + encodeURIComponent(pad);
+  } catch (err) { return ''; }
+};
 var kopieerMapnaam = (e, naam) => {
   e.stopPropagation();
   if (!naam || !navigator.clipboard) return;
-  var el = e.currentTarget;
+  var el = e.currentTarget.closest('.xl-cell-map') || e.currentTarget;
   navigator.clipboard.writeText(naam).then(() => {
     el.dataset.gekopieerd = '1';
     setTimeout(() => { delete el.dataset.gekopieerd; }, 900);
@@ -2170,15 +2181,32 @@ var VveGroupCard = ({
   }), enrichment?.nickname && /*#__PURE__*/React.createElement("span", {
     className: "xl-note-triangle",
     "data-nickname": enrichment.nickname
-  })), MAPNAMEN_AAN && /*#__PURE__*/React.createElement("div", {
-    className: "xl-cell xl-cell-map",
-    title: getMapnaam(vve.vve_identificatie) + '\nKlik om te kopi\u00EBren',
-    onClick: e => kopieerMapnaam(e, getMapnaam(vve.vve_identificatie))
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "truncate"
-  }, getMapnaam(vve.vve_identificatie).replace(/ \(\d{9}\)$/, ''), /*#__PURE__*/React.createElement("span", {
-    className: "xl-map-id"
-  }, (getMapnaam(vve.vve_identificatie).match(/\((\d{9})\)$/) || ['', ''])[1]))), /*#__PURE__*/React.createElement("div", {
+  })), MAPNAMEN_AAN && (() => {
+    var naam = getMapnaam(vve.vve_identificatie);
+    var url = dossierUrl(naam);
+    var tekst = [naam.replace(/ \(\d{9}\)$/, ''), /*#__PURE__*/React.createElement("span", {
+      key: "id",
+      className: "xl-map-id"
+    }, (naam.match(/\((\d{9})\)$/) || ['', ''])[1])];
+    return /*#__PURE__*/React.createElement("div", {
+      className: "xl-cell xl-cell-map" + (url ? "" : " xl-cell-map-kopie"),
+      title: naam + (url ? '\nKlik om de map te openen' : '\nKlik om te kopi\u00EBren'),
+      onClick: e => url ? e.stopPropagation() : kopieerMapnaam(e, naam)
+    }, url ? /*#__PURE__*/React.createElement("a", {
+      href: url,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      className: "truncate xl-map-link",
+      onClick: e => e.stopPropagation()
+    }, tekst) : /*#__PURE__*/React.createElement("span", {
+      className: "truncate"
+    }, tekst), url && /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "xl-map-kopieer",
+      title: "Mapnaam kopi\u00EBren",
+      onClick: e => kopieerMapnaam(e, naam)
+    }, "\u29C9"));
+  })(), /*#__PURE__*/React.createElement("div", {
     className: "xl-cell xl-cell-center",
     style: {
       color: '#444'
@@ -8118,7 +8146,7 @@ var App = () => {
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-vves' }, "VvE's werkblad"),
       /*#__PURE__*/React.createElement(P, null, "De lijst toont VvE's als samengevouwen groepen. Klik op een VvE-rij om hem uit te klappen en de afzonderlijke adressen te zien. Klik op een adres om het in het detailpaneel te openen."),
-      /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een vaste, leesbare mapnaam: eventueel de gebouwnaam, dan de hoofdstraat met huisnummers, en tussen haakjes het Kadaster-nummer. Dat nummer is de sleutel en verandert nooit. Klik op een mapnaam om hem te kopi\u00EBren, bijvoorbeeld om een map met die naam aan te maken."),
+      /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een vaste, leesbare mapnaam: eventueel de gebouwnaam, dan de hoofdstraat met huisnummers, en tussen haakjes het Kadaster-nummer. Dat nummer is de sleutel en verandert nooit. Klik op een mapnaam om de bijbehorende map in het VvE-dossier te openen; het kopieerknopje dat verschijnt als je eroverheen beweegt, kopieert de naam. Bestaat de map nog niet, dan kun je hem met die gekopieerde naam aanmaken."),
       /*#__PURE__*/React.createElement(Tip, null, /*#__PURE__*/React.createElement("strong", null, "Groot aantal resultaten? "), "De lijst laadt 50 VvE's tegelijk. Scroll naar beneden om meer te laden, of verfijn de zoekopdracht."),
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-zoeken' }, "Zoeken"),
