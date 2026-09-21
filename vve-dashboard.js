@@ -646,7 +646,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 8;
+var APP_BUILD = 9;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -683,6 +683,15 @@ var dossierUrl = vveId => {
     return site + '/' + bib + '/Forms/AllItems.aspx?id=' + encodeURIComponent(pad);
   } catch (err) { return ''; }
 };
+// Hoofdsplitsing: de VvE bestaat uit een paar grote rechten die elk weer
+// onderverdeeld zijn; de onderverenigingen staan niet in de data. Benadering:
+// het staat in de naam, of er zijn veel meer woningen dan rechten.
+var isHoofdsplitsing = vve => {
+  if (/hoofd\s*-?\s*(splitsing|vereniging)/i.test(vve.statutairenaam || '')) return true;
+  var won = vve.aantal_woon_adr_in_vve || 0, rechten = vve.aantal_app_rechten || 0;
+  return won >= 20 && rechten > 0 && rechten * 4 < won;
+};
+var HOOFDSPLITSING_UITLEG = 'Waarschijnlijk een hoofdsplitsing: de woningen vallen onder onderverenigingen, die niet in de data staan. Die beslissen over de afzonderlijke woningen.';
 var adresTelling = vve => {
   var n = (v, een, meer) => v + ' ' + (v === 1 ? een : meer);
   var delen = [n(vve.aantal_woon_adr_in_vve || 0, 'woning', 'woningen')];
@@ -690,6 +699,7 @@ var adresTelling = vve => {
   if (vve.aantal_overig_adr_in_vve) delen.push(vve.aantal_overig_adr_in_vve + ' overig');
   var t = delen.join(' · ');
   if (vve.aantal_app_rechten) t += '\n' + n(vve.aantal_app_rechten, 'appartementsrecht', 'appartementsrechten');
+  if (isHoofdsplitsing(vve)) t += '\n' + HOOFDSPLITSING_UITLEG;
   return t;
 };
 var kopieerMapnaam = (e, naam) => {
@@ -2176,7 +2186,17 @@ var VveGroupCard = ({
       padding: '1px 4px',
       borderRadius: 2
     }
-  }, "KvK?"), (typeof NEW_VVES !== 'undefined' && NEW_VVES.has(vve.vve_identificatie)) && /*#__PURE__*/React.createElement("span", {
+  }, "KvK?"), isHoofdsplitsing(vve) && /*#__PURE__*/React.createElement("span", {
+    style: {
+      flexShrink: 0,
+      fontSize: 9,
+      background: '#e8eefc',
+      color: '#3450a8',
+      padding: '1px 4px',
+      borderRadius: 2
+    },
+    title: HOOFDSPLITSING_UITLEG
+  }, "hoofdsplitsing"), (typeof NEW_VVES !== 'undefined' && NEW_VVES.has(vve.vve_identificatie)) && /*#__PURE__*/React.createElement("span", {
     style: {
       flexShrink: 0,
       fontSize: 9,
@@ -3453,7 +3473,16 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     title: "Identificatienummer van de VvE bij het Kadaster. Dit is geen RSIN."
   }, "Kadaster-ID"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 font-mono text-pa-gray-800"
-  }, String(item.vve_identificatie).replace(/^.*\./, ''))), /*#__PURE__*/React.createElement("tr", {
+  }, String(item.vve_identificatie).replace(/^.*\./, ''))), isHoofdsplitsing(item) && /*#__PURE__*/React.createElement("tr", {
+    className: "border-b border-pa-gray-100"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-500"
+  }, "Splitsing"), /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-800",
+    title: HOOFDSPLITSING_UITLEG
+  }, "Hoofdsplitsing", /*#__PURE__*/React.createElement("span", {
+    className: "text-pa-gray-500"
+  }, " \u00B7 ", item.aantal_app_rechten || '?', " rechten, onderverenigingen niet in de data"))), /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
@@ -4712,6 +4741,10 @@ var App = () => {
     _useState54 = _slicedToArray(_useState53, 2),
     selectedGemengd = _useState54[0],
     setSelectedGemengd = _useState54[1];
+  var _useStateHs = useState(new Set()),
+    _useStateHs2 = _slicedToArray(_useStateHs, 2),
+    selectedHoofdsplitsing = _useStateHs2[0],
+    setSelectedHoofdsplitsing = _useStateHs2[1];
   var _useState55 = useState(new Set()),
     _useState56 = _slicedToArray(_useState55, 2),
     selectedEenheidtype = _useState56[0],
@@ -5133,6 +5166,13 @@ var App = () => {
   var isGemengd = item => {
     return (item.aantal_niet_woon_adr_in_vve || 0) > 0 && (item.aantal_woon_adr_in_vve || 0) > 0;
   };
+  var hoofdsplitsingCategories = [{
+    key: 'ja',
+    label: 'Hoofdsplitsing'
+  }, {
+    key: 'nee',
+    label: 'Gewone VvE'
+  }];
 
   // Eenheidtype categories
   var eenheidtypeCategories = [{
@@ -5227,6 +5267,10 @@ var App = () => {
         return selectedGemengd.has(key);
       }
     },
+    hoofdsplitsing: {
+      active: selectedHoofdsplitsing.size > 0,
+      fn: item => selectedHoofdsplitsing.has(isHoofdsplitsing(item) ? 'ja' : 'nee')
+    },
     eenheidtype: {
       active: selectedEenheidtype.size > 0,
       fn: item => selectedEenheidtype.has(getEenheidtypeKey(item.basiseenheidtype))
@@ -5309,7 +5353,7 @@ var App = () => {
       active: selectedGemLabel.size > 0,
       fn: item => selectedGemLabel.has(avgLabelByVve[item.vve_identificatie] || '')
     }
-  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
+  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
 
   // Apply all filters except the excluded one(s)
   var applyFiltersExcept = useCallback((baseData, excludeKey) => {
@@ -5385,6 +5429,19 @@ var App = () => {
         var g = isGemengd(item);
         return cat.key === 'ja' ? g : !g;
       });
+      counts.addresses[cat.key] = filtered.length;
+      counts.vves[cat.key] = countUniqueVves(filtered);
+    });
+    return counts;
+  }, [searchFilteredData, applyFiltersExcept]);
+  var hoofdsplitsingFacetCounts = useMemo(() => {
+    var base = applyFiltersExcept(searchFilteredData, 'hoofdsplitsing');
+    var counts = {
+      addresses: {},
+      vves: {}
+    };
+    hoofdsplitsingCategories.forEach(cat => {
+      var filtered = base.filter(item => isHoofdsplitsing(item) === (cat.key === 'ja'));
       counts.addresses[cat.key] = filtered.length;
       counts.vves[cat.key] = countUniqueVves(filtered);
     });
@@ -5672,6 +5729,7 @@ var App = () => {
     setSelectedTijdvak(new Set());
     setSelectedWarmte(new Set());
     setSelectedGemengd(new Set());
+    setSelectedHoofdsplitsing(new Set());
     setSelectedEenheidtype(new Set());
     setSelectedKvk(new Set());
     setSelectedWoz(new Set());
@@ -5796,7 +5854,7 @@ var App = () => {
     return function() { window.removeEventListener('message', handler); };
   }, []);
 
-  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
+  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
 
   // Multi-user enrichment state
   var _useState95 = useState(() => localStorage.getItem('vve_dashboard_username') || ''),
@@ -6352,6 +6410,7 @@ var App = () => {
       }
     }
     if (selectedGemengd.has('ja')) parts.push('gemengd');
+    if (selectedHoofdsplitsing.has('ja')) parts.push('hoofdsplitsing');
     if (selectedWoz.has('boven')) parts.push('hoge-woz');
     if (selectedWoz.has('onder')) parts.push('lage-woz');
     if (selectedGespikkeld.has('ja')) parts.push('gespikkeld');
@@ -8224,6 +8283,8 @@ var App = () => {
       /*#__PURE__*/React.createElement(H2, { id: 'h-vves' }, "VvE's werkblad"),
       /*#__PURE__*/React.createElement(P, null, "De lijst toont VvE's als samengevouwen groepen. Klik op een VvE-rij om hem uit te klappen en de afzonderlijke adressen te zien. Klik op een adres om het in het detailpaneel te openen."),
       /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een vaste, leesbare mapnaam: eventueel de gebouwnaam, dan de hoofdstraat met huisnummers, en tussen haakjes het Kadaster-nummer. Dat nummer is de sleutel en verandert nooit. Klik op een mapnaam om de bijbehorende map in het VvE-dossier te openen; het kopieerknopje dat verschijnt als je eroverheen beweegt, kopieert de naam. Bestaat de map nog niet, dan kun je hem met die gekopieerde naam aanmaken."),
+      /*#__PURE__*/React.createElement(P, null, "De kolom Won. telt alleen de woningen. Beweeg over het getal voor de volledige telling: niet-woonadressen (winkels, bedrijfsruimtes), overige (garageboxen, bergingen) en het aantal appartementsrechten."),
+      /*#__PURE__*/React.createElement(P, null, "Het label hoofdsplitsing staat bij VvE's waar de woningen onder onderverenigingen vallen. Die onderverenigingen staan niet in de data, maar beslissen wel over de afzonderlijke woningen. Het dashboard herkent een hoofdsplitsing aan de naam, of aan veel meer woningen dan appartementsrechten; dat is een benadering, dus controleer het bij twijfel. Met het filter Hoofdsplitsing kun je ze apart bekijken."),
       /*#__PURE__*/React.createElement(Tip, null, /*#__PURE__*/React.createElement("strong", null, "Groot aantal resultaten? "), "De lijst laadt 50 VvE's tegelijk. Scroll naar beneden om meer te laden, of verfijn de zoekopdracht."),
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-zoeken' }, "Zoeken"),
@@ -8465,6 +8526,24 @@ var App = () => {
     count: showVveCounts ? gemengdFacetCounts.vves[cat.key] || 0 : gemengdFacetCounts.addresses[cat.key] || 0,
     active: selectedGemengd.has(cat.key),
     onClick: () => toggleSelection(setSelectedGemengd, cat.key)
+  }))), /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Hoofdsplitsing",
+    activeCount: selectedHoofdsplitsing.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle VvE's",
+    count: showVveCounts ? sumFacet(hoofdsplitsingFacetCounts).vves : sumFacet(hoofdsplitsingFacetCounts).addresses,
+    active: selectedHoofdsplitsing.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedHoofdsplitsing(new Set());
+      setDisplayCount(50);
+    }
+  }), hoofdsplitsingCategories.map(cat => /*#__PURE__*/React.createElement(FacetOption, {
+    key: cat.key,
+    label: cat.label,
+    count: showVveCounts ? hoofdsplitsingFacetCounts.vves[cat.key] || 0 : hoofdsplitsingFacetCounts.addresses[cat.key] || 0,
+    active: selectedHoofdsplitsing.has(cat.key),
+    onClick: () => toggleSelection(setSelectedHoofdsplitsing, cat.key)
   }))), /*#__PURE__*/React.createElement(FacetSection, {
     title: "Eenheidtype",
     activeCount: selectedEenheidtype.size
@@ -8959,6 +9038,24 @@ var App = () => {
     count: showVveCounts ? gemengdFacetCounts.vves[category.key] || 0 : gemengdFacetCounts.addresses[category.key] || 0,
     active: selectedGemengd.has(category.key),
     onClick: () => toggleSelection(setSelectedGemengd, category.key)
+  }))), /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Hoofdsplitsing",
+    activeCount: selectedHoofdsplitsing.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle VvE's",
+    count: showVveCounts ? sumFacet(hoofdsplitsingFacetCounts).vves : sumFacet(hoofdsplitsingFacetCounts).addresses,
+    active: selectedHoofdsplitsing.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedHoofdsplitsing(new Set());
+      setDisplayCount(50);
+    }
+  }), hoofdsplitsingCategories.map(category => /*#__PURE__*/React.createElement(FacetOption, {
+    key: category.key,
+    label: category.label,
+    count: showVveCounts ? hoofdsplitsingFacetCounts.vves[category.key] || 0 : hoofdsplitsingFacetCounts.addresses[category.key] || 0,
+    active: selectedHoofdsplitsing.has(category.key),
+    onClick: () => toggleSelection(setSelectedHoofdsplitsing, category.key)
   }))), /*#__PURE__*/React.createElement(FacetSection, {
     title: "Eenheidtype",
     activeCount: selectedEenheidtype.size
