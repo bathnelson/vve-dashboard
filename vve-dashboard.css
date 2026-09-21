@@ -186,7 +186,13 @@
         .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
         .scrollbar-thin::-webkit-scrollbar-corner { background: transparent; }
 /* ── kolom Map ─────────────────────────────────────────── */
-.xl-cell-map { font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 11px; color: #333; cursor: copy; position: relative; }
+.xl-cell-map { font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 11px; color: #333; position: relative; gap: 4px; }
+.xl-cell-map-kopie { cursor: copy; }
+.xl-map-link { color: inherit; text-decoration: none; }
+.xl-map-link:hover { color: #217346; text-decoration: underline; }
+.xl-map-kopieer { visibility: hidden; margin-left: auto; flex-shrink: 0; border: 0; background: none; padding: 0 2px; cursor: copy; color: #7a9082; font-size: 13px; line-height: 1; }
+.xl-cell-map:hover .xl-map-kopieer { visibility: visible; }
+.xl-map-kopieer:hover { color: #217346; }
 .xl-cell-map:hover { background: #e8f4ee; }
 .xl-cell-map .xl-map-id { color: #9aa5a0; margin-left: 5px; }
 .xl-cell-map[data-gekopieerd] { background: #d4edda; }
