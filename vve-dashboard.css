@@ -185,3 +185,10 @@
         .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
         .scrollbar-thin::-webkit-scrollbar-corner { background: transparent; }
+/* ── kolom Map ─────────────────────────────────────────── */
+.xl-cell-map { font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 11px; color: #333; cursor: copy; position: relative; }
+.xl-cell-map:hover { background: #e8f4ee; }
+.xl-cell-map .xl-map-id { color: #9aa5a0; margin-left: 5px; }
+.xl-cell-map[data-gekopieerd] { background: #d4edda; }
+.xl-cell-map[data-gekopieerd]::after { content: '✓ gekopieerd'; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  background: #217346; color: #fff; font: 600 10px "Segoe UI", system-ui, sans-serif; padding: 1px 6px; border-radius: 2px; }
