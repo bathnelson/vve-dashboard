@@ -646,7 +646,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 7;
+var APP_BUILD = 8;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -682,6 +682,15 @@ var dossierUrl = vveId => {
     var pad = new URL(site).pathname.replace(/\/+$/, '') + '/' + bib + (sub ? '/' + sub : '') + '/' + naam;
     return site + '/' + bib + '/Forms/AllItems.aspx?id=' + encodeURIComponent(pad);
   } catch (err) { return ''; }
+};
+var adresTelling = vve => {
+  var n = (v, een, meer) => v + ' ' + (v === 1 ? een : meer);
+  var delen = [n(vve.aantal_woon_adr_in_vve || 0, 'woning', 'woningen')];
+  if (vve.aantal_niet_woon_adr_in_vve) delen.push(vve.aantal_niet_woon_adr_in_vve + ' niet-woon');
+  if (vve.aantal_overig_adr_in_vve) delen.push(vve.aantal_overig_adr_in_vve + ' overig');
+  var t = delen.join(' · ');
+  if (vve.aantal_app_rechten) t += '\n' + n(vve.aantal_app_rechten, 'appartementsrecht', 'appartementsrechten');
+  return t;
 };
 var kopieerMapnaam = (e, naam) => {
   e.stopPropagation();
@@ -2237,7 +2246,8 @@ var VveGroupCard = ({
     className: "xl-cell xl-cell-center",
     style: {
       color: '#444'
-    }
+    },
+    title: adresTelling(vve)
   }, vve.aantal_woon_adr_in_vve), /*#__PURE__*/React.createElement("div", {
     className: `xl-cell xl-cell-center font-medium ${getEnergyClass(avgEnergy)}`
   }, avgEnergy), /*#__PURE__*/React.createElement("div", {
@@ -7093,7 +7103,7 @@ var App = () => {
   var xlBaseTemplate = '36px minmax(200px,1fr)' + (MAPNAMEN_AAN ? ' 230px' : '') + ' 52px 52px 108px 52px 76px 68px 80px 72px 34px 34px 34px';
   var xlColTemplate = dossierVisible ? xlBaseTemplate + ' 34px 88px 68px 84px' : xlBaseTemplate;
   var xlMinWidth = (dossierVisible ? 1160 : 874) + (MAPNAMEN_AAN ? 230 : 0);
-  var xlColLabels = ['', 'Naam', ...(MAPNAMEN_AAN ? ['Map'] : []), 'Adr.', 'Label', 'Buurt', 'Bj.', 'WOZ ' + activeWozJaar, 'Warmtew.', 'Warmte', 'Wijk', 'Mon.', 'Bsch.', 'Gem.', ...(dossierVisible ? ['Traj.', 'Bureau', 'Intake', 'Beheerder'] : [])];
+  var xlColLabels = ['', 'Naam', ...(MAPNAMEN_AAN ? ['Map'] : []), 'Won.', 'Label', 'Buurt', 'Bj.', 'WOZ ' + activeWozJaar, 'Warmtew.', 'Warmte', 'Wijk', 'Mon.', 'Bsch.', 'Gem.', ...(dossierVisible ? ['Traj.', 'Bureau', 'Intake', 'Beheerder'] : [])];
   return /*#__PURE__*/React.createElement("div", {
     style: {
       height: '100vh',
@@ -9696,7 +9706,8 @@ var App = () => {
       whiteSpace: 'nowrap',
       textOverflow: 'ellipsis',
       background: i === 0 ? '#e0e0e0' : '#f0f0f0'
-    }
+    },
+    title: label === 'Won.' ? 'Aantal woningen (woonadressen) in de VvE. Garages, bergingen en bedrijfsruimtes tellen niet mee; beweeg over een getal voor de volledige telling.' : undefined
   }, label)))), /*#__PURE__*/React.createElement("div", {
     style: {
       minWidth: xlMinWidth
