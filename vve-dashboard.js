@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 11;
+var APP_BUILD = 12;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -726,6 +726,18 @@ var APP_EXTERN = (function () {
     var s = document.currentScript && document.currentScript.src;
     return !!s && new URL(s).host !== location.host;
   } catch (e) { return false; }
+})();
+// Favicon uit dezelfde map als dit script (Pages, of lokaal bij het testen).
+(function zetFavicon() {
+  try {
+    if (document.querySelector('link[rel~="icon"]')) return;
+    var s = document.currentScript && document.currentScript.src;
+    var l = document.createElement('link');
+    l.rel = 'icon';
+    l.type = 'image/svg+xml';
+    l.href = (s ? s.replace(/[^/]*$/, '') : '') + 'favicon.svg';
+    document.head.appendChild(l);
+  } catch (e) {}
 })();
 var APP_BUILD_DATE = '2026-09-03';
 var APP_EXPIRY_DAYS = 58;
