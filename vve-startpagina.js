@@ -50,7 +50,11 @@
     greep: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
     potlood: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
     kruis: '<path d="M6 6l12 12M18 6 6 18"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>'
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    persoon: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+    terug: '<path d="M9 7 4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-2"/>',
+    weergave: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><path d="M3 15h18M3 20h18"/>'
   };
   var KLEUR = {
     dashboard: 'rood', mail: 'blauw', agenda: 'blauw', chat: 'paars', map: 'goud', word: 'blauw', excel: 'groen',
@@ -155,48 +159,76 @@
       + '<button class="sp-mini" data-actie="tegel-weg" title="Verwijderen">' + svg('kruis') + '</button>'
       + '</span></a>';
   }
+  var WEERGAVEN = ['tegels', 'compact', 'lijst'];
+  var WEERGAVE_NAAM = { tegels: 'Tegels', compact: 'Compact', lijst: 'Lijst' };
+  function weergave(g, gi) { return WEERGAVEN.indexOf(g.weergave) >= 0 ? g.weergave : (gi === 0 ? 'tegels' : 'compact'); }
+  function initialen() {
+    var naam = '';
+    try { naam = (localStorage.getItem('vve_dashboard_username') || '').trim(); } catch (e) {}
+    return naam ? naam.charAt(0).toUpperCase() : '';
+  }
+  function logoTekst() {
+    if (STARTPAGINA.afkorting) return STARTPAGINA.afkorting;
+    var w = (STARTPAGINA.titel || 'Start').split(/\s+/).filter(function (x) { return !/^start$/i.test(x); });
+    return (w[0] || 'S').slice(0, 3);
+  }
   function teken() {
-    var html = '<div class="sp' + (bewerken ? ' is-bewerken' : '') + '">'
-      + '<header class="sp-kop"><div class="sp-titel">'
-      + '<h1 class="sp-groet">' + esc(groet()) + '</h1>'
-      + '<p class="sp-datum"><b>' + esc(STARTPAGINA.titel || 'Start') + '</b> · ' + esc(datum()) + '</p></div>'
-      + '<div class="sp-acties">'
-      + '<input class="sp-zoek" type="search" placeholder="Zoek een tegel…" aria-label="Zoek een tegel" value="' + esc(zoekterm) + '">'
-      + '<button class="sp-knop' + (bewerken ? ' is-aan' : '') + '" data-actie="bewerken">'
-      + (bewerken ? 'Klaar' : 'Indeling aanpassen') + '</button></div></header>';
-
+    var titel = STARTPAGINA.titel || 'Start';
+    var ini = initialen();
+    var html = '<div class="sp' + (bewerken ? ' is-bewerken' : '') + '" style="--thema:' + esc(STARTPAGINA.themaKleur || '#0078d4') + '">'
+      // bovenbalk
+      + '<div class="sp-suite"><a class="sp-waffle" href="https://www.microsoft365.com/" title="Apps" aria-label="Apps">'
+      + '<svg viewBox="0 0 16 16" aria-hidden="true">' + [2, 7, 12].map(function (y) { return [2, 7, 12].map(function (x) { return '<rect x="' + x + '" y="' + y + '" width="2.2" height="2.2"/>'; }).join(''); }).join('') + '</svg></a>'
+      + '<span class="sp-suite-naam">' + esc(titel) + '</span>'
+      + '<div class="sp-suite-zoek"><input class="sp-zoek" type="search" placeholder="Zoeken op deze site" aria-label="Zoeken op deze site" value="' + esc(zoekterm) + '"></div>'
+      + '<span class="sp-avatar" title="' + esc(groet()) + '">' + (ini ? esc(ini) : svg('persoon')) + '</span></div>'
+      // sitekop
+      + '<header class="sp-site"><div class="sp-in sp-site-in"><span class="sp-logo">' + esc(logoTekst()) + '</span>'
+      + '<div class="sp-site-tekst"><h1 class="sp-sitetitel">' + esc(titel) + '</h1><nav class="sp-nav" aria-label="Site">'
+      + '<a href="#" class="is-actief">Start</a>'
+      + groepen.map(function (g, gi) { return '<a href="#g' + gi + '">' + esc(g.naam) + '</a>'; }).join('')
+      + '</nav></div></div></header>'
+      // opdrachtbalk
+      + '<div class="sp-cmd"><div class="sp-in sp-cmd-in">';
     if (bewerken) {
-      html += '<div class="sp-balk"><span>Sleep tegels naar een andere plek of groep; sleep een groep aan het bolletjesgreepje. '
-        + 'Wijzigingen worden in deze browser bewaard.</span>'
-        + '<button class="sp-knop klein" data-actie="groep-nieuw">' + svg('plus') + ' Groep</button>'
-        + '<button class="sp-knop klein" data-actie="download">Config downloaden</button>'
-        + (eigenIndeling ? '<button class="sp-knop klein" data-actie="herstel">Terug naar config</button>' : '')
-        + '</div>';
-    } else if (configNieuwer) {
-      html += '<div class="sp-balk"><span>De config is gewijzigd sinds je de indeling hier aanpaste. Je ziet nog je eigen indeling.</span>'
-        + '<button class="sp-knop klein" data-actie="herstel">Nieuwe config gebruiken</button></div>';
+      html += '<button class="sp-cmd-knop is-primair" data-actie="bewerken">Opslaan en sluiten</button>'
+        + '<button class="sp-cmd-knop" data-actie="groep-nieuw">' + svg('plus') + 'Sectie</button>'
+        + '<button class="sp-cmd-knop" data-actie="download">' + svg('download') + 'Config downloaden</button>'
+        + (eigenIndeling ? '<button class="sp-cmd-knop" data-actie="herstel">' + svg('terug') + 'Terug naar config</button>' : '')
+        + '<span class="sp-cmd-hint">Sleep tegels of secties (aan het greepje) naar een andere plek. Wordt in deze browser bewaard.</span>';
+    } else {
+      html += '<span class="sp-cmd-tekst">' + esc(groet()) + ' · ' + esc(datum()) + '</span>'
+        + '<button class="sp-cmd-knop" data-actie="bewerken">' + svg('potlood') + 'Bewerken</button>';
+    }
+    html += '</div></div>';
+
+    if (!bewerken && configNieuwer) {
+      html += '<div class="sp-in"><div class="sp-balk"><span>De config is gewijzigd sinds je de indeling hier aanpaste. Je ziet nog je eigen indeling.</span>'
+        + '<button class="sp-cmd-knop" data-actie="herstel">Nieuwe config gebruiken</button></div></div>';
     }
 
-    html += '<main class="sp-groepen">';
+    html += '<main class="sp-in sp-groepen">';
     var zichtbaar = 0;
     groepen.forEach(function (g, gi) {
       var tegels = (g.tegels || []).map(function (t, ti) { return { t: t, ti: ti }; }).filter(function (x) { return past(x.t); });
       if (zoekterm && !tegels.length) return;
       zichtbaar += tegels.length;
-      html += '<section class="sp-groep" data-g="' + gi + '">'
-        + '<div class="sp-groep-kop"><span class="sp-greep" draggable="true" data-g="' + gi + '" title="Sleep om de groep te verplaatsen">' + svg('greep') + '</span>'
-        + '<h2>' + esc(g.naam) + '</h2><span class="sp-telling">' + tegels.length + '</span>'
+      var w = weergave(g, gi);
+      html += '<section class="sp-groep w-' + w + '" id="g' + gi + '" data-g="' + gi + '">'
+        + '<div class="sp-groep-kop"><span class="sp-greep" draggable="true" data-g="' + gi + '" title="Sleep om de sectie te verplaatsen">' + svg('greep') + '</span>'
+        + '<h2>' + esc(g.naam) + '</h2>'
         + '<span class="sp-groep-knoppen">'
+        + '<button class="sp-cmd-knop klein" data-actie="groep-weergave" data-g="' + gi + '" title="Weergave wisselen">' + svg('weergave') + WEERGAVE_NAAM[w] + '</button>'
         + '<button class="sp-mini" data-actie="groep-wijzig" data-g="' + gi + '" title="Naam wijzigen">' + svg('potlood') + '</button>'
-        + '<button class="sp-mini" data-actie="groep-weg" data-g="' + gi + '" title="Groep verwijderen">' + svg('kruis') + '</button>'
+        + '<button class="sp-mini" data-actie="groep-weg" data-g="' + gi + '" title="Sectie verwijderen">' + svg('kruis') + '</button>'
         + '</span></div>'
         + '<div class="sp-tegels" data-g="' + gi + '">'
         + tegels.map(function (x) { return tegelHtml(x.t, gi, x.ti); }).join('')
-        + '<button class="sp-toevoegen" data-actie="tegel-nieuw" data-g="' + gi + '">' + svg('plus') + ' Tegel</button>'
+        + '<button class="sp-toevoegen" data-actie="tegel-nieuw" data-g="' + gi + '">' + svg('plus') + ' Koppeling</button>'
         + '</div></section>';
     });
-    if (zoekterm && !zichtbaar) html += '<p class="sp-leeg">Geen tegel gevonden voor “' + esc(zoekterm) + '”.</p>';
-    html += '</main><footer class="sp-voet"><span><kbd>/</kbd> zoeken</span><span><kbd>Enter</kbd> eerste resultaat openen</span>'
+    if (zoekterm && !zichtbaar) html += '<p class="sp-leeg">Geen resultaten voor “' + esc(zoekterm) + '” op deze site.</p>';
+    html += '</main><footer class="sp-in sp-voet"><span><kbd>/</kbd> zoeken</span><span><kbd>Enter</kbd> eerste resultaat openen</span>'
       + '<span><kbd>Esc</kbd> zoekveld leegmaken</span></footer></div>';
     app.innerHTML = html;
   }
@@ -214,7 +246,7 @@
     return n;
   }
   function download() {
-    var cfg = { titel: STARTPAGINA.titel, nieuwTabblad: STARTPAGINA.nieuwTabblad !== false, groepen: groepen };
+    var cfg = {}; Object.keys(STARTPAGINA).forEach(function (k) { if (k !== 'groepen') cfg[k] = STARTPAGINA[k]; }); cfg.groepen = groepen;
     var tekst = '// startpagina_config.js - de tegels van de VvE-startpagina\n'
       + '// Gedownload vanaf de startpagina op ' + new Date().toLocaleString('nl-NL') + '.\n'
       + '// Vervang het bestand naast vve_startpagina.html hiermee. Niet naar GitHub zetten.\n\n'
@@ -228,6 +260,14 @@
 
   app.addEventListener('click', function (e) {
     var k = e.target.closest('[data-actie]');
+    var nav = e.target.closest('.sp-nav a');
+    if (nav) {
+      e.preventDefault();
+      var doelId = nav.getAttribute('href').slice(1);
+      var doelEl = doelId && document.getElementById(doelId);
+      if (doelEl) doelEl.scrollIntoView({ behavior: 'smooth', block: 'start' }); else window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     if (!k) { if (bewerken && e.target.closest('.sp-tegel')) e.preventDefault(); return; }
     var actie = k.getAttribute('data-actie');
     var tegel = k.closest('.sp-tegel');
@@ -243,6 +283,10 @@
     if (actie === 'groep-nieuw') {
       var naam = prompt('Naam van de nieuwe groep:');
       if (naam && naam.trim()) { groepen.push({ naam: naam.trim(), tegels: [] }); bewaar(); teken(); }
+    } else if (actie === 'groep-weergave') {
+      var huidig = weergave(groepen[gi], gi);
+      groepen[gi].weergave = WEERGAVEN[(WEERGAVEN.indexOf(huidig) + 1) % WEERGAVEN.length];
+      bewaar(); teken();
     } else if (actie === 'groep-wijzig') {
       var nieuw = prompt('Naam van de groep:', groepen[gi].naam);
       if (nieuw && nieuw.trim()) { groepen[gi].naam = nieuw.trim(); bewaar(); teken(); }
