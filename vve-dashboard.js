@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 12;
+var APP_BUILD = 13;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -727,15 +727,16 @@ var APP_EXTERN = (function () {
     return !!s && new URL(s).host !== location.host;
   } catch (e) { return false; }
 })();
-// Favicon uit dezelfde map als dit script (Pages, of lokaal bij het testen).
+// Favicon ingebakken als data-URI: werkt ook als het dashboard als lokaal
+// bestand (file://) wordt geopend. Zelfde tekening als favicon.svg in de repo.
 (function zetFavicon() {
   try {
     if (document.querySelector('link[rel~="icon"]')) return;
-    var s = document.currentScript && document.currentScript.src;
+    var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='#c8102e'/><path d='M15.35 2.2h1.3v1.9h1.9v1.3h-1.9v3.1h-1.3V5.4h-1.9V4.1h1.9z' fill='#fff'/><path d='M11.5 25V11.5L16 9.5l4.5 2V25z' fill='#fff'/><g fill='#c8102e'><rect x='13' y='13.5' width='2.2' height='2.2'/><rect x='16.8' y='13.5' width='2.2' height='2.2'/><rect x='13' y='17.5' width='2.2' height='2.2'/><rect x='16.8' y='17.5' width='2.2' height='2.2'/><rect x='13' y='21.5' width='2.2' height='2.2'/><rect x='16.8' y='21.5' width='2.2' height='2.2'/></g><rect x='8' y='25' width='16' height='2.4' rx='1.2' fill='#f2b705'/><rect x='14.8' y='27.4' width='2.4' height='2.6' fill='#f2b705'/><path d='M6.30,9.40L5.65,10.87L4.05,10.70L5.00,12.00L4.05,13.30L5.65,13.13L6.30,14.60L6.95,13.13L8.55,13.30L7.60,12.00L8.55,10.70L6.95,10.87Z M6.30,17.40L5.65,18.87L4.05,18.70L5.00,20.00L4.05,21.30L5.65,21.13L6.30,22.60L6.95,21.13L8.55,21.30L7.60,20.00L8.55,18.70L6.95,18.87Z M25.70,9.40L25.05,10.87L23.45,10.70L24.40,12.00L23.45,13.30L25.05,13.13L25.70,14.60L26.35,13.13L27.95,13.30L27.00,12.00L27.95,10.70L26.35,10.87Z M25.70,17.40L25.05,18.87L23.45,18.70L24.40,20.00L23.45,21.30L25.05,21.13L25.70,22.60L26.35,21.13L27.95,21.30L27.00,20.00L27.95,18.70L26.35,18.87Z' fill='#fff'/></svg>";
     var l = document.createElement('link');
     l.rel = 'icon';
     l.type = 'image/svg+xml';
-    l.href = (s ? s.replace(/[^/]*$/, '') : '') + 'favicon.svg';
+    l.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
     document.head.appendChild(l);
   } catch (e) {}
 })();
