@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 17;
+var APP_BUILD = 18;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -7312,10 +7312,9 @@ var App = () => {
     }
   }, "Intern gebruik — nog ", Math.max(0, Math.ceil((APP_EXPIRY_DATE - new Date()) / 86400000)), " dagen actief")), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowFilters(!showFilters),
-    className: "lg:hidden",
+    className: "xl-smal-knop",
     style: {
       marginLeft: 'auto',
-      display: 'flex',
       alignItems: 'center',
       gap: 4,
       padding: '3px 8px',
