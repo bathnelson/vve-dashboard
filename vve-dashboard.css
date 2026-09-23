@@ -197,3 +197,7 @@
   background: #d4edda; color: #1a5c38; font-size: 13px; font-weight: 700; }
 .xl-map-kopieer-los { border: 0; background: none; padding: 0 2px; cursor: copy; color: #7a9082; font-size: 13px; line-height: 1; flex-shrink: 0; }
 .xl-map-kopieer-los:hover { color: #217346; }
+
+/* Knop 'Filters' in de kop: alleen op een smal venster, als de filterkolom verborgen is. */
+.xl-smal-knop { display: flex; }
+@media (min-width: 1024px) { .xl-smal-knop { display: none; } }
