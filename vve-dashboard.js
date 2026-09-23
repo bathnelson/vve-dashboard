@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 18;
+var APP_BUILD = 19;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -7268,20 +7268,36 @@ var App = () => {
     style: {
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center',
-      width: 22,
-      height: 22,
+      gap: 5,
       flexShrink: 0,
-      border: '1px solid rgba(255,255,255,0.35)',
-      borderRadius: '50%',
-      background: 'transparent',
+      padding: '3px 9px',
+      border: 'none',
+      borderRadius: 2,
+      background: 'rgba(255,255,255,0.14)',
       color: 'white',
-      fontSize: 12,
-      fontWeight: 700,
-      lineHeight: 1,
+      fontFamily: 'inherit',
+      fontSize: 11,
+      fontWeight: 600,
       cursor: 'pointer'
     }
-  }, "?"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "13",
+    height: "13",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "9"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 17h.01"
+  })), "Handleiding"), /*#__PURE__*/React.createElement("div", {
     className: "hidden lg:flex items-center gap-2",
     style: {
       marginLeft: 'auto',
