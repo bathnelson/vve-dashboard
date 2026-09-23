@@ -41,7 +41,7 @@ body {
   font: 14px/1.43 "Segoe UI", "Segoe UI Web (West European)", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-.sp { min-height: 100vh; background: var(--grond); }
+.sp { min-height: 100vh; background: var(--grond-zacht); }
 .sp-in { max-width: 1204px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
 .sp button { font-family: inherit; }
 .sp svg { flex: none; }
@@ -91,6 +91,7 @@ body {
 
 /* ── opdrachtbalk ──────────────────────────────────────────────────── */
 .sp-cmd { background: var(--grond); border-bottom: 1px solid var(--lijn); }
+.sp-voet { background: var(--grond-zacht); }
 .sp-cmd-in { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 44px; }
 .sp-cmd-tekst { flex: 1; color: var(--tekst-zacht); font-size: 13px; }
 .sp-cmd-hint { flex: 1 1 260px; color: var(--tekst-zacht); font-size: 12px; padding-left: 8px; }
@@ -116,19 +117,22 @@ body {
 
 /* ── secties (webonderdelen) ───────────────────────────────────────── */
 .sp-groepen {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px 40px;
-  padding-top: 28px; padding-bottom: 28px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;
+  padding-top: 24px; padding-bottom: 28px; align-items: start;
 }
-.sp-groep { min-width: 0; border-radius: 4px; }
+.sp-groep {
+  min-width: 0; padding: 20px 20px 22px; border-radius: 4px;
+  background: var(--vlak); border: 1px solid var(--lijn); box-shadow: var(--schaduw);
+}
 .sp-groep.w-tegels { grid-column: 1 / -1; }
-.sp-groep-kop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; min-height: 28px; }
-.sp-groep-kop h2 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.3; }
+.sp-groep-kop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; min-height: 28px; }
+.sp-groep-kop h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.3; }
 .sp-greep { cursor: grab; color: var(--tekst-stil); display: none; }
 .sp-greep svg { width: 16px; height: 16px; }
 .is-bewerken .sp-greep { display: inline-flex; }
 .sp-groep-knoppen { display: none; align-items: center; gap: 2px; margin-left: auto; }
 .is-bewerken .sp-groep-knoppen { display: flex; }
-.is-bewerken .sp-groep { outline: 1px dashed var(--lijn-sterk); outline-offset: 10px; }
+.is-bewerken .sp-groep { border-style: dashed; border-color: var(--lijn-sterk); }
 
 .sp-tegels { display: grid; gap: 8px; min-height: 12px; }
 .sp-tegel {
@@ -145,9 +149,9 @@ body {
 .w-tegels .sp-tegels { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
 .w-tegels .sp-tegel {
   flex-direction: column; justify-content: center; text-align: center; gap: 10px;
-  min-height: 136px; padding: 16px 12px; background: var(--vlak); border: 1px solid var(--lijn); box-shadow: var(--schaduw);
+  min-height: 136px; padding: 16px 12px; background: var(--grond-zacht); border: 1px solid var(--lijn);
 }
-.w-tegels .sp-tegel:hover { box-shadow: var(--schaduw-hoog); }
+.w-tegels .sp-tegel:hover { background: var(--vlak); box-shadow: var(--schaduw-hoog); }
 .w-tegels .sp-icoon { width: 48px; height: 48px; border-radius: 50%; background: color-mix(in srgb, var(--kleur) 12%, transparent); }
 .w-tegels .sp-icoon svg { width: 26px; height: 26px; }
 .w-tegels .sp-tekst { flex: none; width: 100%; }
@@ -155,8 +159,8 @@ body {
 
 /* Compact: kleine kaarten met icoon links */
 .w-compact .sp-tegels { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-.w-compact .sp-tegel { min-height: 56px; padding: 8px 12px; background: var(--vlak); border: 1px solid var(--lijn); box-shadow: var(--schaduw); }
-.w-compact .sp-tegel:hover { box-shadow: var(--schaduw-hoog); }
+.w-compact .sp-tegel { min-height: 56px; padding: 8px 12px; background: var(--grond-zacht); border: 1px solid var(--lijn); }
+.w-compact .sp-tegel:hover { background: var(--vlak); box-shadow: var(--schaduw-hoog); }
 .w-compact .sp-icoon svg { width: 24px; height: 24px; }
 
 /* Lijst: regels met scheidingslijn */
@@ -172,10 +176,10 @@ body {
 /* Uitleg: kaart met toelichting eronder */
 .w-uitleg .sp-tegels { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .w-uitleg .sp-tegel {
-  align-items: flex-start; padding: 14px 16px; background: var(--vlak);
-  border: 1px solid var(--lijn); border-left: 3px solid var(--kleur); box-shadow: var(--schaduw);
+  align-items: flex-start; padding: 14px 16px; background: var(--grond-zacht);
+  border: 1px solid var(--lijn); border-left: 3px solid var(--kleur);
 }
-.w-uitleg .sp-tegel:hover { box-shadow: var(--schaduw-hoog); }
+.w-uitleg .sp-tegel:hover { background: var(--vlak); box-shadow: var(--schaduw-hoog); }
 .w-uitleg .sp-icoon { width: 32px; height: 32px; margin-top: 1px; }
 .w-uitleg .sp-icoon svg { width: 22px; height: 22px; }
 .w-uitleg .sp-naam { -webkit-line-clamp: 3; }
