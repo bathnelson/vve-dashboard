@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 13;
+var APP_BUILD = 14;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -740,6 +740,10 @@ var APP_EXTERN = (function () {
     document.head.appendChild(l);
   } catch (e) {}
 })();
+// Waar de hulpscripts (proxy's) staan. Overschrijfbaar met HELPERS_BASIS in
+// team_config.js; een lege waarde zet het ophalen helemaal uit.
+var HELPERS_URL = (typeof HELPERS_BASIS !== 'undefined' ? HELPERS_BASIS : 'https://adresverkenner.nl/helpers');
+HELPERS_URL = typeof HELPERS_URL === 'string' ? HELPERS_URL.replace(/\/+$/, '') : '';
 var APP_BUILD_DATE = '2026-09-03';
 var APP_EXPIRY_DAYS = 58;
 var _S = 'hrlm-vve';
@@ -2831,11 +2835,12 @@ var DetailPanel = ({
   }, [item?.vve_identificatie]);
 
   // Haal funderingsdata op via kaart.haarlem.nl (data.haarlem.nl GeoServer WFS)
-  // Via proxy om CORS te omzeilen (zie helpers/proxy_fundering.php op hbvoice.nl)
-  const FUNDERING_PROXY = 'https://hbvoice.nl/proxy_fundering.php';
+  // Via proxy om CORS te omzeilen (proxy_fundering.php). Locatie instelbaar met
+  // HELPERS_BASIS in team_config.js; leeg = geen funderingsdata ophalen.
+  const FUNDERING_PROXY = HELPERS_URL ? HELPERS_URL + '/proxy_fundering.php' : '';
   useEffect(() => {
     var ids = [...new Set(vveAddresses.map(a => a.gerelateerd_pand_id).filter(Boolean))];
-    if (!ids.length) return;
+    if (!ids.length || !FUNDERING_PROXY) return;
     fetch(FUNDERING_PROXY + '?pandids=' + ids.join(','))
       .then(r => r.json())
       .then(data => { setPandFundering(data.features || []); })
