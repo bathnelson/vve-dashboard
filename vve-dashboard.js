@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 19;
+var APP_BUILD = 20;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -8350,7 +8350,7 @@ var App = () => {
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-vves' }, "VvE's werkblad"),
       /*#__PURE__*/React.createElement(P, null, "De lijst toont VvE's als samengevouwen groepen. Klik op een VvE-rij om hem uit te klappen en de afzonderlijke adressen te zien. Klik op een adres om het in het detailpaneel te openen."),
-      /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een mapje-icoon dat de dossiermap opent in het VvE-dossier. Beweeg erover om de mapnaam te zien: eventueel de gebouwnaam, dan de hoofdstraat met huisnummers, en tussen haakjes het KvK-nummer, of het 9-cijferige Kadaster-nummer als de VvE geen KvK-nummer heeft. De volledige mapnaam staat ook in het detailpaneel bij Dossiermap, met een knopje om hem te kopiëren; handig als de map nog aangemaakt moet worden. Is er geen dossierlocatie ingesteld, dan kopieert een klik op het icoon de naam."),
+      /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een mapje-icoon dat de dossiermap opent in het VvE-dossier. Beweeg erover om de mapnaam te zien: de straat met het laagste en hoogste adres, bijvoorbeeld Zaanenstraat 25RD-ZW. De volledige mapnaam staat ook in het detailpaneel bij Dossiermap, met een knopje om hem te kopiëren; handig als de map nog aangemaakt moet worden. Is er geen dossierlocatie ingesteld, dan kopieert een klik op het icoon de naam."),
       /*#__PURE__*/React.createElement(P, null, "De kolom Won. telt alleen de woningen. Beweeg over het getal voor de volledige telling: niet-woonadressen (winkels, bedrijfsruimtes), overige (garageboxen, bergingen) en het aantal appartementsrechten."),
       /*#__PURE__*/React.createElement(P, null, "Het label hoofdsplitsing staat bij VvE's waar de woningen onder onderverenigingen vallen. Die onderverenigingen staan niet in de data, maar beslissen wel over de afzonderlijke woningen. Het dashboard herkent een hoofdsplitsing aan de naam, of aan veel meer woningen dan appartementsrechten; dat is een benadering, dus controleer het bij twijfel. Met het filter Hoofdsplitsing kun je ze apart bekijken."),
       /*#__PURE__*/React.createElement(Tip, null, /*#__PURE__*/React.createElement("strong", null, "Groot aantal resultaten? "), "De lijst laadt 50 VvE's tegelijk. Scroll naar beneden om meer te laden, of verfijn de zoekopdracht."),
