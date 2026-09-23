@@ -5,6 +5,7 @@
   'use strict';
 
   var OPSLAG = 'vve-startpagina-indeling-v1';
+  var OPSLAG_UITLEG = 'vve-startpagina-uitleg-v1';
   var app = document.getElementById('startpagina');
   if (!app) return;
 
@@ -54,7 +55,8 @@
     persoon: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
     terug: '<path d="M9 7 4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-2"/>',
-    weergave: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><path d="M3 15h18M3 20h18"/>'
+    weergave: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><path d="M3 15h18M3 20h18"/>',
+    omlaag: '<path d="m6 9 6 6 6-6"/>'
   };
   var KLEUR = {
     dashboard: 'rood', mail: 'blauw', agenda: 'blauw', chat: 'paars', map: 'goud', word: 'blauw', excel: 'groen',
@@ -122,6 +124,16 @@
   }
 
   var bewerken = false, zoekterm = '';
+
+  // Ingeklapte toelichtingen, per sectienaam onthouden.
+  var ingeklapt = {};
+  try { ingeklapt = JSON.parse(localStorage.getItem(OPSLAG_UITLEG) || '{}') || {}; } catch (e) {}
+  function heeftUitleg(g) { return !!g.intro || (g.tegels || []).some(function (t) { return t.toelichting; }); }
+  function klapUitleg(naam) {
+    ingeklapt[naam] = !ingeklapt[naam];
+    try { localStorage.setItem(OPSLAG_UITLEG, JSON.stringify(ingeklapt)); } catch (e) {}
+    teken();
+  }
 
   // ── kop ─────────────────────────────────────────────────────────────────
   function groet() {
@@ -217,9 +229,14 @@
       if (zoekterm && !tegels.length) return;
       zichtbaar += tegels.length;
       var w = weergave(g, gi);
-      html += '<section class="sp-groep w-' + w + '" id="g' + gi + '" data-g="' + gi + '">'
+      var uitlegbaar = heeftUitleg(g);
+      var dicht = uitlegbaar && !!ingeklapt[g.naam];
+      html += '<section class="sp-groep w-' + w + (dicht ? ' is-ingeklapt' : '') + '" id="g' + gi + '" data-g="' + gi + '">'
         + '<div class="sp-groep-kop"><span class="sp-greep" draggable="true" data-g="' + gi + '" title="Sleep om de sectie te verplaatsen">' + svg('greep') + '</span>'
         + '<h2>' + esc(g.naam) + '</h2>'
+        + (uitlegbaar ? '<button class="sp-cmd-knop klein sp-klap" data-actie="klap" data-g="' + gi + '"'
+            + ' aria-expanded="' + (dicht ? 'false' : 'true') + '" title="Toelichting tonen of verbergen">'
+            + svg('omlaag') + (dicht ? 'Toelichting' : 'Verbergen') + '</button>' : '')
         + '<span class="sp-groep-knoppen">'
         + '<button class="sp-cmd-knop klein" data-actie="groep-weergave" data-g="' + gi + '" title="Weergave wisselen">' + svg('weergave') + WEERGAVE_NAAM[w] + '</button>'
         + '<button class="sp-mini" data-actie="groep-wijzig" data-g="' + gi + '" title="Naam wijzigen">' + svg('potlood') + '</button>'
@@ -280,6 +297,7 @@
     var gi = +(k.getAttribute('data-g') || (tegel && tegel.getAttribute('data-g')) || 0);
     var ti = tegel ? +tegel.getAttribute('data-t') : -1;
     e.preventDefault();
+    if (actie === 'klap') { klapUitleg(groepen[gi].naam); return; }
     if (actie === 'bewerken') { bewerken = !bewerken; teken(); return; }
     if (actie === 'download') { download(); return; }
     if (actie === 'herstel') {

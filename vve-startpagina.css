@@ -121,12 +121,12 @@ body {
 }
 .sp-groep { min-width: 0; border-radius: 4px; }
 .sp-groep.w-tegels { grid-column: 1 / -1; }
-.sp-groep-kop { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; min-height: 28px; }
-.sp-groep-kop h2 { margin: 0; flex: 1; font-size: 20px; font-weight: 600; line-height: 1.3; }
+.sp-groep-kop { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; min-height: 28px; }
+.sp-groep-kop h2 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.3; }
 .sp-greep { cursor: grab; color: var(--tekst-stil); display: none; }
 .sp-greep svg { width: 16px; height: 16px; }
 .is-bewerken .sp-greep { display: inline-flex; }
-.sp-groep-knoppen { display: none; align-items: center; gap: 2px; }
+.sp-groep-knoppen { display: none; align-items: center; gap: 2px; margin-left: auto; }
 .is-bewerken .sp-groep-knoppen { display: flex; }
 .is-bewerken .sp-groep { outline: 1px dashed var(--lijn-sterk); outline-offset: 10px; }
 
@@ -191,6 +191,14 @@ body {
   color: var(--kleur); font-size: 11px; font-weight: 600;
 }
 .sp-intro { margin: -4px 0 14px; max-width: 70ch; color: var(--tekst-zacht); }
+
+.sp-klap { color: var(--tekst-zacht); }
+.sp-klap svg { transition: transform .12s; }
+.is-ingeklapt .sp-klap svg { transform: rotate(-90deg); }
+.is-ingeklapt .sp-intro, .is-ingeklapt .sp-uitleg, .is-ingeklapt .sp-label { display: none; }
+.w-uitleg.is-ingeklapt .sp-tegels { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.w-uitleg.is-ingeklapt .sp-tegel { align-items: center; padding: 10px 14px; }
+.w-uitleg.is-ingeklapt .sp-sub { margin-top: 0; }
 
 /* ── bewerken ──────────────────────────────────────────────────────── */
 .is-bewerken .sp-tegel { cursor: grab; }
