@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 15;
+var APP_BUILD = 16;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -2262,35 +2262,29 @@ var VveGroupCard = ({
   })), MAPNAMEN_AAN && (() => {
     var naam = getMapnaam(vve.vve_identificatie);
     var url = dossierUrl(vve.vve_identificatie);
-    var tekst = [naam.replace(/ \((KvK \d{8}|\d{9})\)$/, ''), /*#__PURE__*/React.createElement("span", {
-      key: "id",
-      className: "xl-map-id"
-    }, (naam.match(/\((KvK \d{8}|\d{9})\)$/) || ['', ''])[1])];
+    var mapIcoon = /*#__PURE__*/React.createElement("svg", {
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "1.7",
+      strokeLinejoin: "round"
+    }, /*#__PURE__*/React.createElement("path", {
+      d: "M3.5 7.5a1.5 1.5 0 0 1 1.5-1.5h3.6l1.6 1.8h8.3a1.5 1.5 0 0 1 1.5 1.5v8.2a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"
+    }));
     return /*#__PURE__*/React.createElement("div", {
-      className: "xl-cell xl-cell-map" + (url ? "" : " xl-cell-map-kopie"),
-      title: naam + (url ? '\nKlik om de map te openen' : '\nKlik om te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
+      className: "xl-cell xl-cell-map",
+      title: naam + (url ? '\nKlik om de dossiermap te openen' : '\nKlik om de mapnaam te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
       onClick: e => url ? e.stopPropagation() : kopieerMapnaam(e, naam)
     }, url ? /*#__PURE__*/React.createElement("a", {
       href: url,
       target: "_blank",
       rel: "noopener noreferrer",
-      className: "truncate xl-map-link",
+      className: "xl-map-knop",
+      "aria-label": "Dossiermap openen",
       onClick: e => e.stopPropagation()
-    }, tekst) : /*#__PURE__*/React.createElement("span", {
-      className: "truncate"
-    }, tekst), url && /*#__PURE__*/React.createElement("a", {
-      href: url,
-      target: "_blank",
-      rel: "noopener noreferrer",
-      className: "xl-map-open",
-      title: "Map openen",
-      onClick: e => e.stopPropagation()
-    }, "\u2197"), url && /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      className: "xl-map-kopieer",
-      title: "Mapnaam kopi\u00EBren",
-      onClick: e => kopieerMapnaam(e, naam)
-    }, "\u29C9"));
+    }, mapIcoon) : /*#__PURE__*/React.createElement("span", {
+      className: "xl-map-knop xl-map-knop-kopie"
+    }, mapIcoon));
   })(), /*#__PURE__*/React.createElement("div", {
     className: "xl-cell xl-cell-center",
     style: {
@@ -7189,9 +7183,9 @@ var App = () => {
   }, []);
 
   // Excel grid column template
-  var xlBaseTemplate = '36px minmax(200px,1fr)' + (MAPNAMEN_AAN ? ' 230px' : '') + ' 52px 52px 108px 52px 76px 68px 80px 72px 34px 34px 34px';
+  var xlBaseTemplate = '36px minmax(200px,1fr)' + (MAPNAMEN_AAN ? ' 44px' : '') + ' 52px 52px 108px 52px 76px 68px 80px 72px 34px 34px 34px';
   var xlColTemplate = dossierVisible ? xlBaseTemplate + ' 34px 88px 68px 84px' : xlBaseTemplate;
-  var xlMinWidth = (dossierVisible ? 1160 : 874) + (MAPNAMEN_AAN ? 230 : 0);
+  var xlMinWidth = (dossierVisible ? 1160 : 874) + (MAPNAMEN_AAN ? 44 : 0);
   var xlColLabels = ['', 'Naam', ...(MAPNAMEN_AAN ? ['Map'] : []), 'Won.', 'Label', 'Buurt', 'Bj.', 'WOZ ' + activeWozJaar, 'Warmtew.', 'Warmte', 'Wijk', 'Mon.', 'Bsch.', 'Gem.', ...(dossierVisible ? ['Traj.', 'Bureau', 'Intake', 'Beheerder'] : [])];
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -8341,7 +8335,7 @@ var App = () => {
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-vves' }, "VvE's werkblad"),
       /*#__PURE__*/React.createElement(P, null, "De lijst toont VvE's als samengevouwen groepen. Klik op een VvE-rij om hem uit te klappen en de afzonderlijke adressen te zien. Klik op een adres om het in het detailpaneel te openen."),
-      /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een vaste, leesbare mapnaam: eventueel de gebouwnaam, dan de hoofdstraat met huisnummers, en tussen haakjes het KvK-nummer. Heeft de VvE (nog) geen KvK-nummer, dan staat daar het 9-cijferige Kadaster-nummer. Komt er later een KvK-nummer bij, dan verandert de mapnaam mee. Klik op een mapnaam om de bijbehorende map in het VvE-dossier te openen; het kopieerknopje dat verschijnt als je eroverheen beweegt, kopieert de naam. Bestaat de map nog niet, dan kun je hem met die gekopieerde naam aanmaken."),
+      /*#__PURE__*/React.createElement(P, null, "De kolom Map toont per VvE een mapje-icoon dat de dossiermap opent in het VvE-dossier. Beweeg erover om de mapnaam te zien: eventueel de gebouwnaam, dan de hoofdstraat met huisnummers, en tussen haakjes het KvK-nummer, of het 9-cijferige Kadaster-nummer als de VvE geen KvK-nummer heeft. De volledige mapnaam staat ook in het detailpaneel bij Dossiermap, met een knopje om hem te kopiëren; handig als de map nog aangemaakt moet worden. Is er geen dossierlocatie ingesteld, dan kopieert een klik op het icoon de naam."),
       /*#__PURE__*/React.createElement(P, null, "De kolom Won. telt alleen de woningen. Beweeg over het getal voor de volledige telling: niet-woonadressen (winkels, bedrijfsruimtes), overige (garageboxen, bergingen) en het aantal appartementsrechten."),
       /*#__PURE__*/React.createElement(P, null, "Het label hoofdsplitsing staat bij VvE's waar de woningen onder onderverenigingen vallen. Die onderverenigingen staan niet in de data, maar beslissen wel over de afzonderlijke woningen. Het dashboard herkent een hoofdsplitsing aan de naam, of aan veel meer woningen dan appartementsrechten; dat is een benadering, dus controleer het bij twijfel. Met het filter Hoofdsplitsing kun je ze apart bekijken."),
       /*#__PURE__*/React.createElement(Tip, null, /*#__PURE__*/React.createElement("strong", null, "Groot aantal resultaten? "), "De lijst laadt 50 VvE's tegelijk. Scroll naar beneden om meer te laden, of verfijn de zoekopdracht."),
