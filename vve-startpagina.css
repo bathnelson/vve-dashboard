@@ -169,9 +169,33 @@ body {
 .w-lijst .sp-tegel:hover .sp-naam { color: var(--thema); text-decoration: underline; }
 .w-lijst .sp-sub { flex: none; max-width: 45%; }
 
+/* Uitleg: kaart met toelichting eronder */
+.w-uitleg .sp-tegels { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.w-uitleg .sp-tegel {
+  align-items: flex-start; padding: 14px 16px; background: var(--vlak);
+  border: 1px solid var(--lijn); border-left: 3px solid var(--kleur); box-shadow: var(--schaduw);
+}
+.w-uitleg .sp-tegel:hover { box-shadow: var(--schaduw-hoog); }
+.w-uitleg .sp-icoon { width: 32px; height: 32px; margin-top: 1px; }
+.w-uitleg .sp-icoon svg { width: 22px; height: 22px; }
+.w-uitleg .sp-naam { -webkit-line-clamp: 3; }
+.w-uitleg .sp-tegel:hover .sp-naam { color: var(--thema); }
+.w-uitleg .sp-sub { order: 3; margin-top: 8px; color: var(--tekst-stil); }
+.w-uitleg .sp-tekst { display: flex; flex-direction: column; }
+.sp-uitleg { display: none; margin-top: 6px; color: var(--tekst-zacht); line-height: 1.5; }
+.w-uitleg .sp-uitleg { display: block; }
+.sp-label { display: none; }
+.w-uitleg .sp-label {
+  display: inline-block; align-self: flex-start; order: 4; margin-top: 8px; padding: 2px 8px;
+  border-radius: 10px; background: color-mix(in srgb, var(--kleur) 14%, transparent);
+  color: var(--kleur); font-size: 11px; font-weight: 600;
+}
+.sp-intro { margin: -4px 0 14px; max-width: 70ch; color: var(--tekst-zacht); }
+
 /* ── bewerken ──────────────────────────────────────────────────────── */
 .is-bewerken .sp-tegel { cursor: grab; }
-.is-bewerken .w-tegels .sp-tegel, .is-bewerken .w-compact .sp-tegel { border-style: dashed; }
+.is-bewerken .w-tegels .sp-tegel, .is-bewerken .w-compact .sp-tegel, .is-bewerken .w-uitleg .sp-tegel { border-style: dashed; }
+.is-bewerken .w-uitleg .sp-tegel { padding-right: 62px; }
 .is-bewerken .w-compact .sp-tegel, .is-bewerken .w-lijst .sp-tegel { padding-right: 62px; }
 .is-bewerken .w-tegels .sp-tegel { padding-top: 28px; }
 .sp-tegel-knoppen { position: absolute; top: 4px; right: 4px; display: none; gap: 2px; }
