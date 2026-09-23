@@ -142,7 +142,7 @@
   function past(t) {
     if (!zoekterm) return true;
     var z = zoekterm.toLowerCase();
-    return (t.titel + ' ' + sub(t) + ' ' + (SOORT[t.icoon || raadIcoon(t.url)] || '') + ' ' + t.url).toLowerCase().indexOf(z) !== -1;
+    return (t.titel + ' ' + sub(t) + ' ' + (t.toelichting || '') + ' ' + (t.label || '') + ' ' + (SOORT[t.icoon || raadIcoon(t.url)] || '') + ' ' + t.url).toLowerCase().indexOf(z) !== -1;
   }
   function tegelHtml(t, gi, ti) {
     var icoon = t.icoon || raadIcoon(t.url);
@@ -153,14 +153,17 @@
       + ' title="' + esc(t.titel + '\n' + t.url) + '" style="--kleur:var(--i-' + kleur + ')">'
       + '<span class="sp-icoon">' + svg(icoon) + '</span>'
       + '<span class="sp-tekst"><span class="sp-naam">' + esc(t.titel) + '</span>'
-      + '<span class="sp-sub">' + esc(sub(t)) + '</span></span>'
+      + '<span class="sp-sub">' + esc(sub(t)) + '</span>'
+      + (t.toelichting ? '<span class="sp-uitleg">' + esc(t.toelichting) + '</span>' : '')
+      + (t.label ? '<span class="sp-label">' + esc(t.label) + '</span>' : '')
+      + '</span>'
       + '<span class="sp-tegel-knoppen">'
       + '<button class="sp-mini" data-actie="tegel-wijzig" title="Wijzigen">' + svg('potlood') + '</button>'
       + '<button class="sp-mini" data-actie="tegel-weg" title="Verwijderen">' + svg('kruis') + '</button>'
       + '</span></a>';
   }
-  var WEERGAVEN = ['tegels', 'compact', 'lijst'];
-  var WEERGAVE_NAAM = { tegels: 'Tegels', compact: 'Compact', lijst: 'Lijst' };
+  var WEERGAVEN = ['tegels', 'compact', 'lijst', 'uitleg'];
+  var WEERGAVE_NAAM = { tegels: 'Tegels', compact: 'Compact', lijst: 'Lijst', uitleg: 'Uitleg' };
   function weergave(g, gi) { return WEERGAVEN.indexOf(g.weergave) >= 0 ? g.weergave : (gi === 0 ? 'tegels' : 'compact'); }
   function initialen() {
     var naam = '';
@@ -222,6 +225,7 @@
         + '<button class="sp-mini" data-actie="groep-wijzig" data-g="' + gi + '" title="Naam wijzigen">' + svg('potlood') + '</button>'
         + '<button class="sp-mini" data-actie="groep-weg" data-g="' + gi + '" title="Sectie verwijderen">' + svg('kruis') + '</button>'
         + '</span></div>'
+        + (g.intro ? '<p class="sp-intro">' + esc(g.intro) + '</p>' : '')
         + '<div class="sp-tegels" data-g="' + gi + '">'
         + tegels.map(function (x) { return tegelHtml(x.t, gi, x.ti); }).join('')
         + '<button class="sp-toevoegen" data-actie="tegel-nieuw" data-g="' + gi + '">' + svg('plus') + ' Koppeling</button>'
@@ -240,9 +244,11 @@
     var url = prompt('Link (adres):', t ? t.url : 'https://');
     if (url === null || !url.trim()) return null;
     var onder = prompt('Tweede regel (mag leeg):', t ? (t.sub || '') : '');
-    var n = { titel: titel.trim(), url: url.trim() };
-    if (onder && onder.trim()) n.sub = onder.trim();
-    if (t && t.icoon) n.icoon = t.icoon;
+    var n = t ? kopie(t) : {};
+    n.titel = titel.trim(); n.url = url.trim();
+    if (onder && onder.trim()) n.sub = onder.trim(); else delete n.sub;
+    var uitleg = prompt('Toelichting (mag leeg):', t ? (t.toelichting || '') : '');
+    if (uitleg && uitleg.trim()) n.toelichting = uitleg.trim(); else delete n.toelichting;
     return n;
   }
   function download() {
