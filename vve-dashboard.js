@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 16;
+var APP_BUILD = 17;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -7262,7 +7262,26 @@ var App = () => {
     d: "M3 11.5 12 4l9 7.5"
   }), /*#__PURE__*/React.createElement("path", {
     d: "M5.5 10V20h13V10"
-  })), "Start"), /*#__PURE__*/React.createElement("div", {
+  })), "Start"), /*#__PURE__*/React.createElement("button", {
+    onClick: function () { setShowHelp(true); },
+    title: "Handleiding openen",
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: 22,
+      height: 22,
+      flexShrink: 0,
+      border: '1px solid rgba(255,255,255,0.35)',
+      borderRadius: '50%',
+      background: 'transparent',
+      color: 'white',
+      fontSize: 12,
+      fontWeight: 700,
+      lineHeight: 1,
+      cursor: 'pointer'
+    }
+  }, "?"), /*#__PURE__*/React.createElement("div", {
     className: "hidden lg:flex items-center gap-2",
     style: {
       marginLeft: 'auto',
@@ -8093,26 +8112,7 @@ var App = () => {
       borderRadius: 8,
       fontWeight: 600
     }
-  }, _currentUserEnrichData.log.length)))), /*#__PURE__*/React.createElement("button", {
-    onClick: function() { setShowHelp(true); },
-    title: "Handleiding openen",
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: 24,
-      height: 24,
-      border: '1px solid #d0d0d0',
-      background: 'white',
-      fontSize: 12,
-      fontWeight: 700,
-      cursor: 'pointer',
-      color: '#555',
-      flexShrink: 0,
-      borderRadius: '50%',
-      lineHeight: 1
-    }
-  }, "?"), showHelp && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+  }, _currentUserEnrichData.log.length)))), null, showHelp && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     onClick: function() { setShowHelp(false); },
     style: {
       position: 'fixed',
