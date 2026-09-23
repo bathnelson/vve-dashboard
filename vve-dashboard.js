@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 14;
+var APP_BUILD = 15;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -744,6 +744,8 @@ var APP_EXTERN = (function () {
 // team_config.js; een lege waarde zet het ophalen helemaal uit.
 var HELPERS_URL = (typeof HELPERS_BASIS !== 'undefined' ? HELPERS_BASIS : 'https://adresverkenner.nl/helpers');
 HELPERS_URL = typeof HELPERS_URL === 'string' ? HELPERS_URL.replace(/\/+$/, '') : '';
+// Link naar de startpagina, alleen als STARTPAGINA_URL in team_config.js staat.
+var STARTPAGINA_LINK = (typeof STARTPAGINA_URL === 'string' && STARTPAGINA_URL) ? STARTPAGINA_URL : '';
 var APP_BUILD_DATE = '2026-09-03';
 var APP_EXPIRY_DAYS = 58;
 var _S = 'hrlm-vve';
@@ -7237,7 +7239,36 @@ var App = () => {
       color: 'rgba(255,255,255,0.7)',
       lineHeight: 1.3
     }
-  }, data.length.toLocaleString(), " adressen · ", totalVves.toLocaleString(), " VvE's · Haarlem · Build ", APP_BUILD + (APP_EXTERN ? 'e' : '')))), /*#__PURE__*/React.createElement("div", {
+  }, data.length.toLocaleString(), " adressen · ", totalVves.toLocaleString(), " VvE's · Haarlem · Build ", APP_BUILD + (APP_EXTERN ? 'e' : '')))), STARTPAGINA_LINK && /*#__PURE__*/React.createElement("a", {
+    href: STARTPAGINA_LINK,
+    title: "Naar de startpagina",
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5,
+      flexShrink: 0,
+      padding: '3px 9px',
+      borderRadius: 2,
+      background: 'rgba(255,255,255,0.14)',
+      color: 'white',
+      fontSize: 11,
+      fontWeight: 600,
+      textDecoration: 'none'
+    }
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "13",
+    height: "13",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M3 11.5 12 4l9 7.5"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M5.5 10V20h13V10"
+  })), "Start"), /*#__PURE__*/React.createElement("div", {
     className: "hidden lg:flex items-center gap-2",
     style: {
       marginLeft: 'auto',
