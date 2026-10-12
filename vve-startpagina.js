@@ -358,6 +358,9 @@
   }
 
   app.addEventListener('click', function (e) {
+    // Het formulier voor een nieuwe taak draagt zelf data-actie; laat de knop
+    // daarbinnen gewoon verzenden, anders komt de submit nooit aan.
+    if (e.target.closest('form[data-actie="taak-nieuw"]')) return;
     var k = e.target.closest('[data-actie]');
     var nav = e.target.closest('.sp-nav a');
     if (nav) {
