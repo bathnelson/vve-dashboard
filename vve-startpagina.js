@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  var VERSIE = 3;   // ophogen bij elke wijziging, zodat je kunt zien wat je ziet
+  var VERSIE = 4;   // ophogen bij elke wijziging, zodat je kunt zien wat je ziet
   var OPSLAG = 'vve-startpagina-indeling-v1';
   var OPSLAG_UITLEG = 'vve-startpagina-uitleg-v1';
   var app = document.getElementById('startpagina');
@@ -175,18 +175,23 @@
         + '<button class="sp-vink" data-actie="taak-af" data-id="' + esc(t.id) + '"'
         + ' role="checkbox" aria-checked="' + (t.klaar ? 'true' : 'false') + '"'
         + ' title="' + (t.klaar ? 'Terugzetten naar open' : 'Afvinken') + '">' + (t.klaar ? svg('vinkje') : '') + '</button>'
-        + '<span class="sp-taak-tekst">' + esc(t.tekst) + '</span>'
+        + '<span class="sp-taak-tekst"><span class="sp-taak-titel">' + esc(t.tekst) + '</span>'
+        + (t.omschrijving ? '<span class="sp-taak-omschrijving">' + esc(t.omschrijving) + '</span>' : '') + '</span>'
         + (t.datum ? '<span class="sp-taak-datum' + (teLaat ? ' is-telaat' : '') + '">' + esc(datumTekst(t.datum)) + '</span>' : '')
-        + '<button class="sp-mini sp-taak-weg" data-actie="taak-weg" data-id="' + esc(t.id) + '" title="Verwijderen">' + svg('kruis') + '</button>'
+        + '<button class="sp-mini sp-taak-knop" data-actie="taak-wijzig" data-id="' + esc(t.id) + '" title="Wijzigen">' + svg('potlood') + '</button>'
+        + '<button class="sp-mini sp-taak-knop" data-actie="taak-weg" data-id="' + esc(t.id) + '" title="Verwijderen">' + svg('kruis') + '</button>'
         + '</li>';
     };
     return '<section class="sp-groep sp-taken" id="taken">'
       + '<div class="sp-groep-kop"><h2>' + esc(STARTPAGINA.takenTitel || 'Taken') + '</h2>'
       + '<span class="sp-telling">' + lijst.open.length + ' open</span></div>'
       + '<form class="sp-taak-nieuw" data-actie="taak-nieuw">'
-      + '<input class="sp-taak-invoer" name="tekst" type="text" placeholder="Nieuwe taak…" aria-label="Nieuwe taak" autocomplete="off">'
+      + '<div class="sp-taak-rij">'
+      + '<input class="sp-taak-invoer" name="tekst" type="text" placeholder="Nieuwe taak…" aria-label="Titel van de taak" autocomplete="off">'
       + '<input class="sp-taak-datumveld" name="datum" type="date" aria-label="Datum (mag leeg)">'
-      + '<button class="sp-cmd-knop is-primair" type="submit">' + svg('plus') + 'Toevoegen</button></form>'
+      + '<button class="sp-cmd-knop is-primair" type="submit">' + svg('plus') + 'Toevoegen</button></div>'
+      + '<input class="sp-taak-invoer sp-taak-omschrijfveld" name="omschrijving" type="text" placeholder="Korte omschrijving (mag leeg)" aria-label="Omschrijving" autocomplete="off">'
+      + '</form>'
       + (lijst.open.length ? '<ul class="sp-taaklijst">' + lijst.open.map(regel).join('') + '</ul>'
           : '<p class="sp-taak-leeg">Niets te doen. Typ hierboven een taak.</p>')
       + (lijst.klaar.length
@@ -390,6 +395,21 @@
       }
       bewaarTaken(); teken(); return;
     }
+    if (actie === 'taak-wijzig') {
+      var tid = k.getAttribute('data-id');
+      var t = taken.find(function (x) { return x.id === tid; });
+      if (!t) return;
+      var titel = prompt('Titel van de taak:', t.tekst);
+      if (titel === null || !titel.trim()) return;
+      var oms = prompt('Korte omschrijving (mag leeg):', t.omschrijving || '');
+      if (oms === null) return;
+      var dat = prompt('Datum als jjjj-mm-dd (mag leeg):', t.datum || '');
+      if (dat === null) return;
+      dat = dat.trim();
+      if (dat && !/^\d{4}-\d{2}-\d{2}$/.test(dat)) { alert('Datum niet herkend; schrijf hem als 2026-10-20.'); return; }
+      t.tekst = titel.trim(); t.omschrijving = oms.trim(); t.datum = dat;
+      bewaarTaken(); teken(); return;
+    }
     if (actie === 'taak-toon-klaar') { afgerondOpen = !afgerondOpen; teken(); return; }
     if (actie === 'taak-wis-klaar') {
       var n = taken.filter(function (t) { return t.klaar; }).length;
@@ -440,6 +460,7 @@
     taken.push({
       id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       tekst: tekst,
+      omschrijving: (f.elements.omschrijving.value || '').trim(),
       datum: f.elements.datum.value || '',
       klaar: false,
       gemaakt: Date.now()
