@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  var VERSIE = 4;   // ophogen bij elke wijziging, zodat je kunt zien wat je ziet
+  var VERSIE = 5;   // ophogen bij elke wijziging, zodat je kunt zien wat je ziet
   var OPSLAG = 'vve-startpagina-indeling-v1';
   var OPSLAG_UITLEG = 'vve-startpagina-uitleg-v1';
   var app = document.getElementById('startpagina');
@@ -23,7 +23,7 @@
 
   if (typeof STARTPAGINA === 'undefined' || !STARTPAGINA || !Array.isArray(STARTPAGINA.groepen)) {
     app.innerHTML = '<div class="sp-melding"><strong>Geen tegels gevonden</strong>'
-      + 'Zet <code>startpagina_config.js</code> in dezelfde map als deze pagina en ververs.</div>';
+      + 'Zet <code>startpagina_config.txt</code> in dezelfde map als deze pagina en ververs.</div>';
     return;
   }
 
@@ -353,13 +353,15 @@
   }
   function download() {
     var cfg = {}; Object.keys(STARTPAGINA).forEach(function (k) { if (k !== 'groepen') cfg[k] = STARTPAGINA[k]; }); cfg.groepen = groepen;
-    var tekst = '// startpagina_config.js - de tegels van de VvE-startpagina\n'
+    var tekst = '// startpagina_config.txt - de tegels van de VvE-startpagina\n'
       + '// Gedownload vanaf de startpagina op ' + new Date().toLocaleString('nl-NL') + '.\n'
-      + '// Vervang het bestand naast vve_startpagina.html hiermee. Niet naar GitHub zetten.\n\n'
+      + '// Vervang het bestand naast vve_startpagina.html hiermee. Niet naar GitHub zetten.\n'
+      + '// Het is gewoon JavaScript; de extensie .txt is er alleen omdat de beveiligde\n'
+      + '// gemeente-pc geen .js-bestanden door de firewall laat.\n\n'
       + 'const STARTPAGINA = ' + JSON.stringify(cfg, null, 2) + ';\n';
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([tekst], { type: 'text/javascript;charset=utf-8' }));
-    a.download = 'startpagina_config.js';
+    a.href = URL.createObjectURL(new Blob([tekst], { type: 'text/plain;charset=utf-8' }));
+    a.download = 'startpagina_config.txt';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   }
