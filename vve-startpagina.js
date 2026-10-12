@@ -56,7 +56,9 @@
     download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
     terug: '<path d="M9 7 4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-2"/>',
     weergave: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><path d="M3 15h18M3 20h18"/>',
-    omlaag: '<path d="m6 9 6 6 6-6"/>'
+    omlaag: '<path d="m6 9 6 6 6-6"/>',
+    vinkje: '<path d="m5 13 4 4 10-10"/>',
+    taak: '<rect x="4" y="4.5" width="16" height="16" rx="2"/><path d="m8.5 12 2.4 2.4 4.6-4.8"/>'
   };
   var KLEUR = {
     dashboard: 'rood', mail: 'blauw', agenda: 'blauw', chat: 'paars', map: 'goud', word: 'blauw', excel: 'groen',
@@ -124,6 +126,77 @@
   }
 
   var bewerken = false, zoekterm = '';
+
+  // ── taken ───────────────────────────────────────────────────────────────
+  // Eenvoudige lijst, bewaard in deze browser. Elke taak: tekst, eventueel een
+  // datum, en of hij af is.
+  var OPSLAG_TAKEN = 'vve-startpagina-taken-v1';
+  var taken = [];
+  try { taken = JSON.parse(localStorage.getItem(OPSLAG_TAKEN) || '[]') || []; } catch (e) { taken = []; }
+  if (!Array.isArray(taken)) taken = [];
+  var afgerondOpen = false;
+  function bewaarTaken() {
+    try { localStorage.setItem(OPSLAG_TAKEN, JSON.stringify(taken)); } catch (e) {}
+  }
+  function vandaag() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function datumTekst(d) {
+    if (!d) return '';
+    var nu = vandaag();
+    if (d === nu) return 'vandaag';
+    var m = new Date(nu); m.setDate(m.getDate() + 1);
+    var morgen = m.getFullYear() + '-' + String(m.getMonth() + 1).padStart(2, '0') + '-' + String(m.getDate()).padStart(2, '0');
+    if (d === morgen) return 'morgen';
+    try {
+      return new Date(d + 'T12:00:00').toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+    } catch (e) { return d; }
+  }
+  function takenGesorteerd() {
+    var open = taken.filter(function (t) { return !t.klaar; });
+    open.sort(function (a, b) {
+      if (!!a.datum !== !!b.datum) return a.datum ? -1 : 1;
+      if (a.datum && b.datum && a.datum !== b.datum) return a.datum < b.datum ? -1 : 1;
+      return (a.gemaakt || 0) - (b.gemaakt || 0);
+    });
+    var klaar = taken.filter(function (t) { return t.klaar; })
+      .sort(function (a, b) { return (b.afgerond || 0) - (a.afgerond || 0); });
+    return { open: open, klaar: klaar };
+  }
+  function takenHtml() {
+    if (STARTPAGINA.taken === false) return '';
+    var lijst = takenGesorteerd();
+    var nu = vandaag();
+    var regel = function (t) {
+      var teLaat = !t.klaar && t.datum && t.datum < nu;
+      return '<li class="sp-taak' + (t.klaar ? ' is-klaar' : '') + '">'
+        + '<button class="sp-vink" data-actie="taak-af" data-id="' + esc(t.id) + '"'
+        + ' role="checkbox" aria-checked="' + (t.klaar ? 'true' : 'false') + '"'
+        + ' title="' + (t.klaar ? 'Terugzetten naar open' : 'Afvinken') + '">' + (t.klaar ? svg('vinkje') : '') + '</button>'
+        + '<span class="sp-taak-tekst">' + esc(t.tekst) + '</span>'
+        + (t.datum ? '<span class="sp-taak-datum' + (teLaat ? ' is-telaat' : '') + '">' + esc(datumTekst(t.datum)) + '</span>' : '')
+        + '<button class="sp-mini sp-taak-weg" data-actie="taak-weg" data-id="' + esc(t.id) + '" title="Verwijderen">' + svg('kruis') + '</button>'
+        + '</li>';
+    };
+    return '<section class="sp-groep sp-taken" id="taken">'
+      + '<div class="sp-groep-kop"><h2>' + esc(STARTPAGINA.takenTitel || 'Taken') + '</h2>'
+      + '<span class="sp-telling">' + lijst.open.length + ' open</span></div>'
+      + '<form class="sp-taak-nieuw" data-actie="taak-nieuw">'
+      + '<input class="sp-taak-invoer" name="tekst" type="text" placeholder="Nieuwe taak…" aria-label="Nieuwe taak" autocomplete="off">'
+      + '<input class="sp-taak-datumveld" name="datum" type="date" aria-label="Datum (mag leeg)">'
+      + '<button class="sp-cmd-knop is-primair" type="submit">' + svg('plus') + 'Toevoegen</button></form>'
+      + (lijst.open.length ? '<ul class="sp-taaklijst">' + lijst.open.map(regel).join('') + '</ul>'
+          : '<p class="sp-taak-leeg">Niets te doen. Typ hierboven een taak.</p>')
+      + (lijst.klaar.length
+          ? '<button class="sp-cmd-knop klein sp-taak-klaarknop" data-actie="taak-toon-klaar" aria-expanded="' + (afgerondOpen ? 'true' : 'false') + '">'
+            + svg('omlaag') + lijst.klaar.length + ' afgerond</button>'
+            + (afgerondOpen ? '<ul class="sp-taaklijst sp-taaklijst-klaar">' + lijst.klaar.map(regel).join('')
+                + '</ul><button class="sp-cmd-knop klein" data-actie="taak-wis-klaar">' + svg('kruis') + 'Afgeronde taken wissen</button>'
+              : '')
+          : '')
+      + '</section>';
+  }
 
   // Ingeklapte toelichtingen, per sectienaam onthouden.
   var ingeklapt = {};
@@ -224,7 +297,9 @@
 
     html += '<main class="sp-in sp-groepen">';
     var zichtbaar = 0;
+    var takenGeplaatst = false;
     groepen.forEach(function (g, gi) {
+      if (gi === 1 && !zoekterm) { html += takenHtml(); takenGeplaatst = true; }
       var tegels = (g.tegels || []).map(function (t, ti) { return { t: t, ti: ti }; }).filter(function (x) { return past(x.t); });
       if (zoekterm && !tegels.length) return;
       zichtbaar += tegels.length;
@@ -248,6 +323,7 @@
         + '<button class="sp-toevoegen" data-actie="tegel-nieuw" data-g="' + gi + '">' + svg('plus') + ' Koppeling</button>'
         + '</div></section>';
     });
+    if (!takenGeplaatst && !zoekterm) html += takenHtml();
     if (zoekterm && !zichtbaar) html += '<p class="sp-leeg">Geen resultaten voor “' + esc(zoekterm) + '” op deze site.</p>';
     html += '</main><footer class="sp-in sp-voet"><span><kbd>/</kbd> zoeken</span><span><kbd>Enter</kbd> eerste resultaat openen</span>'
       + '<span><kbd>Esc</kbd> zoekveld leegmaken</span></footer></div>';
@@ -298,6 +374,26 @@
     var ti = tegel ? +tegel.getAttribute('data-t') : -1;
     e.preventDefault();
     if (actie === 'klap') { klapUitleg(groepen[gi].naam); return; }
+    if (actie === 'taak-af' || actie === 'taak-weg') {
+      var id = k.getAttribute('data-id');
+      var i = taken.findIndex(function (t) { return t.id === id; });
+      if (i < 0) return;
+      if (actie === 'taak-weg') taken.splice(i, 1);
+      else {
+        taken[i].klaar = !taken[i].klaar;
+        taken[i].afgerond = taken[i].klaar ? Date.now() : 0;
+      }
+      bewaarTaken(); teken(); return;
+    }
+    if (actie === 'taak-toon-klaar') { afgerondOpen = !afgerondOpen; teken(); return; }
+    if (actie === 'taak-wis-klaar') {
+      var n = taken.filter(function (t) { return t.klaar; }).length;
+      if (n && confirm(n + ' afgeronde ' + (n === 1 ? 'taak' : 'taken') + ' verwijderen?')) {
+        taken = taken.filter(function (t) { return !t.klaar; });
+        bewaarTaken(); teken();
+      }
+      return;
+    }
     if (actie === 'bewerken') { bewerken = !bewerken; teken(); return; }
     if (actie === 'download') { download(); return; }
     if (actie === 'herstel') {
@@ -328,6 +424,25 @@
     } else if (actie === 'tegel-weg') {
       if (confirm('Tegel "' + groepen[gi].tegels[ti].titel + '" verwijderen?')) { groepen[gi].tegels.splice(ti, 1); bewaar(); teken(); }
     }
+  });
+
+  app.addEventListener('submit', function (e) {
+    var f = e.target.closest('form[data-actie="taak-nieuw"]');
+    if (!f) return;
+    e.preventDefault();
+    var tekst = (f.elements.tekst.value || '').trim();
+    if (!tekst) return;
+    taken.push({
+      id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      tekst: tekst,
+      datum: f.elements.datum.value || '',
+      klaar: false,
+      gemaakt: Date.now()
+    });
+    bewaarTaken();
+    teken();
+    var invoer = app.querySelector('.sp-taak-invoer');
+    if (invoer) invoer.focus();
   });
 
   // zoeken

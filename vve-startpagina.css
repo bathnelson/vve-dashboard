@@ -258,3 +258,46 @@ body {
   .w-tegels .sp-tegel { min-height: 118px; }
 }
 @media (prefers-reduced-motion: reduce) { .sp-tegel { transition: none; } }
+
+/* ── taken ─────────────────────────────────────────────────────────── */
+.sp-taken .sp-groep-kop { margin-bottom: 10px; }
+.sp-taken .sp-telling { margin-left: auto; font-size: 12px; color: var(--tekst-stil); font-variant-numeric: tabular-nums; }
+.sp-taak-nieuw { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.sp-taak-invoer, .sp-taak-datumveld {
+  height: 32px; padding: 0 10px; border: 1px solid var(--lijn-sterk); border-radius: 4px;
+  background: var(--vlak); color: var(--tekst); font: inherit; outline: none;
+}
+.sp-taak-invoer { flex: 1 1 180px; min-width: 0; }
+.sp-taak-datumveld { flex: 0 0 auto; color: var(--tekst-zacht); }
+.sp-taak-invoer:focus, .sp-taak-datumveld:focus { border-color: var(--thema); box-shadow: 0 0 0 1px var(--thema); }
+.sp-taaklijst { list-style: none; margin: 0; padding: 0; }
+.sp-taak {
+  display: flex; align-items: center; gap: 10px; padding: 7px 4px 7px 0;
+  border-bottom: 1px solid var(--lijn);
+}
+.sp-taak:last-child { border-bottom: none; }
+.sp-vink {
+  flex: none; width: 20px; height: 20px; padding: 0; border: 1.5px solid var(--lijn-sterk);
+  border-radius: 3px; background: var(--vlak); color: #fff; cursor: pointer; display: grid; place-items: center;
+}
+.sp-vink:hover { border-color: var(--thema); }
+.sp-vink svg { width: 14px; height: 14px; }
+.is-klaar .sp-vink { background: var(--thema); border-color: var(--thema); }
+.sp-taak-tekst { flex: 1; min-width: 0; overflow-wrap: break-word; }
+.is-klaar .sp-taak-tekst { color: var(--tekst-stil); text-decoration: line-through; }
+.sp-taak-datum {
+  flex: none; padding: 1px 8px; border-radius: 10px; background: var(--grond-zacht);
+  color: var(--tekst-zacht); font-size: 11px; white-space: nowrap;
+}
+.sp-taak-datum.is-telaat { background: #fde7e9; color: #a4262c; font-weight: 600; }
+.sp-taak-weg { visibility: hidden; }
+.sp-taak:hover .sp-taak-weg, .sp-taak-weg:focus-visible { visibility: visible; }
+.sp-taak-leeg { margin: 4px 0 0; color: var(--tekst-stil); }
+.sp-taak-klaarknop { margin-top: 8px; color: var(--tekst-zacht); }
+.sp-taak-klaarknop[aria-expanded="true"] svg { transform: rotate(180deg); }
+.sp-taak-klaarknop svg { transition: transform .12s; }
+.sp-taaklijst-klaar { margin-top: 4px; opacity: .85; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sp-taak-datum.is-telaat { background: #4a2326; color: #ff8d94; }
+}
+:root[data-theme="dark"] .sp-taak-datum.is-telaat { background: #4a2326; color: #ff8d94; }
