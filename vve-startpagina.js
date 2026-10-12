@@ -4,6 +4,7 @@
 (function () {
   'use strict';
 
+  var VERSIE = 3;   // ophogen bij elke wijziging, zodat je kunt zien wat je ziet
   var OPSLAG = 'vve-startpagina-indeling-v1';
   var OPSLAG_UITLEG = 'vve-startpagina-uitleg-v1';
   var app = document.getElementById('startpagina');
@@ -326,7 +327,8 @@
     if (!takenGeplaatst && !zoekterm) html += takenHtml();
     if (zoekterm && !zichtbaar) html += '<p class="sp-leeg">Geen resultaten voor “' + esc(zoekterm) + '” op deze site.</p>';
     html += '</main><footer class="sp-in sp-voet"><span><kbd>/</kbd> zoeken</span><span><kbd>Enter</kbd> eerste resultaat openen</span>'
-      + '<span><kbd>Esc</kbd> zoekveld leegmaken</span></footer></div>';
+      + '<span><kbd>Esc</kbd> zoekveld leegmaken</span>'
+      + '<span style="margin-left:auto">Versie ' + VERSIE + '</span></footer></div>';
     app.innerHTML = html;
   }
 
@@ -537,4 +539,5 @@
   app.addEventListener('dragend', function () { sleep = null; wisMarkering(); });
 
   teken();
+  try { console.info('VvE-startpagina versie ' + VERSIE); } catch (e) {}
 })();
