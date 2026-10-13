@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 26;
+var APP_BUILD = 27;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -757,14 +757,14 @@ var APP_EXTERN = (function () {
 })();
 // Waar de hulpscripts (proxy's) staan. Overschrijfbaar met HELPERS_BASIS in
 // team_config.js; een lege waarde zet het ophalen helemaal uit.
-// Adreschecker: doorklikken per verblijfsobject. Adres instelbaar met
-// ADRESCHECKER_BASIS in team_config.js; leeg zet de link uit.
-var ADRESCHECKER_URL = (function () {
-  var basis = (typeof ADRESCHECKER_BASIS !== 'undefined') ? ADRESCHECKER_BASIS : 'https://adreschecker.nl/haarlem';
-  return typeof basis === 'string' ? basis.replace(/\/+$/, '') : '';
+// Adresverkenner: doorklikken per verblijfsobject. Adres instelbaar met
+// ADRESVERKENNER_BASIS in team_config.js; leeg zet de link uit.
+var ADRESVERKENNER_URL = (function () {
+  var basis = (typeof ADRESVERKENNER_BASIS !== 'undefined') ? ADRESVERKENNER_BASIS : 'https://adresverkenner.nl/haarlem/';
+  return typeof basis === 'string' ? basis.replace(/\/+$/, '') + '/' : '';
 })();
-var adrescheckerUrl = function (vboId) {
-  return (ADRESCHECKER_URL && vboId) ? ADRESCHECKER_URL + '?bagid=' + encodeURIComponent(vboId) : '';
+var adresverkennerUrl = function (vboId) {
+  return (ADRESVERKENNER_URL && vboId) ? ADRESVERKENNER_URL + '?bagid=' + encodeURIComponent(vboId) : '';
 };
 var HELPERS_URL = (typeof HELPERS_BASIS !== 'undefined' ? HELPERS_BASIS : 'https://adresverkenner.nl/helpers');
 HELPERS_URL = typeof HELPERS_URL === 'string' ? HELPERS_URL.replace(/\/+$/, '') : '';
@@ -3444,13 +3444,13 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     target: "_blank",
     rel: "noopener noreferrer",
     className: "font-mono text-pa-blue-500 hover:underline"
-  }, item.verblijfsobject_id), adrescheckerUrl(item.verblijfsobject_id) && /*#__PURE__*/React.createElement("a", {
-    href: adrescheckerUrl(item.verblijfsobject_id),
+  }, item.verblijfsobject_id), adresverkennerUrl(item.verblijfsobject_id) && /*#__PURE__*/React.createElement("a", {
+    href: adresverkennerUrl(item.verblijfsobject_id),
     target: "_blank",
     rel: "noopener noreferrer",
-    title: "Dit adres openen in de Adreschecker",
+    title: "Dit adres openen in de Adresverkenner",
     className: "px-1.5 py-0.5 border border-pa-gray-300 rounded text-[10px] text-pa-gray-700 hover:border-pa-blue-500 hover:text-pa-blue-500"
-  }, "Adreschecker \u2197")) : '-')))), (() => {
+  }, "Adresverkenner \u2197")) : '-')))), (() => {
     var warmte = getWarmteProg(item);
     if (!warmte) return null;
     return /*#__PURE__*/React.createElement("table", {
