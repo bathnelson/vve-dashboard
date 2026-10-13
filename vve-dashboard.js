@@ -491,6 +491,39 @@
             if (typeof KVK_LOOKUP !== 'undefined') Object.keys(KVK_CORRECTIES).forEach(vveId => { delete KVK_LOOKUP[vveId]; });
         })();
 
+        // VvE's die nog niet in de centrale dataset zitten (vve_handmatig.txt).
+        // Elke handmatige VvE wordt een rij in VVE_DATA, zodat lijst, filters en
+        // kaart hem gewoon zien. De rij is herkenbaar aan _handmatig en telt niet
+        // mee als adres: die adressen kennen we immers niet.
+        (function voegHandmatigeVvesToe() {
+            if (typeof VVE_HANDMATIG === 'undefined' || !Array.isArray(VVE_HANDMATIG)) return;
+            if (typeof VVE_DATA === 'undefined') return;
+            VVE_HANDMATIG.forEach((h) => {
+                if (!h || !h.id || h.vervangen_door) return;
+                VVE_DATA.push({
+                    id: h.id,
+                    vve_identificatie: h.id,
+                    statutairenaam: h.naam || h.id,
+                    straatnaam: h.straat || '',
+                    huisnummer: h.van != null ? h.van : '',
+                    postcode: h.postcode || '',
+                    buurt: h.buurt || '',
+                    wijk: h.wijk || '',
+                    stadsdeel: h.stadsdeel || '',
+                    kvknummer: h.kvk || '',
+                    aantal_woon_adr_in_vve: h.woningen || 0,
+                    aantal_niet_woon_adr_in_vve: 0,
+                    aantal_overig_adr_in_vve: 0,
+                    typologie: h.typologie || '',
+                    _handmatig: true,
+                    _bron: h.bron || '',
+                    _hoofdsplitsing: h.hoofdsplitsing || '',
+                    _van: h.van,
+                    _tot: h.tot
+                });
+            });
+        })();
+
         // KvK lookup uit alternatieve dataset (vve_haarlem.csv)
         const lookupKvkNummer = (vveId) => {
             if (!vveId || typeof KVK_LOOKUP === 'undefined') return null;
@@ -656,7 +689,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 27;
+var APP_BUILD = 28;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -716,7 +749,11 @@ var adresTelling = vve => {
 // Adressen die bij geen enkele VvE horen (trafo's, technische ruimtes, losse
 // bedrijfsunits) laten we uit de exports weg; daar valt niets mee te doen.
 var alleenMetVve = function (rijen) {
-  return rijen.filter(function (r) { return !!r.vve_identificatie; });
+  return rijen.filter(function (r) { return !!r.vve_identificatie && !r._handmatig; });
+};
+// Echte adressen: handmatige VvE's zijn een VvE-regel, geen adres.
+var echteAdressen = function (rijen) {
+  return rijen.filter(function (r) { return !r._handmatig; });
 };
 var maakMapLink = function (row) {
   try {
@@ -2249,7 +2286,17 @@ var VveGroupCard = ({
       borderRadius: 2
     },
     title: HOOFDSPLITSING_UITLEG
-  }, "hoofdsplitsing"), (typeof NEW_VVES !== 'undefined' && NEW_VVES.has(vve.vve_identificatie)) && /*#__PURE__*/React.createElement("span", {
+  }, "hoofdsplitsing"), vve._handmatig && /*#__PURE__*/React.createElement("span", {
+    style: {
+      flexShrink: 0,
+      fontSize: 9,
+      background: '#fef3c7',
+      color: '#92400e',
+      padding: '1px 4px',
+      borderRadius: 2
+    },
+    title: "Handmatig toegevoegd; staat nog niet in de centrale dataset" + (vve._bron ? "\nBron: " + vve._bron : '')
+  }, "handmatig"), (typeof NEW_VVES !== 'undefined' && NEW_VVES.has(vve.vve_identificatie)) && /*#__PURE__*/React.createElement("span", {
     style: {
       flexShrink: 0,
       fontSize: 9,
@@ -3529,7 +3576,17 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     title: "Identificatienummer van de VvE bij het Kadaster. Dit is geen RSIN."
   }, "Kadaster-ID"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 font-mono text-pa-gray-800"
-  }, String(item.vve_identificatie).replace(/^.*\./, ''))), isHoofdsplitsing(item) && /*#__PURE__*/React.createElement("tr", {
+  }, String(item.vve_identificatie).replace(/^.*\./, ''))), item._handmatig && /*#__PURE__*/React.createElement("tr", {
+    className: "border-b border-pa-gray-100"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-500"
+  }, "Herkomst"), /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-800"
+  }, "Handmatig toegevoegd", item._bron ? /*#__PURE__*/React.createElement("span", {
+    className: "text-pa-gray-500"
+  }, " \u00B7 ", item._bron) : null, item._hoofdsplitsing ? /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-pa-gray-500 mt-0.5"
+  }, "Valt onder hoofdsplitsing ", item._hoofdsplitsing) : null)), isHoofdsplitsing(item) && /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
@@ -4801,6 +4858,10 @@ var App = () => {
     _useStateHs2 = _slicedToArray(_useStateHs, 2),
     selectedHoofdsplitsing = _useStateHs2[0],
     setSelectedHoofdsplitsing = _useStateHs2[1];
+  var _useStateHerk = useState(new Set()),
+    _useStateHerk2 = _slicedToArray(_useStateHerk, 2),
+    selectedHerkomst = _useStateHerk2[0],
+    setSelectedHerkomst = _useStateHerk2[1];
   var _useState55 = useState(new Set()),
     _useState56 = _slicedToArray(_useState55, 2),
     selectedEenheidtype = _useState56[0],
@@ -5229,6 +5290,14 @@ var App = () => {
     key: 'nee',
     label: 'Gewone VvE'
   }];
+  var herkomstCategories = [{
+    key: 'data',
+    label: 'Uit de data'
+  }, {
+    key: 'handmatig',
+    label: 'Handmatig toegevoegd'
+  }];
+  var herkomstVan = item => item._handmatig ? 'handmatig' : 'data';
 
   // Eenheidtype categories
   var eenheidtypeCategories = [{
@@ -5327,6 +5396,10 @@ var App = () => {
       active: selectedHoofdsplitsing.size > 0,
       fn: item => selectedHoofdsplitsing.has(isHoofdsplitsing(item) ? 'ja' : 'nee')
     },
+    herkomst: {
+      active: selectedHerkomst.size > 0,
+      fn: item => selectedHerkomst.has(herkomstVan(item))
+    },
     eenheidtype: {
       active: selectedEenheidtype.size > 0,
       fn: item => selectedEenheidtype.has(getEenheidtypeKey(item.basiseenheidtype))
@@ -5409,7 +5482,7 @@ var App = () => {
       active: selectedGemLabel.size > 0,
       fn: item => selectedGemLabel.has(avgLabelByVve[item.vve_identificatie] || '')
     }
-  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
+  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedHerkomst, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
 
   // Apply all filters except the excluded one(s)
   var applyFiltersExcept = useCallback((baseData, excludeKey) => {
@@ -5485,6 +5558,19 @@ var App = () => {
         var g = isGemengd(item);
         return cat.key === 'ja' ? g : !g;
       });
+      counts.addresses[cat.key] = filtered.length;
+      counts.vves[cat.key] = countUniqueVves(filtered);
+    });
+    return counts;
+  }, [searchFilteredData, applyFiltersExcept]);
+  var herkomstFacetCounts = useMemo(() => {
+    var base = applyFiltersExcept(searchFilteredData, 'herkomst');
+    var counts = {
+      addresses: {},
+      vves: {}
+    };
+    herkomstCategories.forEach(cat => {
+      var filtered = base.filter(item => herkomstVan(item) === cat.key);
       counts.addresses[cat.key] = filtered.length;
       counts.vves[cat.key] = countUniqueVves(filtered);
     });
@@ -5716,7 +5802,7 @@ var App = () => {
     return r;
   }, [fullyFilteredData]);
   var totalVveCount = groupedByVve.length;
-  var totalAddressCount = fullyFilteredData.length;
+  var totalAddressCount = echteAdressen(fullyFilteredData).length;
   // Totaal woningen = som van aantal_woon_adr_in_vve per unieke VvE
   var totalWoningenCount = useMemo(() => {
     return groupedByVve.reduce((sum, group) => sum + (group.vve.aantal_woon_adr_in_vve || 0), 0);
@@ -5786,6 +5872,7 @@ var App = () => {
     setSelectedWarmte(new Set());
     setSelectedGemengd(new Set());
     setSelectedHoofdsplitsing(new Set());
+    setSelectedHerkomst(new Set());
     setSelectedEenheidtype(new Set());
     setSelectedKvk(new Set());
     setSelectedWoz(new Set());
@@ -5910,7 +5997,7 @@ var App = () => {
     return function() { window.removeEventListener('message', handler); };
   }, []);
 
-  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
+  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedHerkomst.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
 
   // Multi-user enrichment state
   var _useState95 = useState(() => localStorage.getItem('vve_dashboard_username') || ''),
@@ -6467,6 +6554,7 @@ var App = () => {
     }
     if (selectedGemengd.has('ja')) parts.push('gemengd');
     if (selectedHoofdsplitsing.has('ja')) parts.push('hoofdsplitsing');
+    if (selectedHerkomst.has('handmatig')) parts.push('handmatig');
     if (selectedWoz.has('boven')) parts.push('hoge-woz');
     if (selectedWoz.has('onder')) parts.push('lage-woz');
     if (selectedGespikkeld.has('ja')) parts.push('gespikkeld');
@@ -8669,6 +8757,24 @@ var App = () => {
     active: selectedHoofdsplitsing.has(cat.key),
     onClick: () => toggleSelection(setSelectedHoofdsplitsing, cat.key)
   }))), /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Herkomst",
+    activeCount: selectedHerkomst.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle VvE's",
+    count: showVveCounts ? sumFacet(herkomstFacetCounts).vves : sumFacet(herkomstFacetCounts).addresses,
+    active: selectedHerkomst.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedHerkomst(new Set());
+      setDisplayCount(50);
+    }
+  }), herkomstCategories.map(cat => /*#__PURE__*/React.createElement(FacetOption, {
+    key: cat.key,
+    label: cat.label,
+    count: showVveCounts ? herkomstFacetCounts.vves[cat.key] || 0 : herkomstFacetCounts.addresses[cat.key] || 0,
+    active: selectedHerkomst.has(cat.key),
+    onClick: () => toggleSelection(setSelectedHerkomst, cat.key)
+  }))), /*#__PURE__*/React.createElement(FacetSection, {
     title: "Eenheidtype",
     activeCount: selectedEenheidtype.size
   }, /*#__PURE__*/React.createElement(FacetOption, {
@@ -9180,6 +9286,24 @@ var App = () => {
     count: showVveCounts ? hoofdsplitsingFacetCounts.vves[category.key] || 0 : hoofdsplitsingFacetCounts.addresses[category.key] || 0,
     active: selectedHoofdsplitsing.has(category.key),
     onClick: () => toggleSelection(setSelectedHoofdsplitsing, category.key)
+  }))), /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Herkomst",
+    activeCount: selectedHerkomst.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle VvE's",
+    count: showVveCounts ? sumFacet(herkomstFacetCounts).vves : sumFacet(herkomstFacetCounts).addresses,
+    active: selectedHerkomst.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedHerkomst(new Set());
+      setDisplayCount(50);
+    }
+  }), herkomstCategories.map(category => /*#__PURE__*/React.createElement(FacetOption, {
+    key: category.key,
+    label: category.label,
+    count: showVveCounts ? herkomstFacetCounts.vves[category.key] || 0 : herkomstFacetCounts.addresses[category.key] || 0,
+    active: selectedHerkomst.has(category.key),
+    onClick: () => toggleSelection(setSelectedHerkomst, category.key)
   }))), /*#__PURE__*/React.createElement(FacetSection, {
     title: "Eenheidtype",
     activeCount: selectedEenheidtype.size
@@ -10497,7 +10621,10 @@ var App = () => {
       marginLeft: 'auto',
       opacity: 0.65
     }
-  }, "Haarlem · ", data.length.toLocaleString(), " adressen totaal")), /*#__PURE__*/React.createElement("div", {
+  }, "Haarlem · ", echteAdressen(data).length.toLocaleString(), " adressen totaal",
+     (data.length - echteAdressen(data).length) > 0
+       ? ' · ' + (data.length - echteAdressen(data).length) + ' handmatige VvE\u2019s'
+       : '')), /*#__PURE__*/React.createElement("div", {
     style: {
       background: '#d8d8d8',
       borderTop: '1px solid #bbb',
