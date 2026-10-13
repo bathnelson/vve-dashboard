@@ -689,7 +689,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 28;
+var APP_BUILD = 29;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -748,6 +748,42 @@ var adresTelling = vve => {
 // Zet de mapnaam in de Excel-export om in een klikbare link naar de dossiermap.
 // Adressen die bij geen enkele VvE horen (trafo's, technische ruimtes, losse
 // bedrijfsunits) laten we uit de exports weg; daar valt niets mee te doen.
+// ── Clusters (vve_clusters.txt) ──────────────────────────────────────
+// Een cluster is een vaste lijst VvE's die samen een proces ingaan, met een eigen
+// map in de clusterlocatie uit team_config.js.
+var CLUSTERS = (typeof VVE_CLUSTERS !== 'undefined' && Array.isArray(VVE_CLUSTERS)) ? VVE_CLUSTERS : [];
+var _clusterPerVve = null;
+var kortVveId = function (vveId) {
+  return String(vveId || '').replace(/^NL\.IMKAD\.Persoon\./, '');
+};
+var clustersVan = function (vveId) {
+  if (!_clusterPerVve) {
+    _clusterPerVve = {};
+    CLUSTERS.forEach(function (c) {
+      (c.vves || []).forEach(function (v) {
+        var k = kortVveId(v);
+        (_clusterPerVve[k] = _clusterPerVve[k] || []).push(c);
+      });
+    });
+  }
+  return _clusterPerVve[kortVveId(vveId)] || [];
+};
+var clusterNamen = function (vveId) {
+  return clustersVan(vveId).map(function (c) { return c.naam || c.id; }).join(', ');
+};
+var clusterUrl = function (cluster) {
+  if (!cluster || typeof DOSSIER_BASIS === 'undefined' || !DOSSIER_BASIS || !DOSSIER_BASIS.site) return '';
+  var c = DOSSIER_BASIS.cluster || {};
+  var naam = cluster.naam || cluster.id;
+  try {
+    var site = String(c.site || DOSSIER_BASIS.site).replace(/\/+$/, '');
+    var bib = String(c.bibliotheek || DOSSIER_BASIS.bibliotheek || '').replace(/^\/+|\/+$/g, '');
+    var sub = String(Object.prototype.hasOwnProperty.call(c, 'map') ? c.map || '' : '_clusters').replace(/^\/+|\/+$/g, '');
+    if (!bib || !naam) return '';
+    var pad = new URL(site).pathname.replace(/\/+$/, '') + '/' + bib + (sub ? '/' + sub : '') + '/' + naam;
+    return site + '/' + bib + '/Forms/AllItems.aspx?id=' + encodeURIComponent(pad);
+  } catch (err) { return ''; }
+};
 var alleenMetVve = function (rijen) {
   return rijen.filter(function (r) { return !!r.vve_identificatie && !r._handmatig; });
 };
@@ -2296,7 +2332,21 @@ var VveGroupCard = ({
       borderRadius: 2
     },
     title: "Handmatig toegevoegd; staat nog niet in de centrale dataset" + (vve._bron ? "\nBron: " + vve._bron : '')
-  }, "handmatig"), (typeof NEW_VVES !== 'undefined' && NEW_VVES.has(vve.vve_identificatie)) && /*#__PURE__*/React.createElement("span", {
+  }, "handmatig"), clustersVan(vve.vve_identificatie).length > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      flexShrink: 0,
+      fontSize: 9,
+      background: '#e0e7ff',
+      color: '#3730a3',
+      padding: '1px 4px',
+      borderRadius: 2,
+      maxWidth: 140,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    },
+    title: "Cluster: " + clusterNamen(vve.vve_identificatie)
+  }, clusterNamen(vve.vve_identificatie)), (typeof NEW_VVES !== 'undefined' && NEW_VVES.has(vve.vve_identificatie)) && /*#__PURE__*/React.createElement("span", {
     style: {
       flexShrink: 0,
       fontSize: 9,
@@ -3601,7 +3651,13 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     className: "py-1.5 text-pa-gray-500"
   }, "Woonadressen"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-800"
-  }, item.aantal_woon_adr_in_vve || 0)), (item.aantal_niet_woon_adr_in_vve || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
+  }, item.aantal_woon_adr_in_vve || 0)), item.typologie && /*#__PURE__*/React.createElement("tr", {
+    className: "border-b border-pa-gray-100"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-500"
+  }, "Typologie"), /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-800"
+  }, item.typologie)), (item.aantal_niet_woon_adr_in_vve || 0) > 0 && /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
@@ -3657,6 +3713,34 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
         });
       }
     }, "\u29C9"))));
+  })(), (() => {
+    var clusters = clustersVan(item.vve_identificatie);
+    if (!clusters.length) return null;
+    return /*#__PURE__*/React.createElement("tr", {
+      className: "border-t border-pa-gray-100"
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5 text-pa-gray-500 align-top"
+    }, clusters.length > 1 ? "Clusters" : "Cluster"), /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5"
+    }, clusters.map((c, i) => {
+      var url = clusterUrl(c);
+      var leden = (c.vves || []).filter(v => kortVveId(v) !== kortVveId(item.vve_identificatie));
+      return /*#__PURE__*/React.createElement("div", {
+        key: c.id || i,
+        className: i > 0 ? 'mt-1.5' : ''
+      }, url ? /*#__PURE__*/React.createElement("a", {
+        href: url,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        className: "text-pa-blue-500 hover:underline font-medium"
+      }, c.naam || c.id, " \u2197") : /*#__PURE__*/React.createElement("span", {
+        className: "font-medium"
+      }, c.naam || c.id), c.status ? /*#__PURE__*/React.createElement("span", {
+        className: "text-pa-gray-500"
+      }, " \u00B7 ", c.status) : null, /*#__PURE__*/React.createElement("div", {
+        className: "text-xs text-pa-gray-500 mt-0.5"
+      }, leden.length + (leden.length === 1 ? ' andere VvE' : ' andere VvE\u2019s'), c.toelichting ? ' \u00B7 ' + c.toelichting : ''));
+    })));
   })(), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr))), activeDetailTab === 'pand' && uniquePandIds.length > 0 && /*#__PURE__*/React.createElement("div", {className: "border-t border-pa-gray-200 pt-3"}, /*#__PURE__*/React.createElement("div", {className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"}, "Pand(en)"), /*#__PURE__*/React.createElement("div", {className: "flex flex-col gap-2"}, uniquePandIds.map((pandId) => /*#__PURE__*/React.createElement("a", {key: pandId, href: `https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${pandId}`, target: "_blank", rel: "noopener noreferrer", className: "font-mono text-pa-blue-500 hover:underline text-xs"}, pandId)))), activeDetailTab === 'dossier' && dossierVisible && enrichment && /*#__PURE__*/React.createElement("div", {
     className: "border-t border-pa-gray-200 pt-3"
   }, /*#__PURE__*/React.createElement("div", {
@@ -4858,6 +4942,10 @@ var App = () => {
     _useStateHs2 = _slicedToArray(_useStateHs, 2),
     selectedHoofdsplitsing = _useStateHs2[0],
     setSelectedHoofdsplitsing = _useStateHs2[1];
+  var _useStateCl = useState(new Set()),
+    _useStateCl2 = _slicedToArray(_useStateCl, 2),
+    selectedCluster = _useStateCl2[0],
+    setSelectedCluster = _useStateCl2[1];
   var _useStateHerk = useState(new Set()),
     _useStateHerk2 = _slicedToArray(_useStateHerk, 2),
     selectedHerkomst = _useStateHerk2[0],
@@ -5298,6 +5386,28 @@ var App = () => {
     label: 'Handmatig toegevoegd'
   }];
   var herkomstVan = item => item._handmatig ? 'handmatig' : 'data';
+  var typologieWaarden = useMemo(() => {
+    var set = new Set();
+    (typeof VVE_DATA !== 'undefined' ? VVE_DATA : []).forEach(r => {
+      if (r.typologie) set.add(r.typologie);
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, 'nl'));
+  }, []);
+  var _useStateTyp = useState(new Set()),
+    _useStateTyp2 = _slicedToArray(_useStateTyp, 2),
+    selectedTypologie = _useStateTyp2[0],
+    setSelectedTypologie = _useStateTyp2[1];
+  var clusterCategories = CLUSTERS.map(c => ({
+    key: c.id || c.naam,
+    label: c.naam || c.id
+  })).concat(CLUSTERS.length ? [{
+    key: '_geen',
+    label: 'Geen cluster'
+  }] : []);
+  var clusterKeysVan = item => {
+    var lijst = clustersVan(item.vve_identificatie).map(c => c.id || c.naam);
+    return lijst.length ? lijst : ['_geen'];
+  };
 
   // Eenheidtype categories
   var eenheidtypeCategories = [{
@@ -5400,6 +5510,14 @@ var App = () => {
       active: selectedHerkomst.size > 0,
       fn: item => selectedHerkomst.has(herkomstVan(item))
     },
+    cluster: {
+      active: selectedCluster.size > 0,
+      fn: item => clusterKeysVan(item).some(k => selectedCluster.has(k))
+    },
+    typologie: {
+      active: selectedTypologie.size > 0,
+      fn: item => selectedTypologie.has(item.typologie || '')
+    },
     eenheidtype: {
       active: selectedEenheidtype.size > 0,
       fn: item => selectedEenheidtype.has(getEenheidtypeKey(item.basiseenheidtype))
@@ -5482,7 +5600,7 @@ var App = () => {
       active: selectedGemLabel.size > 0,
       fn: item => selectedGemLabel.has(avgLabelByVve[item.vve_identificatie] || '')
     }
-  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedHerkomst, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
+  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedHerkomst, selectedCluster, selectedTypologie, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
 
   // Apply all filters except the excluded one(s)
   var applyFiltersExcept = useCallback((baseData, excludeKey) => {
@@ -5558,6 +5676,32 @@ var App = () => {
         var g = isGemengd(item);
         return cat.key === 'ja' ? g : !g;
       });
+      counts.addresses[cat.key] = filtered.length;
+      counts.vves[cat.key] = countUniqueVves(filtered);
+    });
+    return counts;
+  }, [searchFilteredData, applyFiltersExcept]);
+  var typologieFacetCounts = useMemo(() => {
+    var base = applyFiltersExcept(searchFilteredData, 'typologie');
+    var counts = {
+      addresses: {},
+      vves: {}
+    };
+    typologieWaarden.forEach(w => {
+      var filtered = base.filter(item => (item.typologie || '') === w);
+      counts.addresses[w] = filtered.length;
+      counts.vves[w] = countUniqueVves(filtered);
+    });
+    return counts;
+  }, [searchFilteredData, applyFiltersExcept, typologieWaarden]);
+  var clusterFacetCounts = useMemo(() => {
+    var base = applyFiltersExcept(searchFilteredData, 'cluster');
+    var counts = {
+      addresses: {},
+      vves: {}
+    };
+    clusterCategories.forEach(cat => {
+      var filtered = base.filter(item => clusterKeysVan(item).indexOf(cat.key) >= 0);
       counts.addresses[cat.key] = filtered.length;
       counts.vves[cat.key] = countUniqueVves(filtered);
     });
@@ -5873,6 +6017,8 @@ var App = () => {
     setSelectedGemengd(new Set());
     setSelectedHoofdsplitsing(new Set());
     setSelectedHerkomst(new Set());
+    setSelectedCluster(new Set());
+    setSelectedTypologie(new Set());
     setSelectedEenheidtype(new Set());
     setSelectedKvk(new Set());
     setSelectedWoz(new Set());
@@ -5997,7 +6143,7 @@ var App = () => {
     return function() { window.removeEventListener('message', handler); };
   }, []);
 
-  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedHerkomst.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
+  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedHerkomst.size > 0 || selectedCluster.size > 0 || selectedTypologie.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
 
   // Multi-user enrichment state
   var _useState95 = useState(() => localStorage.getItem('vve_dashboard_username') || ''),
@@ -6555,6 +6701,10 @@ var App = () => {
     if (selectedGemengd.has('ja')) parts.push('gemengd');
     if (selectedHoofdsplitsing.has('ja')) parts.push('hoofdsplitsing');
     if (selectedHerkomst.has('handmatig')) parts.push('handmatig');
+    if (selectedCluster.size === 1 && !selectedCluster.has('_geen')) {
+      var _cl = CLUSTERS.find(c => selectedCluster.has(c.id || c.naam));
+      if (_cl) parts.push(toSlug(_cl.naam || _cl.id));
+    }
     if (selectedWoz.has('boven')) parts.push('hoge-woz');
     if (selectedWoz.has('onder')) parts.push('lage-woz');
     if (selectedGespikkeld.has('ja')) parts.push('gespikkeld');
@@ -6563,16 +6713,60 @@ var App = () => {
     return parts.length > 0 ? parts.join('-') : 'alle-vves';
   };
 
+  // Cluster maken van de VvE's die nu gefilterd in beeld staan. De lijst wordt
+  // vastgelegd; een later gewijzigd filter verandert een bestaand cluster niet.
+  var maakClusterVanSelectie = () => {
+    var ids = groupedByVve.map(g => String(g.vve.vve_identificatie).replace(/^NL\.IMKAD\.Persoon\./, ''));
+    if (!ids.length) return;
+    var naam = prompt('Naam van het cluster (wordt ook de mapnaam):', '');
+    if (naam === null) return;
+    naam = naam.trim();
+    if (!naam) return;
+    if (/[\\/:*?"<>|]/.test(naam)) {
+      alert('Deze tekens mogen niet in een mapnaam: \\ / : * ? " < > |');
+      return;
+    }
+    if (CLUSTERS.some(c => (c.naam || '').toLowerCase() === naam.toLowerCase())) {
+      alert('Er is al een cluster met deze naam. Kies een andere naam.');
+      return;
+    }
+    var nummers = CLUSTERS.map(c => parseInt(String(c.id || '').replace(/\D/g, ''), 10)).filter(n => !isNaN(n));
+    var volgnr = (nummers.length ? Math.max(...nummers) : 0) + 1;
+    var cluster = {
+      id: 'CL-' + String(volgnr).padStart(4, '0'),
+      naam: naam,
+      vves: ids,
+      status: '',
+      toelichting: ''
+    };
+    CLUSTERS.push(cluster);
+    _clusterPerVve = null;
+    var tekst = '// vve_clusters.txt - clusters van VvE\u2019s die samen een proces ingaan\n'
+      + '// Gedownload vanuit het dashboard op ' + new Date().toLocaleString('nl-NL') + '.\n'
+      + '// Vervang hiermee het bestand naast vve_dashboard.html.\n\n'
+      + 'const VVE_CLUSTERS = ' + JSON.stringify(CLUSTERS, null, 2) + ';\n';
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([tekst], { type: 'text/plain;charset=utf-8' }));
+    a.download = 'vve_clusters.txt';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    alert('Cluster "' + naam + '" gemaakt met ' + ids.length + ' VvE\u2019s.\n\n'
+      + 'Het bestand vve_clusters.txt is gedownload. Zet het naast vve_dashboard.html,\n'
+      + 'en maak de clustermap aan met mappen_aanmaken.ps1.');
+  };
+
   // CSV Export functie
   var exportToCsv = useCallback(includeAddresses => {
     setShowCsvMenu(false);
     if (includeAddresses) {
       // Export alle adressen
-      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
+      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
       var rows = alleenMetVve(fullyFilteredData).map(item => {
         var warmte = getWarmteProg(item);
         var enr = getVveEnrichment(item.vve_identificatie);
-        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
+        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
         // nickname
         `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(item.basiseenheidtype || '').replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
       });
@@ -6588,7 +6782,7 @@ var App = () => {
       URL.revokeObjectURL(url);
     } else {
       // Export alleen VvE's (geaggregeerd)
-      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht'];
+      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'cluster', 'cluster_url', 'typologie', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht'];
       var _rows = groupedByVve.map(group => {
         var vve = group.vve;
         var addresses = group.addresses;
@@ -6600,7 +6794,7 @@ var App = () => {
         var avgEnergy = getAverageEnergyLabel(addresses);
         var warmte = getWarmteProg(vve);
         var enr = getVveEnrichment(vve.vve_identificatie);
-        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
+        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', `"${clusterNamen(vve.vve_identificatie)}"`, clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '', `"${vve.typologie || ''}"`, warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
         // nickname
         '', '', '', '', '', '', '', '',
         // adviestraject, 1_intake, bureau, procesbegeleider, 2_MWA, 3_verdieping, 4_uitvoering, notities
@@ -6664,6 +6858,18 @@ var App = () => {
         header: 'Dossiermap URL',
         key: 'dossiermap_url',
         width: 40
+      }, {
+        header: 'Cluster',
+        key: 'cluster',
+        width: 26
+      }, {
+        header: 'Cluster URL',
+        key: 'cluster_url',
+        width: 40
+      }, {
+        header: 'Typologie',
+        key: 'typologie',
+        width: 22
       }, {
         header: 'Tijdvak',
         key: 'warmteplan',
@@ -6812,7 +7018,7 @@ var App = () => {
       // Autofilter over alle kolommen
       ws.autoFilter = {
         from: 'A1',
-        to: 'AF1'
+        to: 'AI1'
       };
 
       // Invoerkolommen (1-based): nickname t/m beheerder
@@ -6864,7 +7070,10 @@ var App = () => {
           monument: vve.monumentale_status || '',
           beschermd: getBeschermdGezicht(vve.vve_identificatie) || '',
           dossiermap: getMapnaam(vve.vve_identificatie),
-          dossiermap_url: dossierUrl(vve.vve_identificatie) || ''
+          dossiermap_url: dossierUrl(vve.vve_identificatie) || '',
+          cluster: clusterNamen(vve.vve_identificatie),
+          cluster_url: clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '',
+          typologie: vve.typologie || ''
         });
         var _naamLen = (vve.statutairenaam || '').length;
         row.height = _naamLen > 45 ? 28 : 15;
@@ -6987,6 +7196,18 @@ var App = () => {
         header: 'Dossiermap URL',
         key: 'dossiermap_url',
         width: 40
+      }, {
+        header: 'Cluster',
+        key: 'cluster',
+        width: 26
+      }, {
+        header: 'Cluster URL',
+        key: 'cluster_url',
+        width: 40
+      }, {
+        header: 'Typologie',
+        key: 'typologie',
+        width: 22
       }, {
         header: 'KvK nummer',
         key: 'kvk',
@@ -7117,7 +7338,7 @@ var App = () => {
       });
       ws.autoFilter = {
         from: 'A1',
-        to: 'AB1'
+        to: 'AE1'
       };
 
       // Invoerkolom (1-based): nickname
@@ -7153,7 +7374,10 @@ var App = () => {
           warmteplan: warmte?.tijdvak || '',
           warmtevoorziening: (getWarmteProg(item) || {}).warmte || '',
           dossiermap: getMapnaam(item.vve_identificatie),
-          dossiermap_url: dossierUrl(item.vve_identificatie) || ''
+          dossiermap_url: dossierUrl(item.vve_identificatie) || '',
+          cluster: clusterNamen(item.vve_identificatie),
+          cluster_url: clusterUrl(clustersVan(item.vve_identificatie)[0]) || '',
+          typologie: item.typologie || ''
         });
         row.height = 15;
         var rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF5F3FF';
@@ -7577,7 +7801,32 @@ var App = () => {
       gap: 4,
       marginLeft: 'auto'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, groupedByVve.length > 0 && groupedByVve.length <= 250 && /*#__PURE__*/React.createElement("button", {
+    onClick: () => maakClusterVanSelectie(),
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      padding: '3px 8px',
+      border: '1px solid #d0d0d0',
+      background: 'white',
+      fontSize: 11,
+      cursor: 'pointer',
+      color: '#404040',
+      whiteSpace: 'nowrap'
+    },
+    title: "Maak een cluster van de VvE's die nu in beeld zijn"
+  }, /*#__PURE__*/React.createElement("svg", {
+    style: { width: 12, height: 12 },
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    d: "M4 7h7M4 12h7M4 17h7M15 5l5 7-5 7"
+  })), "Cluster maken"), /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
@@ -8774,6 +9023,42 @@ var App = () => {
     count: showVveCounts ? herkomstFacetCounts.vves[cat.key] || 0 : herkomstFacetCounts.addresses[cat.key] || 0,
     active: selectedHerkomst.has(cat.key),
     onClick: () => toggleSelection(setSelectedHerkomst, cat.key)
+  }))), clusterCategories.length > 0 && /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Cluster",
+    activeCount: selectedCluster.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle VvE's",
+    count: showVveCounts ? sumFacet(clusterFacetCounts).vves : sumFacet(clusterFacetCounts).addresses,
+    active: selectedCluster.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedCluster(new Set());
+      setDisplayCount(50);
+    }
+  }), clusterCategories.map(cat => /*#__PURE__*/React.createElement(FacetOption, {
+    key: cat.key,
+    label: cat.label,
+    count: showVveCounts ? clusterFacetCounts.vves[cat.key] || 0 : clusterFacetCounts.addresses[cat.key] || 0,
+    active: selectedCluster.has(cat.key),
+    onClick: () => toggleSelection(setSelectedCluster, cat.key)
+  }))), typologieWaarden.length > 0 && /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Typologie",
+    activeCount: selectedTypologie.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle types",
+    count: showVveCounts ? sumFacet(typologieFacetCounts).vves : sumFacet(typologieFacetCounts).addresses,
+    active: selectedTypologie.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedTypologie(new Set());
+      setDisplayCount(50);
+    }
+  }), typologieWaarden.map(w => /*#__PURE__*/React.createElement(FacetOption, {
+    key: w,
+    label: w,
+    count: showVveCounts ? typologieFacetCounts.vves[w] || 0 : typologieFacetCounts.addresses[w] || 0,
+    active: selectedTypologie.has(w),
+    onClick: () => toggleSelection(setSelectedTypologie, w)
   }))), /*#__PURE__*/React.createElement(FacetSection, {
     title: "Eenheidtype",
     activeCount: selectedEenheidtype.size
@@ -9304,6 +9589,42 @@ var App = () => {
     count: showVveCounts ? herkomstFacetCounts.vves[category.key] || 0 : herkomstFacetCounts.addresses[category.key] || 0,
     active: selectedHerkomst.has(category.key),
     onClick: () => toggleSelection(setSelectedHerkomst, category.key)
+  }))), clusterCategories.length > 0 && /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Cluster",
+    activeCount: selectedCluster.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle VvE's",
+    count: showVveCounts ? sumFacet(clusterFacetCounts).vves : sumFacet(clusterFacetCounts).addresses,
+    active: selectedCluster.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedCluster(new Set());
+      setDisplayCount(50);
+    }
+  }), clusterCategories.map(category => /*#__PURE__*/React.createElement(FacetOption, {
+    key: category.key,
+    label: category.label,
+    count: showVveCounts ? clusterFacetCounts.vves[category.key] || 0 : clusterFacetCounts.addresses[category.key] || 0,
+    active: selectedCluster.has(category.key),
+    onClick: () => toggleSelection(setSelectedCluster, category.key)
+  }))), typologieWaarden.length > 0 && /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Typologie",
+    activeCount: selectedTypologie.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle types",
+    count: showVveCounts ? sumFacet(typologieFacetCounts).vves : sumFacet(typologieFacetCounts).addresses,
+    active: selectedTypologie.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedTypologie(new Set());
+      setDisplayCount(50);
+    }
+  }), typologieWaarden.map(w => /*#__PURE__*/React.createElement(FacetOption, {
+    key: w,
+    label: w,
+    count: showVveCounts ? typologieFacetCounts.vves[w] || 0 : typologieFacetCounts.addresses[w] || 0,
+    active: selectedTypologie.has(w),
+    onClick: () => toggleSelection(setSelectedTypologie, w)
   }))), /*#__PURE__*/React.createElement(FacetSection, {
     title: "Eenheidtype",
     activeCount: selectedEenheidtype.size
