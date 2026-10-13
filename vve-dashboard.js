@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 24;
+var APP_BUILD = 25;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -713,6 +713,11 @@ var adresTelling = vve => {
   return t;
 };
 // Zet de mapnaam in de Excel-export om in een klikbare link naar de dossiermap.
+// Adressen die bij geen enkele VvE horen (trafo's, technische ruimtes, losse
+// bedrijfsunits) laten we uit de exports weg; daar valt niets mee te doen.
+var alleenMetVve = function (rijen) {
+  return rijen.filter(function (r) { return !!r.vve_identificatie; });
+};
 var maakMapLink = function (row) {
   try {
     var cel = row.getCell('dossiermap');
@@ -6459,7 +6464,7 @@ var App = () => {
     if (includeAddresses) {
       // Export alle adressen
       var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
-      var rows = fullyFilteredData.map(item => {
+      var rows = alleenMetVve(fullyFilteredData).map(item => {
         var warmte = getWarmteProg(item);
         var enr = getVveEnrichment(item.vve_identificatie);
         return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
@@ -7012,7 +7017,7 @@ var App = () => {
 
       // Invoerkolom (1-based): nickname
       var adresInputCols = new Set([6]);
-      fullyFilteredData.forEach((item, idx) => {
+      alleenMetVve(fullyFilteredData).forEach((item, idx) => {
         var warmte = getWarmteProg(item);
         var enr = getVveEnrichment(item.vve_identificatie);
         var row = ws.addRow({
