@@ -656,7 +656,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 23;
+var APP_BUILD = 24;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -6458,13 +6458,13 @@ var App = () => {
     setShowCsvMenu(false);
     if (includeAddresses) {
       // Export alle adressen
-      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening', 'dossiermap', 'dossiermap_url'];
+      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
       var rows = fullyFilteredData.map(item => {
         var warmte = getWarmteProg(item);
         var enr = getVveEnrichment(item.vve_identificatie);
-        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
+        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
         // nickname
-        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(item.basiseenheidtype || '').replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || '', `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || ''];
+        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(item.basiseenheidtype || '').replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
       });
       var csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
       var blob = new Blob(['\ufeff' + csvContent], {
@@ -6478,7 +6478,7 @@ var App = () => {
       URL.revokeObjectURL(url);
     } else {
       // Export alleen VvE's (geaggregeerd)
-      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'dossiermap', 'dossiermap_url'];
+      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht'];
       var _rows = groupedByVve.map(group => {
         var vve = group.vve;
         var addresses = group.addresses;
@@ -6490,11 +6490,11 @@ var App = () => {
         var avgEnergy = getAverageEnergyLabel(addresses);
         var warmte = getWarmteProg(vve);
         var enr = getVveEnrichment(vve.vve_identificatie);
-        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
+        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
         // nickname
         '', '', '', '', '', '', '', '',
         // adviestraject, 1_intake, bureau, procesbegeleider, 2_MWA, 3_verdieping, 4_uitvoering, notities
-        addresses.length, `"${(vve.straatnaam || '').replace(/"/g, '""')}"`, lowestNum, highestNum, vve.postcode || '', `"${(vve.buurt || '').replace(/"/g, '""')}"`, `"${(vve.wijk || '').replace(/"/g, '""')}"`, `"${(vve.stadsdeel || '').replace(/"/g, '""')}"`, vve.bouwjaar_gerelateerd_pand || '', avgWoz, avgEnergy, `"${(vve.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(vve.vve_identificatie) || '', `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || ''];
+        addresses.length, `"${(vve.straatnaam || '').replace(/"/g, '""')}"`, lowestNum, highestNum, vve.postcode || '', `"${(vve.buurt || '').replace(/"/g, '""')}"`, `"${(vve.wijk || '').replace(/"/g, '""')}"`, `"${(vve.stadsdeel || '').replace(/"/g, '""')}"`, vve.bouwjaar_gerelateerd_pand || '', avgWoz, avgEnergy, `"${(vve.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(vve.vve_identificatie) || ''];
       });
       var _csvContent = [_headers.join(';'), ..._rows.map(r => r.join(';'))].join('\n');
       var _blob = new Blob(['\ufeff' + _csvContent], {
@@ -6546,6 +6546,14 @@ var App = () => {
         header: 'VvE naam',
         key: 'naam',
         width: 45
+      }, {
+        header: 'Dossiermap',
+        key: 'dossiermap',
+        width: 34
+      }, {
+        header: 'Dossiermap URL',
+        key: 'dossiermap_url',
+        width: 40
       }, {
         header: 'Tijdvak',
         key: 'warmteplan',
@@ -6654,14 +6662,7 @@ var App = () => {
         header: 'Beschermd stadsgezicht',
         key: 'beschermd',
         width: 24
-      }, {
-        header: 'Dossiermap',
-        key: 'dossiermap',
-        width: 34
-      }, {
-        header: 'Dossiermap URL',
-        key: 'dossiermap_url',
-        width: 40
+
       }];
 
       // Stijl headerrij
@@ -6869,6 +6870,14 @@ var App = () => {
         key: 'naam',
         width: 40
       }, {
+        header: 'Dossiermap',
+        key: 'dossiermap',
+        width: 34
+      }, {
+        header: 'Dossiermap URL',
+        key: 'dossiermap_url',
+        width: 40
+      }, {
         header: 'KvK nummer',
         key: 'kvk',
         width: 14
@@ -6960,14 +6969,7 @@ var App = () => {
         header: 'Warmte',
         key: 'warmtevoorziening',
         width: 22
-      }, {
-        header: 'Dossiermap',
-        key: 'dossiermap',
-        width: 34
-      }, {
-        header: 'Dossiermap URL',
-        key: 'dossiermap_url',
-        width: 40
+
       }];
 
       // Stijl headerrij
