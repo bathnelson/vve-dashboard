@@ -689,7 +689,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 29;
+var APP_BUILD = 30;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -6713,50 +6713,6 @@ var App = () => {
     return parts.length > 0 ? parts.join('-') : 'alle-vves';
   };
 
-  // Cluster maken van de VvE's die nu gefilterd in beeld staan. De lijst wordt
-  // vastgelegd; een later gewijzigd filter verandert een bestaand cluster niet.
-  var maakClusterVanSelectie = () => {
-    var ids = groupedByVve.map(g => String(g.vve.vve_identificatie).replace(/^NL\.IMKAD\.Persoon\./, ''));
-    if (!ids.length) return;
-    var naam = prompt('Naam van het cluster (wordt ook de mapnaam):', '');
-    if (naam === null) return;
-    naam = naam.trim();
-    if (!naam) return;
-    if (/[\\/:*?"<>|]/.test(naam)) {
-      alert('Deze tekens mogen niet in een mapnaam: \\ / : * ? " < > |');
-      return;
-    }
-    if (CLUSTERS.some(c => (c.naam || '').toLowerCase() === naam.toLowerCase())) {
-      alert('Er is al een cluster met deze naam. Kies een andere naam.');
-      return;
-    }
-    var nummers = CLUSTERS.map(c => parseInt(String(c.id || '').replace(/\D/g, ''), 10)).filter(n => !isNaN(n));
-    var volgnr = (nummers.length ? Math.max(...nummers) : 0) + 1;
-    var cluster = {
-      id: 'CL-' + String(volgnr).padStart(4, '0'),
-      naam: naam,
-      vves: ids,
-      status: '',
-      toelichting: ''
-    };
-    CLUSTERS.push(cluster);
-    _clusterPerVve = null;
-    var tekst = '// vve_clusters.txt - clusters van VvE\u2019s die samen een proces ingaan\n'
-      + '// Gedownload vanuit het dashboard op ' + new Date().toLocaleString('nl-NL') + '.\n'
-      + '// Vervang hiermee het bestand naast vve_dashboard.html.\n\n'
-      + 'const VVE_CLUSTERS = ' + JSON.stringify(CLUSTERS, null, 2) + ';\n';
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([tekst], { type: 'text/plain;charset=utf-8' }));
-    a.download = 'vve_clusters.txt';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    alert('Cluster "' + naam + '" gemaakt met ' + ids.length + ' VvE\u2019s.\n\n'
-      + 'Het bestand vve_clusters.txt is gedownload. Zet het naast vve_dashboard.html,\n'
-      + 'en maak de clustermap aan met mappen_aanmaken.ps1.');
-  };
-
   // CSV Export functie
   var exportToCsv = useCallback(includeAddresses => {
     setShowCsvMenu(false);
@@ -7801,32 +7757,7 @@ var App = () => {
       gap: 4,
       marginLeft: 'auto'
     }
-  }, groupedByVve.length > 0 && groupedByVve.length <= 250 && /*#__PURE__*/React.createElement("button", {
-    onClick: () => maakClusterVanSelectie(),
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 4,
-      padding: '3px 8px',
-      border: '1px solid #d0d0d0',
-      background: 'white',
-      fontSize: 11,
-      cursor: 'pointer',
-      color: '#404040',
-      whiteSpace: 'nowrap'
-    },
-    title: "Maak een cluster van de VvE's die nu in beeld zijn"
-  }, /*#__PURE__*/React.createElement("svg", {
-    style: { width: 12, height: 12 },
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    d: "M4 7h7M4 12h7M4 17h7M15 5l5 7-5 7"
-  })), "Cluster maken"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
