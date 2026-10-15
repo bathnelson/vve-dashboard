@@ -279,28 +279,10 @@
   // De WFS zet het warmteprogramma in een samengesteld veld: 'MT, vve, erfgoed'.
   // Het dashboard verwacht alleen de soort ('MT') plus een losse erfgoed-vlag,
   // net zoals pandid_warmteprogramma.js die altijd aanleverde.
-  // Warmte en tijdvak gaan als index het bestand in; dat scheelt ruim een derde
-  // aan omvang, en zo hoef je elke ronde minder door de firewall te halen.
-  // Een eerder opgehaald bestand kan de lijstjes hebben uitgebreid met een
-  // tijdvak dat wij nog niet kenden; dan gelden die, anders zouden de indexen
-  // in het bestaande BRON_HAARLEM niet meer kloppen.
-  var BRON_SOORT = (typeof BRON_WARMTE_SOORT !== 'undefined' && BRON_WARMTE_SOORT.length)
-    ? BRON_WARMTE_SOORT.slice() : ['MT', 'Individueel', 'ZLT', 'Onderzoek'];
-  var BRON_TIJD = (typeof BRON_TIJDVAK !== 'undefined' && BRON_TIJDVAK.length)
-    ? BRON_TIJDVAK.slice() : ['tussen nu en 2027', 'tussen 2028 en 2030', 'tussen 2030 en 2035', 'na 2034'];
-
-  function warmteIndex(v) {
+  function warmteSoort(v) {
     if (leeg(v)) return null;
     var eerste = String(v).split(',')[0].trim();
-    var i = BRON_SOORT.indexOf(eerste);
-    return i === -1 ? null : i;
-  }
-  function tijdvakIndex(v) {
-    if (leeg(v)) return null;
-    var w = String(v).trim();
-    var i = BRON_TIJD.indexOf(w);
-    if (i === -1) { BRON_TIJD.push(w); i = BRON_TIJD.length - 1; }
-    return i;
+    return (eerste === '' || eerste === 'nvt') ? null : eerste;
   }
 
   async function haalBronOp() {
@@ -339,25 +321,12 @@
             label: leeg(p.energielabel) ? null : p.energielabel,
             mon: leeg(p.monumentale_status) ? null : p.monumentale_status,
             besch: leeg(p.binnen_beschermd_gezicht) ? null : p.binnen_beschermd_gezicht,
-            w: warmteIndex(p.warmteprogramma),
-            t: tijdvakIndex(p.warmteprogramma_tijdvak),
+            warmte: warmteSoort(p.warmteprogramma),
+            tijdvak: leeg(p.warmteprogramma_tijdvak) ? null : p.warmteprogramma_tijdvak,
             erf: (p.warmteprogramma && String(p.warmteprogramma).indexOf('erfgoed') !== -1) ? 1 : null,
             opp: p.oppervlakte || null,
             bj: p.bouwjaar_gerelateerd_pand || null
           };
-        });
-        // Velden die precies gelijk zijn aan vve_data.js laten we weg: het
-        // dashboard zou er zijn eigen waarde mee overschrijven, en het bestand
-        // blijft zo klein genoeg om elke ronde opnieuw te downloaden.
-        Object.keys(nieuw).forEach(function (vo) {
-          var r = RIJ_OP_VBO[vo]; if (!r) return;
-          var rec = nieuw[vo];
-          [['label', 'energielabel'], ['mon', 'monumentale_status'],
-           ['opp', 'oppervlakte'], ['bj', 'bouwjaar_gerelateerd_pand']].forEach(function (paar) {
-            var nw = rec[paar[0]];
-            if (nw != null && String(r[paar[1]] == null ? '' : r[paar[1]]).trim() === String(nw).trim()) rec[paar[0]] = null;
-          });
-          Object.keys(rec).forEach(function (k) { if (rec[k] == null) delete rec[k]; });
         });
         bronGedaan += (d.features || []).length;
         teken();
@@ -389,10 +358,9 @@
       // Zonder pandid_warmteprogramma.js valt er niets te vergelijken; dan
       // zou elk adres als afwijkend tellen en dat zegt niets.
       if (!kanWarmteVergelijken) return;
-      var nieuweSoort = (b.w != null) ? BRON_SOORT[b.w] : null;
       var huidig = r.gerelateerd_pand_id
         ? getWarmteprogramma(String(r.gerelateerd_pand_id).split(',')[0].trim()) : null;
-      if (nieuweSoort && (!huidig || huidig.warmte !== nieuweSoort)) uit.warmte++;
+      if (b.warmte && (!huidig || huidig.warmte !== b.warmte)) uit.warmte++;
     });
     return uit;
   }
@@ -404,13 +372,14 @@
       + Object.keys(bron).length + ' adressen.\n'
       + '//\n'
       + '// Per verblijfsobject-ID:\n'
-      + '//   na    nummeraanduiding-ID (nodig voor de WOZ)\n'
-      + '//   w     index in BRON_WARMTE_SOORT, t index in BRON_TIJDVAK\n'
-      + '//   erf   1 als het warmteprogramma erfgoed meldt\n'
-      + '//   besch binnen beschermd gezicht\n'
-      + '//   label, mon, opp, bj  alleen als ze afwijken van vve_data.js\n'
-      + 'const BRON_WARMTE_SOORT = ' + JSON.stringify(BRON_SOORT) + ';\n'
-      + 'const BRON_TIJDVAK = ' + JSON.stringify(BRON_TIJD) + ';\n'
+      + '//   na      nummeraanduiding-ID (nodig voor de WOZ)\n'
+      + '//   label   energielabel          mon    monumentale status\n'
+      + '//   besch   binnen beschermd gezicht\n'
+      + '//   warmte  warmteprogramma       tijdvak\n'
+      + '//   erf     1 als het warmteprogramma erfgoed meldt\n'
+      + '//   opp     oppervlakte           bj     bouwjaar van het pand\n'
+      + '//\n'
+      + '// Het dashboard zet deze waarden over die uit vve_data.js heen.\n'
       + 'const BRON_HAARLEM = ' + JSON.stringify(bron) + ';\n';
     download('bron_haarlem.inc', tekst);
     try { localStorage.removeItem(OPSLAG_BRON); } catch (e) {}
