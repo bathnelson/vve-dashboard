@@ -510,7 +510,9 @@
                 if (b.bj) item.bouwjaar_gerelateerd_pand = b.bj;
                 if (b.na) item.nummeraanduiding_id = b.na;
                 if (b.besch) item.binnen_beschermd_gezicht = b.besch;
-                if (b.erfpacht) item.erfpacht = 1;
+                // Expliciet 0 als de bron dit adres kent maar geen erfpacht
+                // meldt; blijft het veld leeg, dan wéten we het niet.
+                item.erfpacht = b.erfpacht ? 1 : 0;
                 if (b.warmte) {
                     BRON_WARMTE[String(item.verblijfsobject_id)] = {
                         warmte: b.warmte,
@@ -722,7 +724,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 37;
+var APP_BUILD = 38;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -3215,6 +3217,10 @@ var DetailPanel = ({
       woningtypen: woningtypen || '-',
       monumentStatus: getMonumentLabel(item.monumentale_status) || '-',
       beschermd: getBeschermdGezicht(item.vve_identificatie) || '-',
+      // Zonder bron_haarlem.inc weten we het niet; dan is 'Eigen grond' een
+      // bewering die we niet kunnen waarmaken.
+      erfpacht: vveAddresses.some(a => a.erfpacht === 1) ? 'Erfpacht'
+        : (vveAddresses.some(a => a.erfpacht === 0) ? 'Eigen grond' : '-'),
       gespikkeldEntry: gespikkeldLookup[item.vve_identificatie] || null,
       wijkwarmteplan: warmte?.tijdvak || '-',
       warmtevoorziening: (getWarmteProg(item) || {}).warmte || '-'
@@ -3268,6 +3274,7 @@ var DetailPanel = ({
 <tr style="background-color:#f9fafb;"><td style="border:1px solid #ccc;font-weight:bold;">Woningtypen</td><td style="border:1px solid #ccc;">${vveSummary.woningtypen}</td></tr>
 <tr><td style="border:1px solid #ccc;font-weight:bold;">Monument</td><td style="border:1px solid #ccc;">${vveSummary.monumentStatus}</td></tr>
 <tr style="background-color:#f9fafb;"><td style="border:1px solid #ccc;font-weight:bold;">Beschermd stadsgezicht</td><td style="border:1px solid #ccc;">${beschermdStr}</td></tr>
+<tr><td style="border:1px solid #ccc;font-weight:bold;">Grond</td><td style="border:1px solid #ccc;">${vveSummary.erfpacht}</td></tr>
 <tr><td style="border:1px solid #ccc;font-weight:bold;">Gespikkeld</td><td style="border:1px solid #ccc;">${gespikkeldStr}</td></tr>
 <tr style="background-color:#f9fafb;"><td style="border:1px solid #ccc;font-weight:bold;">Corporatiewoningen</td><td style="border:1px solid #ccc;">${corpStr}</td></tr>
 <tr><td style="border:1px solid #ccc;font-weight:bold;">Tijdvak</td><td style="border:1px solid #ccc;">${vveSummary.wijkwarmteplan}</td></tr>
@@ -3302,6 +3309,7 @@ Label laag/hoog\t${vveSummary.labelRange}
 Woningtypen\t${vveSummary.woningtypen}
 Monument\t${vveSummary.monumentStatus}
 Beschermd stadsgezicht\t${beschermdStr}
+Grond\t${vveSummary.erfpacht}
 Gespikkeld\t${gespikkeldStr}
 Corporatiewoningen\t${corpStr}
 Tijdvak\t${vveSummary.wijkwarmteplan}
@@ -3830,7 +3838,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
         className: "text-xs text-pa-gray-500 mt-0.5"
       }, leden.length + (leden.length === 1 ? ' andere VvE' : ' andere VvE\u2019s'), c.toelichting ? ' \u00B7 ' + c.toelichting : ''));
     })));
-  })(), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr))), activeDetailTab === 'pand' && uniquePandIds.length > 0 && /*#__PURE__*/React.createElement("div", {className: "border-t border-pa-gray-200 pt-3"}, /*#__PURE__*/React.createElement("div", {className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"}, "Pand(en)"), /*#__PURE__*/React.createElement("div", {className: "flex flex-col gap-2"}, uniquePandIds.map((pandId) => /*#__PURE__*/React.createElement("a", {key: pandId, href: `https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${pandId}`, target: "_blank", rel: "noopener noreferrer", className: "font-mono text-pa-blue-500 hover:underline text-xs"}, pandId)))), activeDetailTab === 'dossier' && dossierVisible && enrichment && /*#__PURE__*/React.createElement("div", {
+  })(), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr)), vveSummary.erfpacht !== '-' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Erfpacht"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, vveSummary.erfpacht === 'Erfpacht' ? 'Ja' : 'Nee'))), activeDetailTab === 'pand' && uniquePandIds.length > 0 && /*#__PURE__*/React.createElement("div", {className: "border-t border-pa-gray-200 pt-3"}, /*#__PURE__*/React.createElement("div", {className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"}, "Pand(en)"), /*#__PURE__*/React.createElement("div", {className: "flex flex-col gap-2"}, uniquePandIds.map((pandId) => /*#__PURE__*/React.createElement("a", {key: pandId, href: `https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${pandId}`, target: "_blank", rel: "noopener noreferrer", className: "font-mono text-pa-blue-500 hover:underline text-xs"}, pandId)))), activeDetailTab === 'dossier' && dossierVisible && enrichment && /*#__PURE__*/React.createElement("div", {
     className: "border-t border-pa-gray-200 pt-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"
@@ -4079,6 +4087,12 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
   }, "Beschermd stadsgezicht"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-800"
   }, vveSummary.beschermd !== '-' ? `Ja (${vveSummary.beschermd})` : 'Nee')), /*#__PURE__*/React.createElement("tr", {
+    className: "border-b border-pa-gray-200"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-500"
+  }, "Grond"), /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-800"
+  }, vveSummary.erfpacht)), /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-200"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
@@ -5011,6 +5025,9 @@ var App = () => {
     _useState46 = _slicedToArray(_useState45, 2),
     selectedBeschermd = _useState46[0],
     setSelectedBeschermd = _useState46[1];
+  var _erfpachtState = useState(new Set()),
+    selectedErfpacht = _erfpachtState[0],
+    setSelectedErfpacht = _erfpachtState[1];
   var _useState47 = useState(new Set()),
     _useState48 = _slicedToArray(_useState47, 2),
     selectedKvk = _useState48[0],
@@ -5261,6 +5278,18 @@ var App = () => {
     key: 'nee',
     label: 'Niet beschermd'
   }];
+  // Erfpacht komt uit de brondata van de gemeente (thema_brk); 82 VvE's staan
+  // er volledig op, gedeeltelijk komt niet voor.
+  var erfpachtCategories = [{
+    key: 'ja',
+    label: 'Erfpacht'
+  }, {
+    key: 'nee',
+    label: 'Eigen grond'
+  }, {
+    key: 'onbekend',
+    label: 'Onbekend'
+  }];
   var tijdvakCategories = [{
     key: 'tussen nu en 2027',
     label: 'Tussen nu en 2027'
@@ -5333,6 +5362,10 @@ var App = () => {
     return 'geen';
   };
   var getBeschermdKey = vveId => getBeschermdGezicht(vveId) ? 'ja' : 'nee';
+  var getErfpachtKey = item => {
+    if (!item || item.erfpacht == null) return 'onbekend';
+    return item.erfpacht ? 'ja' : 'nee';
+  };
 
   // Gespikkeld categories
   var gespikkeldCategories = [{
@@ -5641,6 +5674,10 @@ var App = () => {
       active: selectedBeschermd.size > 0,
       fn: item => selectedBeschermd.has(getBeschermdKey(item.vve_identificatie))
     },
+    erfpacht: {
+      active: selectedErfpacht.size > 0,
+      fn: item => selectedErfpacht.has(getErfpachtKey(item))
+    },
     woz: {
       active: selectedWoz.size > 0,
       fn: item => selectedWoz.has(getWozKey(getActiveWoz(item)))
@@ -5689,7 +5726,7 @@ var App = () => {
       active: selectedGemLabel.size > 0,
       fn: item => selectedGemLabel.has(avgLabelByVve[item.vve_identificatie] || '')
     }
-  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedHerkomst, selectedCluster, selectedTypologie, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
+  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedHerkomst, selectedCluster, selectedTypologie, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedErfpacht, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
 
   // Apply all filters except the excluded one(s)
   var applyFiltersExcept = useCallback((baseData, excludeKey) => {
@@ -5919,6 +5956,19 @@ var App = () => {
     });
     return counts;
   }, [searchFilteredData, applyFiltersExcept]);
+  var erfpachtFacetCounts = useMemo(() => {
+    var base = applyFiltersExcept(searchFilteredData, 'erfpacht');
+    var counts = {
+      addresses: {},
+      vves: {}
+    };
+    erfpachtCategories.forEach(cat => {
+      var filtered = base.filter(item => getErfpachtKey(item) === cat.key);
+      counts.addresses[cat.key] = filtered.length;
+      counts.vves[cat.key] = countUniqueVves(filtered);
+    });
+    return counts;
+  }, [searchFilteredData, applyFiltersExcept]);
   var wozFacetCounts = useMemo(() => {
     var base = applyFiltersExcept(searchFilteredData, 'woz');
     var counts = {
@@ -6101,6 +6151,7 @@ var App = () => {
     setSelectedBuurt(new Set());
     setSelectedMonument(new Set());
     setSelectedBeschermd(new Set());
+    setSelectedErfpacht(new Set());
     setSelectedTijdvak(new Set());
     setSelectedWarmte(new Set());
     setSelectedGemengd(new Set());
@@ -6232,7 +6283,7 @@ var App = () => {
     return function() { window.removeEventListener('message', handler); };
   }, []);
 
-  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedHerkomst.size > 0 || selectedCluster.size > 0 || selectedTypologie.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
+  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedErfpacht.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedHerkomst.size > 0 || selectedCluster.size > 0 || selectedTypologie.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
 
   // Multi-user enrichment state
   var _useState95 = useState(() => localStorage.getItem('vve_dashboard_username') || ''),
@@ -9209,6 +9260,24 @@ var App = () => {
     active: selectedBeschermd.has(cat.key),
     onClick: () => toggleSelection(setSelectedBeschermd, cat.key)
   }))), /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Grond",
+    activeCount: selectedErfpacht.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle",
+    count: showVveCounts ? sumFacet(erfpachtFacetCounts).vves : sumFacet(erfpachtFacetCounts).addresses,
+    active: selectedErfpacht.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedErfpacht(new Set());
+      setDisplayCount(50);
+    }
+  }), erfpachtCategories.map(cat => /*#__PURE__*/React.createElement(FacetOption, {
+    key: cat.key,
+    label: cat.label,
+    count: showVveCounts ? erfpachtFacetCounts.vves[cat.key] || 0 : erfpachtFacetCounts.addresses[cat.key] || 0,
+    active: selectedErfpacht.has(cat.key),
+    onClick: () => toggleSelection(setSelectedErfpacht, cat.key)
+  }))), /*#__PURE__*/React.createElement(FacetSection, {
     title: "WOZ-waarde",
     activeCount: selectedWoz.size
   }, /*#__PURE__*/React.createElement(FacetOption, {
@@ -9774,6 +9843,24 @@ var App = () => {
     count: showVveCounts ? beschermdFacetCounts.vves[category.key] || 0 : beschermdFacetCounts.addresses[category.key] || 0,
     active: selectedBeschermd.has(category.key),
     onClick: () => toggleSelection(setSelectedBeschermd, category.key)
+  }))), /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Grond",
+    activeCount: selectedErfpacht.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle",
+    count: showVveCounts ? sumFacet(erfpachtFacetCounts).vves : sumFacet(erfpachtFacetCounts).addresses,
+    active: selectedErfpacht.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedErfpacht(new Set());
+      setDisplayCount(50);
+    }
+  }), erfpachtCategories.map(category => /*#__PURE__*/React.createElement(FacetOption, {
+    key: category.key,
+    label: category.label,
+    count: showVveCounts ? erfpachtFacetCounts.vves[category.key] || 0 : erfpachtFacetCounts.addresses[category.key] || 0,
+    active: selectedErfpacht.has(category.key),
+    onClick: () => toggleSelection(setSelectedErfpacht, category.key)
   }))), /*#__PURE__*/React.createElement(FacetSection, {
     title: "WOZ-waarde",
     activeCount: selectedWoz.size
