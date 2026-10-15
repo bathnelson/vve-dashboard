@@ -689,7 +689,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 32;
+var APP_BUILD = 33;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -1153,6 +1153,24 @@ var getGrootteLabel = aantal => {
 };
 
 // Bepaal of een VBO een woonfunctie heeft (energielabel is alleen relevant voor woonunits)
+// Footprint van een VvE: het grondvlak van haar panden uit de 3D BAG. Alleen als
+// van alle panden het grondvlak bekend is; een schatting uit de adresoppervlaktes
+// zou alleen de begane-grondeenheden tellen (een berging van 6 m2 onder een
+// woning van 97 m2 geeft dan 6 m2, terwijl het pand 113 m2 beslaat).
+var berekenFootprint = function (g) {
+  var panden = [...new Set(g.addresses.flatMap(function (a) {
+    return String(a.gerelateerd_pand_id || '').split(/[^0-9]+/).filter(function (x) { return x.length === 16; });
+  }))];
+  if (!panden.length) return null;
+  var vlakken = panden.map(pandGrondvlak);
+  if (!vlakken.every(function (v) { return v > 0; })) return null;
+  return {
+    vve: g.vve,
+    footprint: Math.round(vlakken.reduce(function (s, v) { return s + v; }, 0)),
+    detail: panden.length + (panden.length === 1 ? ' pand' : ' panden') + ' \u00b7 3D BAG'
+  };
+};
+
 // Grondvlak van een pand uit de 3D BAG (pand_hoogte_data.js, veld 'grond').
 var pandGrondvlak = pandId => {
   if (typeof PAND_HOOGTE_DATA === 'undefined') return 0;
@@ -2165,19 +2183,8 @@ var StatistiekenView = ({
     })[0];
     var kleinsteWoning = allAddrs.filter(function(a) { return isWoonunit(a) && a.oppervlakte > 0; })
       .sort(function(a, b) { return a.oppervlakte - b.oppervlakte; })[0];
-    var footprints = groups.map(function(g) {
-      var panden = [...new Set(g.addresses.flatMap(function(a) {
-        return String(a.gerelateerd_pand_id || '').split(/[^0-9]+/).filter(function(x) { return x.length === 16; });
-      }))];
-      var uitBag = panden.map(pandGrondvlak);
-      if (panden.length && uitBag.every(function(v) { return v > 0; })) {
-        return { vve: g.vve, footprint: Math.round(uitBag.reduce(function(s, v) { return s + v; }, 0)),
-                 bron: '3D BAG', detail: panden.length + (panden.length === 1 ? ' pand' : ' panden') };
-      }
-      var bg = g.addresses.filter(function(a) { return a.laagste_bouwlaag === 1 && a.oppervlakte > 0; });
-      return { vve: g.vve, footprint: Math.round(bg.reduce(function(s, a) { return s + a.oppervlakte; }, 0)),
-               bron: 'schatting', detail: bg.length + (bg.length === 1 ? ' eenheid' : ' eenheden') + ' op de begane grond' };
-    }).filter(function(g) { return g.footprint > 0; }).sort(function(a, b) { return a.footprint - b.footprint; });
+    var footprints = groups.map(berekenFootprint).filter(Boolean)
+      .sort(function(a, b) { return a.footprint - b.footprint; });
     var fmt = function(n) { return n ? '€ ' + Math.round(n).toLocaleString('nl-NL') : '-'; };
     var vveNm = function(v) { return v.statutairenaam || v.vve_identificatie || '?'; };
     var addrStr = function(a) { return (a.straatnaam || '') + ' ' + (a.huisnummer || '') + ', ' + (a.postcode || ''); };
@@ -2195,8 +2202,8 @@ var StatistiekenView = ({
       vvesMetWoz.length && {label:'Laagste gem. WOZ per VvE', main:fmt(vvesMetWoz[vvesMetWoz.length-1].avgWoz), sub:vveNm(vvesMetWoz[vvesMetWoz.length-1].vve), item:vvesMetWoz[vvesMetWoz.length-1].vve},
       metKvk.length && {label:'Laagste KvK-nummer', main:metKvk[0].vve.kvknummer, sub:vveNm(metKvk[0].vve), item:metKvk[0].vve},
       kleinsteWoning && {label:'Kleinste woning', main:kleinsteWoning.oppervlakte+' m²', sub:addrStr(kleinsteWoning)+' · '+(kleinsteWoning.basiseenheidtype||''), item:kleinsteWoning},
-      footprints.length && {label:'Kleinste footprint (begane grond)', main:footprints[0].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[0].vve)+' · '+footprints[0].detail+' · '+footprints[0].bron, item:footprints[0].vve},
-      footprints.length && {label:'Grootste footprint (begane grond)', main:footprints[footprints.length-1].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[footprints.length-1].vve)+' · '+footprints[footprints.length-1].detail+' · '+footprints[footprints.length-1].bron, item:footprints[footprints.length-1].vve}
+      footprints.length ? {label:'Kleinste footprint', main:footprints[0].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[0].vve)+' · '+footprints[0].detail, item:footprints[0].vve} : null,
+      footprints.length ? {label:'Grootste footprint', main:footprints[footprints.length-1].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[footprints.length-1].vve)+' · '+footprints[footprints.length-1].detail, item:footprints[footprints.length-1].vve} : {label:'Footprint', main:'Nog niet opgehaald', sub:'Haal de panddata op in de beheertool (tabblad Panddata)'}
     ].filter(Boolean);
     return /*#__PURE__*/React.createElement("div", {style:{marginTop:14}},
       /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700,color:'#1a5c38',borderBottom:'2px solid #217346',paddingBottom:6,marginBottom:10}}, "Opmerkelijke VvE's — in gefilterde selectie"),
@@ -2836,32 +2843,7 @@ var ExtreemModal = function(_ref_ex) {
     .filter(function(a) { return isWoonunit(a) && a.oppervlakte > 0; })
     .sort(function(a, b) { return a.oppervlakte - b.oppervlakte; })[0];
 
-  // Footprint van een VvE: het grondvlak van de panden uit de 3D BAG
-  // (b3_opp_grond, opgehaald met de beheertool). Ontbreekt dat, dan bij gebrek
-  // aan beter de oppervlakte van de eenheden op de begane grond; in de
-  // BAG-velden is bouwlaag 1 de begane grond.
-  var vvesMetFootprint = vves.map(function(g) {
-    var panden = [...new Set(g.addresses.flatMap(function(a) {
-      return String(a.gerelateerd_pand_id || '').split(/[^0-9]+/).filter(function(x) { return x.length === 16; });
-    }))];
-    var uitBag = panden.map(pandGrondvlak);
-    if (panden.length && uitBag.every(function(v) { return v > 0; })) {
-      return {
-        vve: g.vve,
-        footprint: Math.round(uitBag.reduce(function(s, v) { return s + v; }, 0)),
-        bron: '3D BAG',
-        detail: panden.length + (panden.length === 1 ? ' pand' : ' panden')
-      };
-    }
-    var bg = g.addresses.filter(function(a) { return a.laagste_bouwlaag === 1 && a.oppervlakte > 0; });
-    var opp = bg.reduce(function(s, a) { return s + a.oppervlakte; }, 0);
-    return {
-      vve: g.vve,
-      footprint: Math.round(opp),
-      bron: 'schatting',
-      detail: bg.length + (bg.length === 1 ? ' eenheid' : ' eenheden') + ' op de begane grond'
-    };
-  }).filter(function(g) { return g.footprint > 0; });
+  var vvesMetFootprint = vves.map(berekenFootprint).filter(Boolean);
   vvesMetFootprint.sort(function(a, b) { return a.footprint - b.footprint; });
   var kleinsteFootprint = vvesMetFootprint[0];
   var grootsteFootprint = vvesMetFootprint[vvesMetFootprint.length - 1];
@@ -2920,8 +2902,10 @@ var ExtreemModal = function(_ref_ex) {
       laagsteGemWoz && E(Card, {label:'Laagste gem. WOZ per VvE',main:fmt(laagsteGemWoz.avgWoz),sub:vveName(laagsteGemWoz.vve),onClick:nav(laagsteGemWoz.vve)}),
       laagsteKvk && E(Card, {label:'Laagste KvK-nummer',main:laagsteKvk.vve.kvknummer,sub:vveName(laagsteKvk.vve),onClick:nav(laagsteKvk.vve)}),
       kleinsteWoning && E(Card, {label:'Kleinste woning',main:kleinsteWoning.oppervlakte + ' m\u00b2',sub:addrStr(kleinsteWoning) + ' \u00b7 ' + (kleinsteWoning.basiseenheidtype || ''),onClick:nav(kleinsteWoning)}),
-      kleinsteFootprint && E(Card, {label:'Kleinste footprint (begane grond)',main:kleinsteFootprint.footprint.toLocaleString('nl-NL') + ' m\u00b2',sub:vveName(kleinsteFootprint.vve) + ' \u00b7 ' + kleinsteFootprint.detail + ' \u00b7 ' + kleinsteFootprint.bron,onClick:nav(kleinsteFootprint.vve)}),
-      grootsteFootprint && E(Card, {label:'Grootste footprint (begane grond)',main:grootsteFootprint.footprint.toLocaleString('nl-NL') + ' m\u00b2',sub:vveName(grootsteFootprint.vve) + ' \u00b7 ' + grootsteFootprint.detail + ' \u00b7 ' + grootsteFootprint.bron,onClick:nav(grootsteFootprint.vve)})
+      kleinsteFootprint
+        ? E(Card, {label:'Kleinste footprint',main:kleinsteFootprint.footprint.toLocaleString('nl-NL') + ' m\u00b2',sub:vveName(kleinsteFootprint.vve) + ' \u00b7 ' + kleinsteFootprint.detail,onClick:nav(kleinsteFootprint.vve)})
+        : E(Card, {label:'Footprint',main:'Nog niet opgehaald',sub:'Haal de panddata op in de beheertool (tabblad Panddata)'}),
+      grootsteFootprint && E(Card, {label:'Grootste footprint',main:grootsteFootprint.footprint.toLocaleString('nl-NL') + ' m\u00b2',sub:vveName(grootsteFootprint.vve) + ' \u00b7 ' + grootsteFootprint.detail,onClick:nav(grootsteFootprint.vve)})
     )
   ));
 };
