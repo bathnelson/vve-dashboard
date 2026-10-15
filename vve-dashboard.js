@@ -689,7 +689,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 33;
+var APP_BUILD = 34;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -1164,9 +1164,19 @@ var berekenFootprint = function (g) {
   if (!panden.length) return null;
   var vlakken = panden.map(pandGrondvlak);
   if (!vlakken.every(function (v) { return v > 0; })) return null;
+  var footprint = vlakken.reduce(function (s, v) { return s + v; }, 0);
+
+  // Controle op onzinnige 3D BAG-records: er zijn panden met een grondvlak van
+  // een paar vierkante meter terwijl er appartementen in zitten. Past alles wat
+  // in de VvE zit niet op dit grondvlak maal het aantal bouwlagen, dan laten we
+  // de VvE buiten de statistiek in plaats van een verkeerd getal te tonen.
+  var lagen = Math.max.apply(null, g.addresses.map(function (a) { return a.hoogste_bouwlaag || 1; }).concat([1]));
+  var totaleOppervlakte = g.addresses.reduce(function (s, a) { return s + (a.oppervlakte || 0); }, 0);
+  if (totaleOppervlakte > 0 && footprint * lagen < totaleOppervlakte * 0.8) return null;
+
   return {
     vve: g.vve,
-    footprint: Math.round(vlakken.reduce(function (s, v) { return s + v; }, 0)),
+    footprint: Math.round(footprint),
     detail: panden.length + (panden.length === 1 ? ' pand' : ' panden') + ' \u00b7 3D BAG'
   };
 };
