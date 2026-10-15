@@ -137,3 +137,6 @@ button, input { font-family: inherit; }
 .bh-hint { margin: 14px 0 0; color: var(--bh-stil); font-size: 12px; }
 
 .bh-voet { padding: 12px 20px 28px; color: var(--bh-stil); font-size: 12px; }
+
+.bh-voortgang { height: 8px; border-radius: 4px; background: var(--bh-grond); overflow: hidden; margin: 6px 0 12px; }
+.bh-voortgang-vul { height: 100%; background: var(--bh-accent); transition: width .2s; }

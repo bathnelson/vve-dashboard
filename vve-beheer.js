@@ -10,6 +10,7 @@
   if (!app) return;
 
   var OPSLAG = 'vve-beheer-werk-v1';
+  var OPSLAG_PANDEN = 'vve-beheer-panden-v1';
 
   // ── data inlezen ────────────────────────────────────────────────────────
   var RIJEN = (typeof VVE_DATA !== 'undefined' && Array.isArray(VVE_DATA)) ? VVE_DATA : [];
@@ -103,6 +104,124 @@
     werkOpgeslagen();
   }
 
+  // ── panddata uit de 3D BAG (grondvlak, hoogte, bouwlagen) ──────────────
+  // api.3dbag.nl staat browsertoegang toe, dus we halen het rechtstreeks op.
+  var BAG_URL = 'https://api.3dbag.nl/collections/pand/items/NL.IMBAG.Pand.';
+  var panden = (typeof PAND_HOOGTE_DATA !== 'undefined') ? kopie(PAND_HOOGTE_DATA) : {};
+  var pandenGewijzigd = false;
+  try {
+    var extra = JSON.parse(localStorage.getItem(OPSLAG_PANDEN) || 'null');
+    if (extra && extra.panden) {
+      Object.keys(extra.panden).forEach(function (k) { panden[k] = extra.panden[k]; });
+      pandenGewijzigd = true;
+    }
+  } catch (e) {}
+
+  var allePandIds = (function () {
+    var set = new Set();
+    RIJEN.forEach(function (r) {
+      String(r.gerelateerd_pand_id || '').split(/[^0-9]+/).forEach(function (x) {
+        if (x.length === 16) set.add(x);
+      });
+    });
+    return [...set];
+  })();
+
+  var ophalenBezig = false, ophalenStop = false, ophalenGedaan = 0, ophalenTotaal = 0, ophalenFout = 0;
+
+  function bewaarPanden() {
+    try { localStorage.setItem(OPSLAG_PANDEN, JSON.stringify({ panden: panden })); } catch (e) {}
+    pandenGewijzigd = true;
+  }
+
+  async function haalPandOp(id) {
+    var r = await fetch(BAG_URL + id);
+    if (!r.ok) throw new Error('status ' + r.status);
+    var d = await r.json();
+    var co = d && d.feature && d.feature.CityObjects;
+    var sleutel = co && Object.keys(co)[0];
+    var a = (sleutel && co[sleutel].attributes) || {};
+    return {
+      bouwlagen: a.b3_bouwlagen != null ? a.b3_bouwlagen : null,
+      dak: a.b3_dak_type || null,
+      h: (a.b3_h_nok != null && a.b3_h_maaiveld != null) ? Math.round((a.b3_h_nok - a.b3_h_maaiveld) * 100) / 100 : null,
+      opp: (a.b3_opp_dak_plat != null || a.b3_opp_dak_schuin != null)
+        ? Math.round(((a.b3_opp_dak_plat || 0) + (a.b3_opp_dak_schuin || 0)) * 100) / 100 : null,
+      grond: a.b3_opp_grond != null ? Math.round(a.b3_opp_grond * 100) / 100 : null
+    };
+  }
+
+  async function haalPandenOp(alleenOntbrekende) {
+    var teDoen = allePandIds.filter(function (id) {
+      return alleenOntbrekende ? (!panden[id] || panden[id].grond == null) : true;
+    });
+    if (!teDoen.length) { alert('Alle panden zijn al opgehaald.'); return; }
+    ophalenBezig = true; ophalenStop = false; ophalenGedaan = 0; ophalenFout = 0; ophalenTotaal = teDoen.length;
+    teken();
+    var i = 0;
+    async function werker() {
+      while (i < teDoen.length && !ophalenStop) {
+        var id = teDoen[i++];
+        try { panden[id] = await haalPandOp(id); } catch (e) { ophalenFout++; }
+        ophalenGedaan++;
+        if (ophalenGedaan % 25 === 0) { bewaarPanden(); teken(); }
+      }
+    }
+    await Promise.all(Array.from({ length: 6 }, werker));
+    bewaarPanden();
+    ophalenBezig = false;
+    teken();
+  }
+
+  function pandenMetGrond() {
+    return Object.keys(panden).filter(function (k) { return panden[k] && panden[k].grond != null; }).length;
+  }
+
+  function bewaarPandBestand() {
+    var tekst = '// pand_hoogte_data.js - gebouwgegevens uit de 3D BAG (api.3dbag.nl)\n'
+      + '// grond = grondvlak in m2 (b3_opp_grond, de footprint), h = nok minus maaiveld,\n'
+      + '// opp = dakoppervlak, dak = daktype, bouwlagen = aantal lagen.\n'
+      + '// Opgehaald met de beheertool op ' + new Date().toLocaleString('nl-NL') + ': '
+      + Object.keys(panden).length + ' panden, ' + pandenMetGrond() + ' met grondvlak.\n\n'
+      + 'const PAND_HOOGTE_DATA = ' + JSON.stringify(panden) + ';\n';
+    download('pand_hoogte_data.js', tekst);
+    try { localStorage.removeItem(OPSLAG_PANDEN); } catch (e) {}
+    pandenGewijzigd = false;
+    teken();
+  }
+
+  function tekenPanden() {
+    var klaar = pandenMetGrond();
+    var rest = allePandIds.filter(function (id) { return !panden[id] || panden[id].grond == null; }).length;
+    var uit = '<div class="bh-paneel"><div class="bh-paneel-kop"><h2>Panddata uit de 3D BAG</h2></div>'
+      + '<p class="bh-hint" style="margin-top:0">Het grondvlak van een pand is de footprint die het dashboard bij de '
+      + 'statistieken gebruikt. Hoogte, dakoppervlak en bouwlagen komen in dezelfde ronde mee. Ophalen gaat rechtstreeks '
+      + 'bij api.3dbag.nl, zes panden tegelijk; je kunt tussendoor stoppen en later verder.</p>'
+      + '<div class="bh-velden" style="grid-template-columns:repeat(3,minmax(0,1fr))">'
+      + '<div><div class="bh-kaart-meta">Panden in de data</div><strong>' + allePandIds.length.toLocaleString('nl-NL') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Met grondvlak</div><strong>' + klaar.toLocaleString('nl-NL') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Nog op te halen</div><strong>' + rest.toLocaleString('nl-NL') + '</strong></div>'
+      + '</div>';
+    if (ophalenBezig) {
+      var pct = ophalenTotaal ? Math.round(ophalenGedaan / ophalenTotaal * 100) : 0;
+      uit += '<h3>Bezig: ' + ophalenGedaan.toLocaleString('nl-NL') + ' van ' + ophalenTotaal.toLocaleString('nl-NL')
+        + ' (' + pct + '%)' + (ophalenFout ? ' · ' + ophalenFout + ' mislukt' : '') + '</h3>'
+        + '<div class="bh-voortgang"><div class="bh-voortgang-vul" style="width:' + pct + '%"></div></div>'
+        + '<div class="bh-form-knoppen"><button class="bh-knop" data-actie="pand-stop">Stoppen</button></div>';
+    } else {
+      uit += '<div class="bh-form-knoppen" style="margin-top:14px">'
+        + '<button class="bh-knop is-primair" data-actie="pand-ophalen">'
+        + (rest ? 'Ontbrekende panden ophalen (' + rest.toLocaleString('nl-NL') + ')' : 'Alles is opgehaald') + '</button>'
+        + '<button class="bh-knop" data-actie="pand-opnieuw">Alles opnieuw ophalen</button>'
+        + (pandenGewijzigd ? '<button class="bh-knop is-primair" data-actie="pand-bewaar">pand_hoogte_data.js downloaden</button>' : '')
+        + '</div>';
+      if (ophalenFout) uit += '<p class="bh-hint">' + ophalenFout + ' panden gaven een fout; die staan nog bij \u201cnog op te halen\u201d.</p>';
+    }
+    uit += '<p class="bh-hint">Na het downloaden zet je pand_hoogte_data.js naast het dashboard. Zolang dat niet gebeurd is, '
+      + 'blijft het opgehaalde in deze browser staan.</p></div>';
+    return uit;
+  }
+
   // ── toestand van het scherm ─────────────────────────────────────────────
   var tab = 'clusters';
   var gekozenCluster = null;   // id
@@ -153,6 +272,7 @@
       + '<nav class="bh-tabs">'
       + '<button class="bh-tab' + (tab === 'clusters' ? ' is-actief' : '') + '" data-actie="tab" data-tab="clusters">Clusters <span class="bh-telling">' + clusters.length + '</span></button>'
       + '<button class="bh-tab' + (tab === 'handmatig' ? ' is-actief' : '') + '" data-actie="tab" data-tab="handmatig">Handmatige VvE’s <span class="bh-telling">' + handmatig.length + '</span></button>'
+      + '<button class="bh-tab' + (tab === 'panden' ? ' is-actief' : '') + '" data-actie="tab" data-tab="panden">Panddata <span class="bh-telling">' + pandenMetGrond() + '</span></button>'
       + '</nav></div></header>';
 
     if (vuil) {
@@ -162,7 +282,9 @@
         + '<button class="bh-knop" data-actie="verwerp">Wijzigingen weggooien</button></div>';
     }
 
-    html += '<main class="bh-in">' + (tab === 'clusters' ? tekenClusters() : tekenHandmatig()) + '</main>'
+    html += '<main class="bh-in">'
+      + (tab === 'clusters' ? tekenClusters() : tab === 'handmatig' ? tekenHandmatig() : tekenPanden())
+      + '</main>'
       + '<footer class="bh-voet bh-in">Beheertool versie ' + VERSIE + ' · ' + vveLijst.length.toLocaleString('nl-NL')
       + ' VvE’s uit de data · wijzigingen blijven in deze browser staan tot je ze downloadt</footer>';
     app.innerHTML = html;
@@ -287,6 +409,13 @@
     var id = k.getAttribute('data-id');
 
     if (actie === 'tab') { tab = k.getAttribute('data-tab'); teken(); return; }
+    if (actie === 'pand-ophalen') { haalPandenOp(true); return; }
+    if (actie === 'pand-opnieuw') {
+      if (confirm('Alle ' + allePandIds.length.toLocaleString('nl-NL') + ' panden opnieuw ophalen? Dat duurt een paar minuten.')) haalPandenOp(false);
+      return;
+    }
+    if (actie === 'pand-stop') { ophalenStop = true; return; }
+    if (actie === 'pand-bewaar') { bewaarPandBestand(); return; }
     if (actie === 'bewaar-clusters') { bewaarClusters(); return; }
     if (actie === 'bewaar-handmatig') { bewaarHandmatig(); return; }
     if (actie === 'verwerp') {
