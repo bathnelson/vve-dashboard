@@ -184,7 +184,7 @@
       + '// Opgehaald met de beheertool op ' + new Date().toLocaleString('nl-NL') + ': '
       + Object.keys(panden).length + ' panden, ' + pandenMetGrond() + ' met grondvlak.\n\n'
       + 'const PAND_HOOGTE_DATA = ' + JSON.stringify(panden) + ';\n';
-    download('pand_hoogte_data.js', tekst);
+    download('pand_hoogte_data.inc', tekst);
     try { localStorage.removeItem(OPSLAG_PANDEN); } catch (e) {}
     pandenGewijzigd = false;
     teken();
@@ -213,11 +213,12 @@
         + '<button class="bh-knop is-primair" data-actie="pand-ophalen">'
         + (rest ? 'Ontbrekende panden ophalen (' + rest.toLocaleString('nl-NL') + ')' : 'Alles is opgehaald') + '</button>'
         + '<button class="bh-knop" data-actie="pand-opnieuw">Alles opnieuw ophalen</button>'
-        + (pandenGewijzigd ? '<button class="bh-knop is-primair" data-actie="pand-bewaar">pand_hoogte_data.js downloaden</button>' : '')
+        + (pandenGewijzigd ? '<button class="bh-knop is-primair" data-actie="pand-bewaar">pand_hoogte_data.inc downloaden</button>' : '')
         + '</div>';
       if (ophalenFout) uit += '<p class="bh-hint">' + ophalenFout + ' panden gaven een fout; die staan nog bij \u201cnog op te halen\u201d.</p>';
     }
-    uit += '<p class="bh-hint">Na het downloaden zet je pand_hoogte_data.js naast het dashboard. Zolang dat niet gebeurd is, '
+    uit += '<p class="bh-hint">Na het downloaden zet je pand_hoogte_data.inc naast het dashboard; .js, .inc en .txt worden alle drie gelezen, '
+      + 'dus kies de extensie die door jullie beveiliging komt. Zolang dat niet gebeurd is, '
       + 'blijft het opgehaalde in deze browser staan.</p></div>';
     return uit;
   }
