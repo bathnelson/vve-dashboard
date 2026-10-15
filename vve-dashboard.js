@@ -491,6 +491,40 @@
             if (typeof KVK_LOOKUP !== 'undefined') Object.keys(KVK_CORRECTIES).forEach(vveId => { delete KVK_LOOKUP[vveId]; });
         })();
 
+        // Verse gegevens van de gemeente (bron_haarlem.inc, opgehaald met de
+        // beheertool) gaan voor op wat in vve_data.js staat. Per verblijfsobject:
+        // energielabel, monumentale status, oppervlakte, bouwjaar; het
+        // warmteprogramma hangt eronder in BRON_WARMTE.
+        var BRON_WARMTE = {};
+        (function pasBrondataToe() {
+            if (typeof BRON_HAARLEM === 'undefined' || !BRON_HAARLEM) return;
+            if (typeof VVE_DATA === 'undefined') return;
+            var soorten = (typeof BRON_WARMTE_SOORT !== 'undefined') ? BRON_WARMTE_SOORT : [];
+            var tijdvakken = (typeof BRON_TIJDVAK !== 'undefined') ? BRON_TIJDVAK : [];
+            var n = 0;
+            VVE_DATA.forEach((item) => {
+                var b = BRON_HAARLEM[String(item.verblijfsobject_id)];
+                if (!b) return;
+                n++;
+                if (b.label) item.energielabel = b.label;
+                if (b.mon) item.monumentale_status = b.mon;
+                if (b.opp) item.oppervlakte = b.opp;
+                if (b.bj) item.bouwjaar_gerelateerd_pand = b.bj;
+                if (b.na) item.nummeraanduiding_id = b.na;
+                if (b.besch) item.binnen_beschermd_gezicht = b.besch;
+                // w en t zijn indexen in de twee lijstjes bovenaan bron_haarlem.inc,
+                // net zoals pandid_warmteprogramma.js dat doet.
+                if (b.w != null && soorten[b.w]) {
+                    BRON_WARMTE[String(item.verblijfsobject_id)] = {
+                        warmte: soorten[b.w],
+                        tijdvak: (b.t != null && tijdvakken[b.t]) ? tijdvakken[b.t] : 'nvt',
+                        erfgoed: b.erf === 1
+                    };
+                }
+            });
+            try { console.info('Brondata gemeente toegepast op ' + n + ' adressen'); } catch (e) {}
+        })();
+
         // VvE's die nog niet in de centrale dataset zitten (vve_handmatig.txt).
         // Elke handmatige VvE wordt een rij in VVE_DATA, zodat lijst, filters en
         // kaart hem gewoon zien. De rij is herkenbaar aan _handmatig en telt niet
@@ -555,6 +589,8 @@
         // ── Warmteprogramma op pandniveau (bron: pandid_warmteprogramma.js) ──
         const getWarmteProg = (item) => {
             if (!item) return null;
+            const vers = BRON_WARMTE[String(item.verblijfsobject_id)];
+            if (vers) return vers;
             const pid = item.gerelateerd_pand_id;
             if (!pid || typeof getWarmteprogramma !== 'function') return null;
             // gerelateerd_pand_id kan meerdere id's bevatten ("id1,id2")
@@ -689,7 +725,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 34;
+var APP_BUILD = 36;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.

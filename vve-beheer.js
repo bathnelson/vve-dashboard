@@ -5,12 +5,29 @@
 (function () {
   'use strict';
 
-  var VERSIE = 1;
+  var VERSIE = 3;
   var app = document.getElementById('beheer');
   if (!app) return;
 
+  // Eigen icoon: bruin vlak met een moersleutel, zodat je de beheertool in je
+  // tabbladen onderscheidt van het dashboard (groen) en de startpagina (rood).
+  (function zetFavicon() {
+    try {
+      if (document.querySelector('link[rel~="icon"]')) return;
+      var svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
+        + "<rect width='32' height='32' rx='6' fill='#8a3b12'/>"
+        + "<path d='M21.6 7.2a5.6 5.6 0 0 0-6.9 6.9L7.4 21.4a2 2 0 0 0 0 2.8l.4.4a2 2 0 0 0 2.8 0l7.3-7.3a5.6 5.6 0 0 0 6.9-6.9l-3 3-2.5-.6-.6-2.5z' fill='#fff'/>"
+        + "<circle cx='9.3' cy='22.7' r='1.1' fill='#8a3b12'/></svg>";
+      var l = document.createElement('link');
+      l.rel = 'icon'; l.type = 'image/svg+xml';
+      l.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+      document.head.appendChild(l);
+    } catch (e) {}
+  })();
+
   var OPSLAG = 'vve-beheer-werk-v1';
   var OPSLAG_PANDEN = 'vve-beheer-panden-v1';
+  var OPSLAG_BRON = 'vve-beheer-bron-v1';
 
   // ── data inlezen ────────────────────────────────────────────────────────
   var RIJEN = (typeof VVE_DATA !== 'undefined' && Array.isArray(VVE_DATA)) ? VVE_DATA : [];
@@ -223,6 +240,225 @@
     return uit;
   }
 
+  // ── brondata van de gemeente (WFS) ─────────────────────────────────────
+  // De laag gemeentehaarlem:bag_adres_RD bevat per adres het energielabel, de
+  // monumentale status, het warmteprogramma met tijdvak, oppervlakte, bouwjaar
+  // en het nummeraanduiding-ID (nodig om later de WOZ op te halen).
+  var WFS = 'https://data.haarlem.nl/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'
+    + '&typeName=gemeentehaarlem:bag_adres_RD&outputFormat=application/json'
+    + '&propertyName=bag_id,nummeraanduiding_id,energielabel,monumentale_status,binnen_beschermd_gezicht,'
+    + 'warmteprogramma,warmteprogramma_tijdvak,oppervlakte,bouwjaar_gerelateerd_pand';
+  var WFS_PAGINA = 2000;   // kleinere pagina's; de server weigert grote reeksen sneller
+  var WFS_PAUZE = 1500;    // ms tussen twee pagina's
+  var WFS_POGINGEN = 6;
+
+  var bron = (typeof BRON_HAARLEM !== 'undefined') ? kopie(BRON_HAARLEM) : {};
+  var bronGewijzigd = false;
+  var bronOpgehaald = null;
+  try {
+    var bewaardeBron = JSON.parse(localStorage.getItem(OPSLAG_BRON) || 'null');
+    if (bewaardeBron && bewaardeBron.bron) {
+      bron = bewaardeBron.bron;
+      bronOpgehaald = bewaardeBron.opgehaald || null;
+      bronGewijzigd = true;
+    }
+  } catch (e) {}
+
+  var bronBezig = false, bronStop = false, bronGedaan = 0, bronTotaal = 0, bronMelding = '';
+
+  // Alleen de adressen die in onze dataset zitten; de laag bevat heel Haarlem.
+  var RIJ_OP_VBO = (function () {
+    var t = {};
+    RIJEN.forEach(function (r) { if (r.verblijfsobject_id) t[String(r.verblijfsobject_id)] = r; });
+    return t;
+  })();
+  var onzeAdressen = new Set(Object.keys(RIJ_OP_VBO));
+
+  function leeg(v) { return v == null || v === '' || v === '-' || v === 'nvt'; }
+
+  // De WFS zet het warmteprogramma in een samengesteld veld: 'MT, vve, erfgoed'.
+  // Het dashboard verwacht alleen de soort ('MT') plus een losse erfgoed-vlag,
+  // net zoals pandid_warmteprogramma.js die altijd aanleverde.
+  // Warmte en tijdvak gaan als index het bestand in; dat scheelt ruim een derde
+  // aan omvang, en zo hoef je elke ronde minder door de firewall te halen.
+  // Een eerder opgehaald bestand kan de lijstjes hebben uitgebreid met een
+  // tijdvak dat wij nog niet kenden; dan gelden die, anders zouden de indexen
+  // in het bestaande BRON_HAARLEM niet meer kloppen.
+  var BRON_SOORT = (typeof BRON_WARMTE_SOORT !== 'undefined' && BRON_WARMTE_SOORT.length)
+    ? BRON_WARMTE_SOORT.slice() : ['MT', 'Individueel', 'ZLT', 'Onderzoek'];
+  var BRON_TIJD = (typeof BRON_TIJDVAK !== 'undefined' && BRON_TIJDVAK.length)
+    ? BRON_TIJDVAK.slice() : ['tussen nu en 2027', 'tussen 2028 en 2030', 'tussen 2030 en 2035', 'na 2034'];
+
+  function warmteIndex(v) {
+    if (leeg(v)) return null;
+    var eerste = String(v).split(',')[0].trim();
+    var i = BRON_SOORT.indexOf(eerste);
+    return i === -1 ? null : i;
+  }
+  function tijdvakIndex(v) {
+    if (leeg(v)) return null;
+    var w = String(v).trim();
+    var i = BRON_TIJD.indexOf(w);
+    if (i === -1) { BRON_TIJD.push(w); i = BRON_TIJD.length - 1; }
+    return i;
+  }
+
+  async function haalBronOp() {
+    bronBezig = true; bronStop = false; bronGedaan = 0; bronTotaal = 0;
+    var nieuw = {};
+    teken();
+    try {
+      var start = 0;
+      while (!bronStop) {
+        // De server weigert soms een pagina als ze te snel achter elkaar komen;
+        // even wachten en opnieuw proberen lost dat op.
+        var d = null, poging = 0;
+        while (d === null && !bronStop) {
+          try {
+            var r = await fetch(WFS + '&count=' + WFS_PAGINA + '&startIndex=' + start, { cache: 'no-store' });
+            if (!r.ok) throw new Error('WFS gaf status ' + r.status);
+            d = await r.json();
+            bronMelding = '';
+          } catch (err) {
+            poging++;
+            if (poging >= WFS_POGINGEN) throw new Error(err.message + ' (na ' + poging + ' pogingen op rij ' + start + ')');
+            var wacht = 3000 * poging;
+            bronMelding = 'rij ' + start.toLocaleString('nl-NL') + ' mislukte, nieuwe poging ' + (poging + 1)
+              + ' van ' + WFS_POGINGEN + ' over ' + Math.round(wacht / 1000) + ' s';
+            teken();
+            await new Promise(function (res) { setTimeout(res, wacht); });
+          }
+        }
+        if (d === null) break;
+        bronTotaal = d.totalFeatures || d.numberMatched || bronTotaal;
+        (d.features || []).forEach(function (f) {
+          var p = f.properties || {};
+          if (!p.bag_id || !onzeAdressen.has(String(p.bag_id))) return;
+          nieuw[p.bag_id] = {
+            na: p.nummeraanduiding_id || null,
+            label: leeg(p.energielabel) ? null : p.energielabel,
+            mon: leeg(p.monumentale_status) ? null : p.monumentale_status,
+            besch: leeg(p.binnen_beschermd_gezicht) ? null : p.binnen_beschermd_gezicht,
+            w: warmteIndex(p.warmteprogramma),
+            t: tijdvakIndex(p.warmteprogramma_tijdvak),
+            erf: (p.warmteprogramma && String(p.warmteprogramma).indexOf('erfgoed') !== -1) ? 1 : null,
+            opp: p.oppervlakte || null,
+            bj: p.bouwjaar_gerelateerd_pand || null
+          };
+        });
+        // Velden die precies gelijk zijn aan vve_data.js laten we weg: het
+        // dashboard zou er zijn eigen waarde mee overschrijven, en het bestand
+        // blijft zo klein genoeg om elke ronde opnieuw te downloaden.
+        Object.keys(nieuw).forEach(function (vo) {
+          var r = RIJ_OP_VBO[vo]; if (!r) return;
+          var rec = nieuw[vo];
+          [['label', 'energielabel'], ['mon', 'monumentale_status'],
+           ['opp', 'oppervlakte'], ['bj', 'bouwjaar_gerelateerd_pand']].forEach(function (paar) {
+            var nw = rec[paar[0]];
+            if (nw != null && String(r[paar[1]] == null ? '' : r[paar[1]]).trim() === String(nw).trim()) rec[paar[0]] = null;
+          });
+          Object.keys(rec).forEach(function (k) { if (rec[k] == null) delete rec[k]; });
+        });
+        bronGedaan += (d.features || []).length;
+        teken();
+        if (!d.features || d.features.length < WFS_PAGINA) break;
+        start += WFS_PAGINA;
+        await new Promise(function (res) { setTimeout(res, WFS_PAUZE); });
+      }
+      bron = nieuw;
+      bronOpgehaald = new Date().toISOString();
+      try { localStorage.setItem(OPSLAG_BRON, JSON.stringify({ bron: bron, opgehaald: bronOpgehaald })); } catch (e) {}
+      bronGewijzigd = true;
+    } catch (e) {
+      alert('Ophalen mislukt: ' + e.message);
+    }
+    bronBezig = false;
+    teken();
+  }
+
+  // Wat wijkt af van wat nu in vve_data.js staat?
+  function bronVerschillen() {
+    var kanWarmteVergelijken = (typeof getWarmteprogramma === 'function');
+    var uit = { label: 0, mon: 0, warmte: kanWarmteVergelijken ? 0 : null, opp: 0 };
+    RIJEN.forEach(function (r) {
+      var b = bron[String(r.verblijfsobject_id)];
+      if (!b) return;
+      if (b.label && b.label !== r.energielabel) uit.label++;
+      if (b.mon && b.mon !== r.monumentale_status) uit.mon++;
+      if (b.opp && Number(b.opp) !== Number(r.oppervlakte)) uit.opp++;
+      // Zonder pandid_warmteprogramma.js valt er niets te vergelijken; dan
+      // zou elk adres als afwijkend tellen en dat zegt niets.
+      if (!kanWarmteVergelijken) return;
+      var nieuweSoort = (b.w != null) ? BRON_SOORT[b.w] : null;
+      var huidig = r.gerelateerd_pand_id
+        ? getWarmteprogramma(String(r.gerelateerd_pand_id).split(',')[0].trim()) : null;
+      if (nieuweSoort && (!huidig || huidig.warmte !== nieuweSoort)) uit.warmte++;
+    });
+    return uit;
+  }
+
+  function bewaarBronBestand() {
+    var tekst = '// bron_haarlem.inc - adresgegevens uit de WFS van de gemeente Haarlem\n'
+      + '// Laag gemeentehaarlem:bag_adres_RD van data.haarlem.nl.\n'
+      + '// Opgehaald met de beheertool op ' + new Date().toLocaleString('nl-NL') + ': '
+      + Object.keys(bron).length + ' adressen.\n'
+      + '//\n'
+      + '// Per verblijfsobject-ID:\n'
+      + '//   na    nummeraanduiding-ID (nodig voor de WOZ)\n'
+      + '//   w     index in BRON_WARMTE_SOORT, t index in BRON_TIJDVAK\n'
+      + '//   erf   1 als het warmteprogramma erfgoed meldt\n'
+      + '//   besch binnen beschermd gezicht\n'
+      + '//   label, mon, opp, bj  alleen als ze afwijken van vve_data.js\n'
+      + 'const BRON_WARMTE_SOORT = ' + JSON.stringify(BRON_SOORT) + ';\n'
+      + 'const BRON_TIJDVAK = ' + JSON.stringify(BRON_TIJD) + ';\n'
+      + 'const BRON_HAARLEM = ' + JSON.stringify(bron) + ';\n';
+    download('bron_haarlem.inc', tekst);
+    try { localStorage.removeItem(OPSLAG_BRON); } catch (e) {}
+    bronGewijzigd = false;
+    teken();
+  }
+
+  function tekenBron() {
+    var aantal = Object.keys(bron).length;
+    var uit = '<div class="bh-paneel"><div class="bh-paneel-kop"><h2>Brondata van de gemeente</h2></div>'
+      + '<p class="bh-hint" style="margin-top:0">Haalt per adres het energielabel, de monumentale status, '
+      + 'het beschermd gezicht, het warmteprogramma met tijdvak, de oppervlakte, het bouwjaar en het '
+      + 'nummeraanduiding-ID op uit de open WFS van de gemeente. Alleen adressen die in het dashboard '
+      + 'staan worden bewaard; de laag bevat heel Haarlem.</p>'
+      + '<div class="bh-velden" style="grid-template-columns:repeat(3,minmax(0,1fr))">'
+      + '<div><div class="bh-kaart-meta">Adressen in het dashboard</div><strong>' + onzeAdressen.size.toLocaleString('nl-NL') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Opgehaald</div><strong>' + aantal.toLocaleString('nl-NL') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Laatste ronde</div><strong>'
+      + (bronOpgehaald ? new Date(bronOpgehaald).toLocaleDateString('nl-NL') : '\u2013') + '</strong></div></div>';
+
+    if (bronBezig) {
+      var pct = bronTotaal ? Math.min(100, Math.round(bronGedaan / bronTotaal * 100)) : 0;
+      uit += '<h3>Bezig: ' + bronGedaan.toLocaleString('nl-NL') + ' van ' + (bronTotaal || '?').toLocaleString('nl-NL')
+        + ' adressen in de laag (' + pct + '%)</h3>'
+        + '<div class="bh-voortgang"><div class="bh-voortgang-vul" style="width:' + pct + '%"></div></div>'
+        + '<div class="bh-form-knoppen"><button class="bh-knop" data-actie="bron-stop">Stoppen</button></div>';
+    } else {
+      uit += '<div class="bh-form-knoppen" style="margin-top:14px">'
+        + '<button class="bh-knop is-primair" data-actie="bron-ophalen">' + (aantal ? 'Opnieuw ophalen' : 'Ophalen') + '</button>'
+        + (bronGewijzigd ? '<button class="bh-knop is-primair" data-actie="bron-bewaar">bron_haarlem.inc downloaden</button>' : '')
+        + '</div>';
+      if (aantal) {
+        var v = bronVerschillen();
+        uit += '<h3>Afwijkend van de huidige dataset</h3><ul class="bh-leden">'
+          + '<li><span class="bh-lid-naam">Energielabel</span><span class="bh-lid-meta">' + v.label.toLocaleString('nl-NL') + ' adressen</span></li>'
+          + '<li><span class="bh-lid-naam">Monumentale status</span><span class="bh-lid-meta">' + v.mon.toLocaleString('nl-NL') + ' adressen</span></li>'
+          + '<li><span class="bh-lid-naam">Warmteprogramma</span><span class="bh-lid-meta">'
+          + (v.warmte === null ? 'niet te vergelijken, pandid_warmteprogramma ontbreekt'
+                               : v.warmte.toLocaleString('nl-NL') + ' adressen') + '</span></li>'
+          + '<li><span class="bh-lid-naam">Oppervlakte</span><span class="bh-lid-meta">' + v.opp.toLocaleString('nl-NL') + ' adressen</span></li>'
+          + '</ul>';
+      }
+    }
+    uit += '<p class="bh-hint">Na het downloaden zet je bron_haarlem.inc naast het dashboard; dat gebruikt de nieuwe '
+      + 'waarden boven die uit vve_data.js. WOZ-waarden komen in een volgende ronde, via het Kadaster.</p></div>';
+    return uit;
+  }
+
   // ── toestand van het scherm ─────────────────────────────────────────────
   var tab = 'clusters';
   var gekozenCluster = null;   // id
@@ -274,6 +510,7 @@
       + '<button class="bh-tab' + (tab === 'clusters' ? ' is-actief' : '') + '" data-actie="tab" data-tab="clusters">Clusters <span class="bh-telling">' + clusters.length + '</span></button>'
       + '<button class="bh-tab' + (tab === 'handmatig' ? ' is-actief' : '') + '" data-actie="tab" data-tab="handmatig">Handmatige VvE’s <span class="bh-telling">' + handmatig.length + '</span></button>'
       + '<button class="bh-tab' + (tab === 'panden' ? ' is-actief' : '') + '" data-actie="tab" data-tab="panden">Panddata <span class="bh-telling">' + pandenMetGrond() + '</span></button>'
+      + '<button class="bh-tab' + (tab === 'bron' ? ' is-actief' : '') + '" data-actie="tab" data-tab="bron">Brondata</button>'
       + '</nav></div></header>';
 
     if (vuil) {
@@ -284,7 +521,8 @@
     }
 
     html += '<main class="bh-in">'
-      + (tab === 'clusters' ? tekenClusters() : tab === 'handmatig' ? tekenHandmatig() : tekenPanden())
+      + (tab === 'clusters' ? tekenClusters() : tab === 'handmatig' ? tekenHandmatig()
+         : tab === 'panden' ? tekenPanden() : tekenBron())
       + '</main>'
       + '<footer class="bh-voet bh-in">Beheertool versie ' + VERSIE + ' · ' + vveLijst.length.toLocaleString('nl-NL')
       + ' VvE’s uit de data · wijzigingen blijven in deze browser staan tot je ze downloadt</footer>';
@@ -417,6 +655,9 @@
     }
     if (actie === 'pand-stop') { ophalenStop = true; return; }
     if (actie === 'pand-bewaar') { bewaarPandBestand(); return; }
+    if (actie === 'bron-ophalen') { haalBronOp(); return; }
+    if (actie === 'bron-stop') { bronStop = true; return; }
+    if (actie === 'bron-bewaar') { bewaarBronBestand(); return; }
     if (actie === 'bewaar-clusters') { bewaarClusters(); return; }
     if (actie === 'bewaar-handmatig') { bewaarHandmatig(); return; }
     if (actie === 'verwerp') {
