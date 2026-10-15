@@ -689,7 +689,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 31;
+var APP_BUILD = 32;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
@@ -2163,6 +2163,21 @@ var StatistiekenView = ({
       if (b.labelIdx !== a.labelIdx) return b.labelIdx - a.labelIdx;
       return (b.vve.aantal_woon_adr_in_vve || 0) - (a.vve.aantal_woon_adr_in_vve || 0);
     })[0];
+    var kleinsteWoning = allAddrs.filter(function(a) { return isWoonunit(a) && a.oppervlakte > 0; })
+      .sort(function(a, b) { return a.oppervlakte - b.oppervlakte; })[0];
+    var footprints = groups.map(function(g) {
+      var panden = [...new Set(g.addresses.flatMap(function(a) {
+        return String(a.gerelateerd_pand_id || '').split(/[^0-9]+/).filter(function(x) { return x.length === 16; });
+      }))];
+      var uitBag = panden.map(pandGrondvlak);
+      if (panden.length && uitBag.every(function(v) { return v > 0; })) {
+        return { vve: g.vve, footprint: Math.round(uitBag.reduce(function(s, v) { return s + v; }, 0)),
+                 bron: '3D BAG', detail: panden.length + (panden.length === 1 ? ' pand' : ' panden') };
+      }
+      var bg = g.addresses.filter(function(a) { return a.laagste_bouwlaag === 1 && a.oppervlakte > 0; });
+      return { vve: g.vve, footprint: Math.round(bg.reduce(function(s, a) { return s + a.oppervlakte; }, 0)),
+               bron: 'schatting', detail: bg.length + (bg.length === 1 ? ' eenheid' : ' eenheden') + ' op de begane grond' };
+    }).filter(function(g) { return g.footprint > 0; }).sort(function(a, b) { return a.footprint - b.footprint; });
     var fmt = function(n) { return n ? '€ ' + Math.round(n).toLocaleString('nl-NL') : '-'; };
     var vveNm = function(v) { return v.statutairenaam || v.vve_identificatie || '?'; };
     var addrStr = function(a) { return (a.straatnaam || '') + ' ' + (a.huisnummer || '') + ', ' + (a.postcode || ''); };
@@ -2178,7 +2193,10 @@ var StatistiekenView = ({
       metBouwjaar.length && {label:'Nieuwste pand', main:addrStr(metBouwjaar[metBouwjaar.length-1]), sub:'Bouwjaar '+metBouwjaar[metBouwjaar.length-1].bouwjaar_gerelateerd_pand, item:metBouwjaar[metBouwjaar.length-1]},
       vvesMetWoz.length && {label:'Hoogste gem. WOZ per VvE', main:fmt(vvesMetWoz[0].avgWoz), sub:vveNm(vvesMetWoz[0].vve), item:vvesMetWoz[0].vve},
       vvesMetWoz.length && {label:'Laagste gem. WOZ per VvE', main:fmt(vvesMetWoz[vvesMetWoz.length-1].avgWoz), sub:vveNm(vvesMetWoz[vvesMetWoz.length-1].vve), item:vvesMetWoz[vvesMetWoz.length-1].vve},
-      metKvk.length && {label:'Laagste KvK-nummer', main:metKvk[0].vve.kvknummer, sub:vveNm(metKvk[0].vve), item:metKvk[0].vve}
+      metKvk.length && {label:'Laagste KvK-nummer', main:metKvk[0].vve.kvknummer, sub:vveNm(metKvk[0].vve), item:metKvk[0].vve},
+      kleinsteWoning && {label:'Kleinste woning', main:kleinsteWoning.oppervlakte+' m²', sub:addrStr(kleinsteWoning)+' · '+(kleinsteWoning.basiseenheidtype||''), item:kleinsteWoning},
+      footprints.length && {label:'Kleinste footprint (begane grond)', main:footprints[0].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[0].vve)+' · '+footprints[0].detail+' · '+footprints[0].bron, item:footprints[0].vve},
+      footprints.length && {label:'Grootste footprint (begane grond)', main:footprints[footprints.length-1].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[footprints.length-1].vve)+' · '+footprints[footprints.length-1].detail+' · '+footprints[footprints.length-1].bron, item:footprints[footprints.length-1].vve}
     ].filter(Boolean);
     return /*#__PURE__*/React.createElement("div", {style:{marginTop:14}},
       /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700,color:'#1a5c38',borderBottom:'2px solid #217346',paddingBottom:6,marginBottom:10}}, "Opmerkelijke VvE's — in gefilterde selectie"),
