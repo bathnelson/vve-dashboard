@@ -510,6 +510,7 @@
                 if (b.bj) item.bouwjaar_gerelateerd_pand = b.bj;
                 if (b.na) item.nummeraanduiding_id = b.na;
                 if (b.besch) item.binnen_beschermd_gezicht = b.besch;
+                if (b.erfpacht) item.erfpacht = 1;
                 if (b.warmte) {
                     BRON_WARMTE[String(item.verblijfsobject_id)] = {
                         warmte: b.warmte,
@@ -721,7 +722,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 36;
+var APP_BUILD = 37;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.

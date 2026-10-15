@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSIE = 3;
+  var VERSIE = 4;
   var app = document.getElementById('beheer');
   if (!app) return;
 
@@ -247,7 +247,7 @@
   var WFS = 'https://data.haarlem.nl/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'
     + '&typeName=gemeentehaarlem:bag_adres_RD&outputFormat=application/json'
     + '&propertyName=bag_id,nummeraanduiding_id,energielabel,monumentale_status,binnen_beschermd_gezicht,'
-    + 'warmteprogramma,warmteprogramma_tijdvak,oppervlakte,bouwjaar_gerelateerd_pand';
+    + 'warmteprogramma,warmteprogramma_tijdvak,oppervlakte,bouwjaar_gerelateerd_pand,thema_brk';
   var WFS_PAGINA = 2000;   // kleinere pagina's; de server weigert grote reeksen sneller
   var WFS_PAUZE = 1500;    // ms tussen twee pagina's
   var WFS_POGINGEN = 6;
@@ -325,7 +325,11 @@
             tijdvak: leeg(p.warmteprogramma_tijdvak) ? null : p.warmteprogramma_tijdvak,
             erf: (p.warmteprogramma && String(p.warmteprogramma).indexOf('erfgoed') !== -1) ? 1 : null,
             opp: p.oppervlakte || null,
-            bj: p.bouwjaar_gerelateerd_pand || null
+            bj: p.bouwjaar_gerelateerd_pand || null,
+            // thema_brk noemt de eigenaar van de grond; binnen een VvE is dat
+            // altijd de VvE zelf, dus daar valt geen corporatiebezit uit af te
+            // leiden. De toevoeging 'Erfpacht' gaat wel over die grond.
+            erfpacht: (p.thema_brk && String(p.thema_brk).indexOf('Erfpacht') !== -1) ? 1 : null
           };
         });
         bronGedaan += (d.features || []).length;
@@ -378,6 +382,7 @@
       + '//   warmte  warmteprogramma       tijdvak\n'
       + '//   erf     1 als het warmteprogramma erfgoed meldt\n'
       + '//   opp     oppervlakte           bj     bouwjaar van het pand\n'
+      + '//   erfpacht 1 als de grond in erfpacht is uitgegeven\n'
       + '//\n'
       + '// Het dashboard zet deze waarden over die uit vve_data.js heen.\n'
       + 'const BRON_HAARLEM = ' + JSON.stringify(bron) + ';\n';
