@@ -499,8 +499,6 @@
         (function pasBrondataToe() {
             if (typeof BRON_HAARLEM === 'undefined' || !BRON_HAARLEM) return;
             if (typeof VVE_DATA === 'undefined') return;
-            var soorten = (typeof BRON_WARMTE_SOORT !== 'undefined') ? BRON_WARMTE_SOORT : [];
-            var tijdvakken = (typeof BRON_TIJDVAK !== 'undefined') ? BRON_TIJDVAK : [];
             var n = 0;
             VVE_DATA.forEach((item) => {
                 var b = BRON_HAARLEM[String(item.verblijfsobject_id)];
@@ -512,12 +510,10 @@
                 if (b.bj) item.bouwjaar_gerelateerd_pand = b.bj;
                 if (b.na) item.nummeraanduiding_id = b.na;
                 if (b.besch) item.binnen_beschermd_gezicht = b.besch;
-                // w en t zijn indexen in de twee lijstjes bovenaan bron_haarlem.inc,
-                // net zoals pandid_warmteprogramma.js dat doet.
-                if (b.w != null && soorten[b.w]) {
+                if (b.warmte) {
                     BRON_WARMTE[String(item.verblijfsobject_id)] = {
-                        warmte: soorten[b.w],
-                        tijdvak: (b.t != null && tijdvakken[b.t]) ? tijdvakken[b.t] : 'nvt',
+                        warmte: b.warmte,
+                        tijdvak: b.tijdvak || 'nvt',
                         erfgoed: b.erf === 1
                     };
                 }
