@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSIE = 7;
+  var VERSIE = 8;
   var app = document.getElementById('beheer');
   if (!app) return;
 
@@ -742,7 +742,8 @@
   // zichtbare limiet op, maar de helper praat met een sleutel namens ons, dus
   // we houden het op vier per seconde. De hele stad is dan ruim twee uur.
   var EP_URL = 'https://adresverkenner.nl/helpers/ep-proxy.php?bagid=';
-  var EP_PAUZE = 250;
+  var EP_PAUZE = 250;    // ms tussen twee starts: vier per seconde
+  var EP_PARALLEL = 6;   // zoveel bevragingen mogen tegelijk onderweg zijn
 
   var ep = (typeof EP_DATA !== 'undefined') ? kopie(EP_DATA) : {};
   var epGewijzigd = false;
@@ -778,47 +779,75 @@
     try { localStorage.setItem(OPSLAG_EP, JSON.stringify({ ep: ep, opgehaald: epOpgehaald })); } catch (e) {}
   }
 
+  // Een enkele bevraging, met twee herkansingen.
+  async function epEenAdres(vo) {
+    for (var poging = 1; poging <= 3; poging++) {
+      try {
+        var r = await fetch(EP_URL + encodeURIComponent(vo), { cache: 'no-store' });
+        if (!r.ok) throw new Error('status ' + r.status);
+        var d = await r.json();
+        // De helper geeft de EP-status mee in _httpStatus; 404 = geen label.
+        if (d._httpStatus === 404) { ep[vo] = null; return true; }
+        if (d._httpStatus && d._httpStatus >= 400) throw new Error('EP-Online: ' + d._httpStatus);
+        var rec = d['0'] || d;
+        var letter = rec.Energieklasse || rec.energieklasse || rec.LabelLetter || null;
+        ep[vo] = letter ? {
+          k: letter,
+          opname: (rec.Opnamedatum || '').slice(0, 10) || null,
+          geldig: (rec.Geldig_tot || '').slice(0, 10) || null,
+          methode: epMethode(rec.Berekeningstype),
+          klasse: rec.Gebouwklasse || null,
+          type: rec.Gebouwtype || null,
+          kwh: rec.BerekendeEnergieverbruik || null
+        } : null;
+        return true;
+      } catch (err) {
+        if (poging === 3) { epFouten++; return false; }
+        await new Promise(function (res) { setTimeout(res, 1500 * poging); });
+      }
+    }
+    return false;
+  }
+
+  // Een voor een wachten op het antwoord en dan nog eens pauzeren kostte meer
+  // tijd dan nodig: de snelheid werd de reistijd plus de pauze. Nu bepaalt
+  // alleen de pauze het tempo (vier starts per seconde) en vangen een paar
+  // gelijktijdige bevragingen de reistijd op.
   async function haalEpOp() {
     var rij = epWachtrij();
     if (!rij.length) { alert('Alle adressen zijn al bevraagd. Met "Opnieuw beginnen" haal je ze nog een keer op.'); return; }
     epBezig = true; epStop = false; epMelding = ''; epFouten = 0;
     teken();
 
-    for (var i = 0; i < rij.length && !epStop; i++) {
-      var vo = rij[i];
-      var klaar = false, poging = 0;
-      while (!klaar && !epStop) {
-        try {
-          var r = await fetch(EP_URL + encodeURIComponent(vo), { cache: 'no-store' });
-          if (!r.ok) throw new Error('status ' + r.status);
-          var d = await r.json();
-          // De helper geeft de EP-status mee in _httpStatus; 404 = geen label.
-          if (d._httpStatus === 404) { ep[vo] = null; klaar = true; break; }
-          if (d._httpStatus && d._httpStatus >= 400) throw new Error('EP-Online: ' + d._httpStatus);
-          var rec = d['0'] || d;
-          var letter = rec.Energieklasse || rec.energieklasse || rec.LabelLetter || null;
-          ep[vo] = letter ? {
-            k: letter,
-            opname: (rec.Opnamedatum || '').slice(0, 10) || null,
-            geldig: (rec.Geldig_tot || '').slice(0, 10) || null,
-            methode: epMethode(rec.Berekeningstype),
-            klasse: rec.Gebouwklasse || null,
-            type: rec.Gebouwtype || null,
-            kwh: rec.BerekendeEnergieverbruik || null
-          } : null;
-          klaar = true;
-        } catch (err) {
-          poging++;
-          if (poging >= 3) { epFouten++; klaar = true; break; }
-          epMelding = vo + ' mislukte, nieuwe poging ' + (poging + 1) + ' van 3';
-          teken();
-          await new Promise(function (res) { setTimeout(res, 2000 * poging); });
-        }
+    var volgende = 0;          // welk adres is aan de beurt
+    var afgerond = 0;          // hoeveel er terug zijn
+    var startNietVoor = 0;
+    epLoopTotaal = Object.keys(ep).length + rij.length;
+    epLoopGedaan = Object.keys(ep).length;
+
+    async function werker() {
+      while (!epStop) {
+        var i = volgende++;
+        if (i >= rij.length) return;
+        // Wachten tot deze bevraging mag starten; de klok loopt door, ook als
+        // een vorige nog onderweg is.
+        var nu = Date.now();
+        if (startNietVoor < nu) startNietVoor = nu;
+        var wacht = startNietVoor - nu;
+        startNietVoor += EP_PAUZE;
+        if (wacht > 0) await new Promise(function (res) { setTimeout(res, wacht); });
+        if (epStop) return;
+        await epEenAdres(rij[i]);
+        afgerond++;
+        epLoopGedaan++;
+        if (afgerond % 100 === 0) bewaarEpWerk();
+        if (afgerond % 5 === 0) epTekenVoortgang();
       }
-      if (i % 50 === 0) bewaarEpWerk();
-      teken();
-      if (!epStop) await new Promise(function (res) { setTimeout(res, EP_PAUZE); });
     }
+
+    var ploeg = [];
+    for (var w = 0; w < EP_PARALLEL; w++) ploeg.push(werker());
+    await Promise.all(ploeg);
 
     epOpgehaald = new Date().toISOString();
     epGewijzigd = true;
@@ -868,6 +897,23 @@
     teken();
   }
 
+  // teken() bouwt het hele scherm opnieuw op, inclusief de tabbalk die over
+  // alle panden en adressen loopt. Vier keer per seconde is dat zoveel werk dat
+  // het ophalen er merkbaar door vertraagt. Tijdens een ronde werken we daarom
+  // alleen de twee regels bij die veranderen.
+  var epLoopGedaan = 0, epLoopTotaal = 0;   // tellers tijdens een ronde
+  function epTekenVoortgang() {
+    var kop = document.getElementById('ep-stand');
+    var vul = document.getElementById('ep-vul');
+    if (!kop || !vul) { teken(); return; }
+    // Niet opnieuw de hele wachtrij uitrekenen: die loopt over alle adressen
+    // en dat kost meer tijd dan de bevraging zelf.
+    var gedaan = epLoopGedaan, totaal = epLoopTotaal;
+    var pct = totaal ? Math.round(gedaan / totaal * 100) : 0;
+    kop.textContent = 'Bezig: ' + gedaan.toLocaleString('nl-NL') + ' van ' + totaal.toLocaleString('nl-NL') + ' (' + pct + '%)';
+    vul.style.width = pct + '%';
+  }
+
   function tekenEp() {
     var gedaan = Object.keys(ep).length;
     var tedoen = epWachtrij().length;
@@ -887,8 +933,8 @@
 
     if (epBezig) {
       var pct = totaal ? Math.round(gedaan / totaal * 100) : 0;
-      uit += '<h3>Bezig: ' + gedaan.toLocaleString('nl-NL') + ' van ' + totaal.toLocaleString('nl-NL') + ' (' + pct + '%)</h3>'
-        + '<div class="bh-voortgang"><div class="bh-voortgang-vul" style="width:' + pct + '%"></div></div>'
+      uit += '<h3 id="ep-stand">Bezig: ' + gedaan.toLocaleString('nl-NL') + ' van ' + totaal.toLocaleString('nl-NL') + ' (' + pct + '%)</h3>'
+        + '<div class="bh-voortgang"><div class="bh-voortgang-vul" id="ep-vul" style="width:' + pct + '%"></div></div>'
         + '<div class="bh-form-knoppen"><button class="bh-knop" data-actie="ep-stop">Stoppen</button></div>';
     } else {
       uit += '<div class="bh-form-knoppen" style="margin-top:14px">'
@@ -900,7 +946,7 @@
     if (epMelding) uit += '<p class="bh-hint">' + epMelding + '</p>';
     if (epFouten) uit += '<p class="bh-hint">' + epFouten.toLocaleString('nl-NL') + ' adressen zijn na drie pogingen overgeslagen; die komen bij een volgende ronde opnieuw aan de beurt.</p>';
 
-    if (gedaan) {
+    if (gedaan && !epBezig) {
       var v = epVerschillen();
       uit += '<h3>Wat het oplevert</h3><ul class="bh-leden">'
         + '<li><span class="bh-lid-naam">Gelijk aan wat we al hadden</span><span class="bh-lid-meta">' + v.gelijk.toLocaleString('nl-NL') + ' adressen</span></li>'
