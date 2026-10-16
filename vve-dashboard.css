@@ -214,8 +214,8 @@
 @media (min-width: 1024px) { .xl-smal-knop { display: none; } }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Nieuw ontwerp (proef). Alleen actief met html.vd-nieuw; zonder die klasse
-   ziet alles er precies zo uit als voorheen.
+   Nieuw ontwerp. Actief met html.vd-nieuw, en dat is standaard; met
+   ONTWERP = 'oud' in team_config.js valt alles terug op het oude uiterlijk.
 
    Uitgangspunt: de structuur van een spreadsheet blijft (dicht raster,
    filters links, detail rechts), het Excel-kostuum gaat eruit. Kolomletters,
@@ -287,23 +287,7 @@ html.vd-nieuw .xl-naam-text { font-weight: 500; }
 /* Toetsenbordfocus zichtbaar in de accentkleur */
 html.vd-nieuw :focus-visible { outline: 2px solid var(--vd-accent); outline-offset: 1px; }
 
-/* De ontwerpschakelaar zelf (alleen tijdens de proef) */
-#vd-proef {
-  position: fixed; right: 14px; bottom: 34px; z-index: 99999;
-  background: #fff; border: 1px solid #d5d9df; border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  padding: 8px 10px; font: 12px/1.3 'Segoe UI', system-ui, sans-serif; color: #1f2328;
-  display: flex; align-items: center; gap: 8px;
-}
-#vd-proef label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; }
-#vd-proef .vd-stalen { display: flex; gap: 5px; align-items: center; }
-#vd-proef .vd-staal {
-  width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #c5cad2; cursor: pointer; padding: 0;
-}
-#vd-proef .vd-staal[aria-pressed="true"] { box-shadow: 0 0 0 2px #1f2328; }
-#vd-proef input[type="color"] { width: 22px; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; }
-#vd-proef .vd-stalen[hidden] { display: none; }
+
 
 /* Energielabels in het nieuwe ontwerp: een zachte tint met donkere tekst in
    dezelfde kleur, in plaats van een volle verzadigde vulling. De volgorde
