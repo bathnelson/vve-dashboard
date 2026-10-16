@@ -1,6 +1,17 @@
 /* VvE Dashboard Haarlem — stijlen */
 /* Gegenereerd uit vve_dashboard.html; niet handmatig in de HTML bewerken. */
 
+/* Kleuren als variabelen. Standaard exact het oude Excel-groen, zodat het
+   huidige ontwerp ongewijzigd blijft; het nieuwe ontwerp (html.vd-nieuw)
+   zet hier de gekozen accentkleur overheen. De energielabelschaal staat
+   bewust niet hierin: die kleuren dragen betekenis en blijven vast. */
+:root {
+  --vd-accent: #217346;
+  --vd-accent-donker: #1a5c38;
+  --vd-accent-zacht: #d4edda;
+  --vd-accent-licht: #f0faf4;
+}
+
 /* Power Apps custom styles */
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -57,7 +68,7 @@
         }
 
         /* Power Apps header bar - flat style (kept for mobile) */
-        .pa-header { background: #217346; }
+        .pa-header { background: var(--vd-accent); }
 
         /* ── Excel-style grid ── */
         .xl-grid-row {
@@ -122,12 +133,12 @@
         /* FacetOption active: green instead of purple */
         .xl-facet-active {
             background: rgba(33,115,70,0.1);
-            color: #217346;
+            color: var(--vd-accent);
             font-weight: 600;
         }
         .xl-facet-active .xl-check {
-            background: #217346;
-            border-color: #217346;
+            background: var(--vd-accent);
+            border-color: var(--vd-accent);
         }
         .xl-check {
             width: 12px; height: 12px;
@@ -145,7 +156,7 @@
             height: 0;
             border-style: solid;
             border-width: 0 8px 8px 0;
-            border-color: transparent #217346 transparent transparent;
+            border-color: transparent var(--vd-accent) transparent transparent;
             cursor: default;
             flex-shrink: 0;
         }
@@ -187,17 +198,109 @@
         .scrollbar-thin::-webkit-scrollbar-corner { background: transparent; }
 /* ── kolom Map: knop naar de dossiermap ─────────────────── */
 .xl-cell-map { justify-content: center; padding: 0; position: relative; }
-.xl-map-knop { display: grid; place-items: center; width: 26px; height: 22px; border-radius: 3px; color: #217346; text-decoration: none; }
+.xl-map-knop { display: grid; place-items: center; width: 26px; height: 22px; border-radius: 3px; color: var(--vd-accent); text-decoration: none; }
 .xl-map-knop svg { width: 17px; height: 17px; }
-.xl-map-knop:hover { background: #d4edda; color: #1a5c38; }
+.xl-map-knop:hover { background: var(--vd-accent-zacht); color: var(--vd-accent-donker); }
 .xl-map-knop-kopie { color: #7a9082; cursor: copy; }
 .xl-cell-map:hover { background: #e8f4ee; }
-.xl-cell-map[data-gekopieerd] { background: #d4edda; }
+.xl-cell-map[data-gekopieerd] { background: var(--vd-accent-zacht); }
 .xl-cell-map[data-gekopieerd]::after { content: '\2713'; position: absolute; inset: 0; display: grid; place-items: center;
-  background: #d4edda; color: #1a5c38; font-size: 13px; font-weight: 700; }
+  background: var(--vd-accent-zacht); color: var(--vd-accent-donker); font-size: 13px; font-weight: 700; }
 .xl-map-kopieer-los { border: 0; background: none; padding: 0 2px; cursor: copy; color: #7a9082; font-size: 13px; line-height: 1; flex-shrink: 0; }
-.xl-map-kopieer-los:hover { color: #217346; }
+.xl-map-kopieer-los:hover { color: var(--vd-accent); }
 
 /* Knop 'Filters' in de kop: alleen op een smal venster, als de filterkolom verborgen is. */
 .xl-smal-knop { display: flex; }
 @media (min-width: 1024px) { .xl-smal-knop { display: none; } }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Nieuw ontwerp (proef). Alleen actief met html.vd-nieuw; zonder die klasse
+   ziet alles er precies zo uit als voorheen.
+
+   Uitgangspunt: de structuur van een spreadsheet blijft (dicht raster,
+   filters links, detail rechts), het Excel-kostuum gaat eruit. Kolomletters,
+   rijnummers, stippellijnen en lege opvulrijen dragen geen informatie.
+   De energielabels worden zo de enige felle kleuren op het scherm.
+   ══════════════════════════════════════════════════════════════════════ */
+html.vd-nieuw {
+  --vd-accent-donker: color-mix(in srgb, var(--vd-accent) 78%, black);
+  --vd-accent-zacht: color-mix(in srgb, var(--vd-accent) 14%, white);
+  --vd-accent-licht: color-mix(in srgb, var(--vd-accent) 6%, white);
+  --vd-grond: #f5f6f8;
+  --vd-lijn: #e7e9ed;
+  --vd-lijn-sterk: #d5d9df;
+  --vd-tekst: #1f2328;
+  --vd-zacht: #5b6370;
+  --vd-rijnr: 0px;
+}
+
+/* Excel-kostuum weg */
+html.vd-nieuw .vd-kolomletters,
+html.vd-nieuw .vd-opvulrij { display: none !important; }
+html.vd-nieuw .xl-rownum {
+  padding: 0 !important; border: 0 !important; font-size: 0 !important;
+  overflow: hidden; background: transparent !important;
+}
+
+/* Kolomkoppen: rustig, geen tussenlijnen, blijven staan bij scrollen */
+html.vd-nieuw .vd-kolomkop {
+  background: #fff !important;
+  border-bottom: 1px solid var(--vd-lijn-sterk) !important;
+}
+html.vd-nieuw .vd-kolomkop-cel {
+  border-right: 0 !important;
+  padding: 7px 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--vd-zacht) !important;
+  letter-spacing: 0.01em;
+}
+
+/* Rijen en cellen */
+html.vd-nieuw .xl-grid-row {
+  border-bottom: 1px solid var(--vd-lijn);
+  transition: background 0.08s;
+}
+html.vd-nieuw .xl-grid-row:hover { background: var(--vd-accent-licht); }
+html.vd-nieuw .xl-grid-row.xl-row-selected,
+html.vd-nieuw .xl-grid-subrow.xl-row-selected {
+  background: var(--vd-accent-zacht) !important;
+  box-shadow: inset 3px 0 0 var(--vd-accent);
+}
+html.vd-nieuw .xl-grid-row.xl-row-has-selected { background: var(--vd-accent-licht); }
+html.vd-nieuw .xl-grid-subrow {
+  background: #fafbfc;
+  border-bottom: 1px solid var(--vd-lijn);
+}
+html.vd-nieuw .xl-grid-subrow:hover { background: var(--vd-accent-licht); }
+html.vd-nieuw .xl-cell {
+  border-right: 0;
+  padding: 5px 8px;
+  color: var(--vd-tekst);
+}
+/* Bedragen en aantallen in cijfers van gelijke breedte, zodat ze in een
+   kolom echt onder elkaar staan */
+html.vd-nieuw .xl-cell-right,
+html.vd-nieuw .xl-cell-center { font-variant-numeric: tabular-nums; }
+html.vd-nieuw .xl-naam-text { font-weight: 500; }
+
+/* Toetsenbordfocus zichtbaar in de accentkleur */
+html.vd-nieuw :focus-visible { outline: 2px solid var(--vd-accent); outline-offset: 1px; }
+
+/* De ontwerpschakelaar zelf (alleen tijdens de proef) */
+#vd-proef {
+  position: fixed; right: 14px; bottom: 34px; z-index: 99999;
+  background: #fff; border: 1px solid #d5d9df; border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 8px 10px; font: 12px/1.3 'Segoe UI', system-ui, sans-serif; color: #1f2328;
+  display: flex; align-items: center; gap: 8px;
+}
+#vd-proef label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; }
+#vd-proef .vd-stalen { display: flex; gap: 5px; align-items: center; }
+#vd-proef .vd-staal {
+  width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #c5cad2; cursor: pointer; padding: 0;
+}
+#vd-proef .vd-staal[aria-pressed="true"] { box-shadow: 0 0 0 2px #1f2328; }
+#vd-proef input[type="color"] { width: 22px; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; }
+#vd-proef .vd-stalen[hidden] { display: none; }
