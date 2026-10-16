@@ -767,7 +767,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 46;
+var APP_BUILD = 47;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -11482,83 +11482,18 @@ var App = () => {
 };
 ReactDOM.createRoot(document.getElementById('app')).render(/*#__PURE__*/React.createElement(App, null));
 
-// ── Ontwerpproef ─────────────────────────────────────────────────────────
-// Schakelt tussen het oude en het nieuwe ontwerp en laat de accentkleur
-// kiezen. Beide keuzes worden per browser onthouden. Een standaardkleur kan
-// in team_config.js met ACCENT_KLEUR = '#......'. Dit blokje is alleen voor
-// de proef; na goedkeuring verhuist de kleur naar team_config.js en gaat
-// de schakelaar weg.
-(function vdOntwerpProef() {
-  var SLEUTEL = 'vd-ontwerp', SLEUTEL_KLEUR = 'vd-accent';
-  var STALEN = [
-    ['Zeegroen', '#2e8b57'],
-    ['Haarlems rood', '#b52431'],
-    ['Blauwgroen', '#0f6e78'],
-    ['Nachtblauw', '#1f4e8c'],
-    ['Excel-groen', '#217346']
-  ];
-  var standaard = (typeof ACCENT_KLEUR === 'string' && /^#[0-9a-f]{6}$/i.test(ACCENT_KLEUR)) ? ACCENT_KLEUR : '#2e8b57';
-  function lees(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function schrijf(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-
-  var aan = lees(SLEUTEL) === 'nieuw';
-  var kleur = lees(SLEUTEL_KLEUR) || standaard;
-  var vak, vink, stalen, kiezer;
-
-  function pasToe() {
-    var h = document.documentElement;
-    h.classList.toggle('vd-nieuw', aan);
-    if (aan) h.style.setProperty('--vd-accent', kleur);
-    else h.style.removeProperty('--vd-accent');
-    if (!vak) return;
-    vink.checked = aan;
-    stalen.hidden = !aan;
-    kiezer.value = kleur;
-    stalen.querySelectorAll('.vd-staal').forEach(function (b) {
-      b.setAttribute('aria-pressed', b.getAttribute('data-kleur').toLowerCase() === kleur.toLowerCase() ? 'true' : 'false');
-    });
-  }
-
-  function bouw() {
-    vak = document.createElement('div');
-    vak.id = 'vd-proef';
-    vak.setAttribute('role', 'group');
-    vak.setAttribute('aria-label', 'Ontwerpproef');
-    var lbl = document.createElement('label');
-    vink = document.createElement('input');
-    vink.type = 'checkbox';
-    vink.addEventListener('change', function () {
-      aan = vink.checked; schrijf(SLEUTEL, aan ? 'nieuw' : 'oud'); pasToe();
-    });
-    lbl.appendChild(vink);
-    lbl.appendChild(document.createTextNode('Nieuw ontwerp'));
-    vak.appendChild(lbl);
-
-    stalen = document.createElement('div');
-    stalen.className = 'vd-stalen';
-    STALEN.forEach(function (s) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'vd-staal';
-      b.title = s[0];
-      b.setAttribute('aria-label', 'Accentkleur ' + s[0]);
-      b.setAttribute('data-kleur', s[1]);
-      b.style.background = s[1];
-      b.addEventListener('click', function () { kleur = s[1]; schrijf(SLEUTEL_KLEUR, kleur); pasToe(); });
-      stalen.appendChild(b);
-    });
-    kiezer = document.createElement('input');
-    kiezer.type = 'color';
-    kiezer.title = 'Eigen kleur';
-    kiezer.setAttribute('aria-label', 'Eigen accentkleur');
-    kiezer.addEventListener('input', function () { kleur = kiezer.value; schrijf(SLEUTEL_KLEUR, kleur); pasToe(); });
-    stalen.appendChild(kiezer);
-    vak.appendChild(stalen);
-    document.body.appendChild(vak);
-    pasToe();
-  }
-
-  pasToe();   // klasse zo vroeg mogelijk, zodat het niet eerst in het oude ontwerp knippert
-  if (document.body) bouw();
-  else document.addEventListener('DOMContentLoaded', bouw);
+// ── Ontwerp en accentkleur ───────────────────────────────────────────────
+// Het nieuwe ontwerp staat standaard aan. Twee instellingen in team_config.js:
+//   ACCENT_KLEUR = '#2e8b57'   de accentkleur (standaard zeegroen)
+//   ONTWERP = 'oud'            terug naar het oude Excel-uiterlijk, als uitweg
+// De energielabels en statuskleuren (verbonden, ingelogd, gekoppeld) volgen
+// de accentkleur bewust niet: die kleuren dragen betekenis.
+(function vdOntwerp() {
+  var oud = (typeof ONTWERP === 'string' && ONTWERP.toLowerCase() === 'oud');
+  var kleur = (typeof ACCENT_KLEUR === 'string' && /^#[0-9a-f]{6}$/i.test(ACCENT_KLEUR)) ? ACCENT_KLEUR : '#2e8b57';
+  var h = document.documentElement;
+  h.classList.toggle('vd-nieuw', !oud);
+  if (!oud) h.style.setProperty('--vd-accent', kleur);
+  // Restjes van de proef opruimen, zodat niemand op een oude keuze blijft hangen.
+  try { localStorage.removeItem('vd-ontwerp'); localStorage.removeItem('vd-accent'); } catch (e) {}
 })();
