@@ -767,7 +767,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 45;
+var APP_BUILD = 46;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -5467,7 +5467,8 @@ var App = () => {
 
   // Pre-computed search index: eenmalig bouwen zodat zoeken snel blijft bij 28K records
   var searchIdx = useMemo(() => data.map(item =>
-    ((item.statutairenaam || '') + '\0' + (item.postcode || '') + '\0' + (item.buurt || '') + '\0' + formatAddress(item)).toLowerCase()
+    ((item.statutairenaam || '') + '\0' + (item.postcode || '') + '\0' + (item.buurt || '') + '\0' + formatAddress(item)
+      + '\0' + (item.kvknummer || '') + '\0' + (lookupKvkNummer(item.vve_identificatie) || '')).toLowerCase()
   ), [data]);
 
   // Helper to count unique VvEs
@@ -5723,16 +5724,29 @@ var App = () => {
       return data;
     }
     var searchLower = deferredSearch.toLowerCase();
+    // Een KvK-nummer wordt vaak met punten of spaties geschreven. Is de
+    // zoekterm in de kern een cijferreeks, dan vergelijken we ook op alleen
+    // de cijfers, aan beide kanten.
+    var cijfers = deferredSearch.replace(/[^0-9]/g, '');
+    var opKvk = cijfers.length >= 4 && cijfers.length >= deferredSearch.trim().length - 3;
     var localEnrichData = loadEnrichmentData();
     var dossierData = typeof VVE_DOSSIER_DATA !== 'undefined' ? VVE_DOSSIER_DATA : {};
     var result = data.filter((item, i) => {
       // Snelle check via pre-computed index (naam + postcode + buurt + adres in één string)
       if (searchIdx[i] && searchIdx[i].includes(searchLower)) return true;
-      // Nickname als fallback (alleen bereikt als niets in de index matcht)
+      // Nickname en handmatig KvK-nummer als terugval; die staan niet in de
+      // index omdat ze uit localStorage en het dossierbestand komen.
       var localEntry = localEnrichData[item.vve_identificatie] || {};
       var fileEntry = dossierData[item.vve_identificatie] || {};
       var nickname = (localEntry.nickname || fileEntry.nickname || '').toLowerCase();
-      return nickname.includes(searchLower);
+      if (nickname.includes(searchLower)) return true;
+      if (!opKvk) return false;
+      var handmatig = String(localEntry.kvkNummer || fileEntry.kvkNummer || '').replace(/[^0-9]/g, '');
+      if (handmatig && handmatig.includes(cijfers)) return true;
+      var eigen = String(item.kvknummer || '').replace(/[^0-9]/g, '');
+      if (eigen && eigen.includes(cijfers)) return true;
+      var alt = String(lookupKvkNummer(item.vve_identificatie) || '').replace(/[^0-9]/g, '');
+      return !!(alt && alt.includes(cijfers));
     });
     console.log(`[perf] searchFilteredData: ${(performance.now() - t0).toFixed(1)}ms → ${result.length} records (query="${deferredSearch}")`);
     return result;
@@ -8155,7 +8169,7 @@ var App = () => {
     onChange: handleSearch,
     onParsedEmail: handleParsedEmail,
     parsedData: parsedEmail,
-    placeholder: "Zoek op adres, naam, postcode, buurt, nickname..."
+    placeholder: "Zoek op adres, naam, postcode, buurt, KvK-nummer, nickname..."
   })), /*#__PURE__*/React.createElement("div", {
     id: "vve-toolbar-actions",
     style: {
