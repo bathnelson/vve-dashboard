@@ -742,7 +742,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 40;
+var APP_BUILD = 41;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -1273,6 +1273,23 @@ var getAverageEnergyLabel = addresses => {
   return labelOrder[Math.min(avgScore, labelOrder.length - 1)] || '-';
 };
 var getWozByYear = (item, jaar) => item['woz' + (jaar || '2025')] || null;
+
+// Wat tijdens deze sessie los bij het Kadaster is opgehaald. Blijft in het
+// geheugen van dit tabblad: het dashboard schrijft geen bestanden, dus na een
+// herlaadactie is het weg tenzij je het met de beheertool vastlegt.
+var VERSE_WOZ = {};
+var verseWoz = (item) => item && VERSE_WOZ[String(item.verblijfsobject_id)] || null;
+var verseWozAantal = () => Object.keys(VERSE_WOZ).length;
+var verseWozGewijzigd = () => Object.keys(VERSE_WOZ).filter(k => VERSE_WOZ[k].gewijzigd).length;
+// Gemiddelde verandering in procenten over alles wat vers is en afwijkt.
+var verseWozVerschuiving = (jaar) => {
+  var veld = 'woz' + (jaar || '2025');
+  var pct = Object.keys(VERSE_WOZ).map(k => VERSE_WOZ[k])
+    .filter(v => v.oud[veld] && v.nieuw[veld] && v.oud[veld] !== v.nieuw[veld])
+    .map(v => (v.nieuw[veld] - v.oud[veld]) / v.oud[veld] * 100);
+  if (!pct.length) return null;
+  return pct.reduce((a, b) => a + b, 0) / pct.length;
+};
 var AddressCard = ({
   item,
   onClick,
@@ -2543,7 +2560,18 @@ var VveGroupCard = ({
       color: '#555',
       fontSize: 11
     }
-  }, formatCurrency(avgWoz)), /*#__PURE__*/React.createElement("div", {
+  }, formatCurrency(avgWoz), (() => {
+    // Zijn er adressen in deze VvE waarvan de WOZ deze sessie is opgehaald?
+    var vers = addresses.filter(a => verseWoz(a));
+    if (!vers.length) return null;
+    var anders = vers.filter(a => verseWoz(a).gewijzigd).length;
+    return /*#__PURE__*/React.createElement("span", {
+      style: { color: anders ? '#c2410c' : '#15803d', marginLeft: 3 },
+      title: vers.length + ' van de ' + addresses.length + ' adressen vers opgehaald bij het Kadaster'
+        + (anders ? ', ' + anders + ' met een ander bedrag dan de dataset' : ', alle bedragen gelijk aan de dataset')
+        + ' \u2014 nog niet opgeslagen'
+    }, '\u25cf');
+  })()), /*#__PURE__*/React.createElement("div", {
     className: "xl-cell",
     style: {
       fontSize: 10,
@@ -3001,6 +3029,7 @@ var DetailPanel = ({
   gespikkeldLookup,
   showToolbarPortal = true,
   activeWozJaar,
+  onVerseWoz,
   onSelectVve
 }) => {
   var _wozState = useState(null),
@@ -3034,21 +3063,32 @@ var DetailPanel = ({
         if (r.status === 404) { zonder++; }
         else if (r.ok) {
           var d = await r.json();
-          var veranderd = false;
+          var veranderd = false, erbij = false, oud = {}, vers = {};
           (d.wozWaarden || []).forEach(w => {
             if (!w.peildatum || w.vastgesteldeWaarde == null) return;
             var veld = 'woz' + (Number(w.peildatum.slice(0, 4)) + 1);
-            if (Number(adres[veld]) !== Number(w.vastgesteldeWaarde)) veranderd = true;
+            var had = adres[veld] == null || adres[veld] === '' ? null : Number(adres[veld]);
+            oud[veld] = had;
+            vers[veld] = w.vastgesteldeWaarde;
+            // Een jaar dat de dataset nog niet had is aanwinst; alleen een
+            // ander bedrag in een jaar dat er al stond is een afwijking.
+            if (had === null) erbij = true;
+            else if (had !== Number(w.vastgesteldeWaarde)) veranderd = true;
             adres[veld] = w.vastgesteldeWaarde;
           });
+          VERSE_WOZ[String(adres.verblijfsobject_id)] = {
+            oud: oud, nieuw: vers, gewijzigd: veranderd, historie: erbij, tijd: new Date()
+          };
           if (veranderd) nieuw++; else gelijk++;
         }
       } catch (e) { zonder++; }
       setWozStand({ bezig: true, gedaan: i + 1, totaal: lijst.length, nieuw: nieuw, gelijk: gelijk, zonder: zonder });
+      if (onVerseWoz) onVerseWoz();
       if (i < lijst.length - 1) await new Promise(res => setTimeout(res, 1150));
     }
     setWozStand({ klaar: true, totaal: lijst.length, nieuw: nieuw, gelijk: gelijk, zonder: zonder,
       afgebroken: wozAfbreken.current });
+    if (onVerseWoz) onVerseWoz();
   };
 
   var _useState3 = useState(false),
@@ -3929,11 +3969,25 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
         className: "text-pa-blue-500 hover:underline"
       }, "stoppen"));
     if (wozStand && wozStand.fout) return /*#__PURE__*/React.createElement("span", {className: "text-orange-600"}, wozStand.fout);
-    if (wozStand && wozStand.klaar) return /*#__PURE__*/React.createElement("span", null,
-      wozStand.nieuw + ' van ' + wozStand.totaal + ' bijgewerkt'
-      + (wozStand.zonder ? ', ' + wozStand.zonder + ' niet bekend' : '')
-      + (wozStand.afgebroken ? ' (afgebroken)' : '')
-      + ' \u2014 nog niet opgeslagen, dat doe je met de beheertool');
+    if (wozStand && wozStand.klaar) {
+      var schuif = verseWozVerschuiving(activeWozJaar);
+      return /*#__PURE__*/React.createElement("span", null,
+        (wozStand.gelijk + wozStand.nieuw) + ' van ' + wozStand.totaal + ' opgehaald'
+        + (wozStand.nieuw ? ', ' + wozStand.nieuw + ' afwijkend' : ', alles gelijk')
+        + (wozStand.zonder ? ', ' + wozStand.zonder + ' niet bekend' : '')
+        + (wozStand.afgebroken ? ' (afgebroken)' : ''),
+        schuif !== null && /*#__PURE__*/React.createElement("span", {
+          style: { color: schuif >= 0 ? '#15803d' : '#c2410c', marginLeft: 4 },
+          title: 'Gemiddelde verandering in WOZ ' + activeWozJaar + ' over alles wat deze sessie is opgehaald'
+        }, (schuif >= 0 ? '+' : '') + schuif.toFixed(1) + '%'),
+        /*#__PURE__*/React.createElement("span", { className: "text-pa-gray-500" },
+          ' \u2014 nog niet opgeslagen, dat doe je met de beheertool'),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: () => setWozStand(null),
+          className: "text-pa-blue-500 hover:underline",
+          style: { marginLeft: 6 }
+        }, "opnieuw"));
+    }
     return /*#__PURE__*/React.createElement("button", {
       onClick: haalWozVoorVve,
       className: "text-pa-blue-500 hover:underline",
@@ -5573,6 +5627,13 @@ var App = () => {
     if (getVveEnrichment(item.vve_identificatie)?.kvkNummer) return 'handmatig';
     return 'zonder_kvk';
   };
+  // Telt op zodra er verse WOZ-waarden binnen zijn; daardoor tekenen de kop
+  // en de VvE-rijen opnieuw met het merkteken erbij.
+  var _wozVersie = useState(0),
+    wozVersie = _wozVersie[0],
+    setWozVersie = _wozVersie[1];
+  var meldVerseWoz = () => setWozVersie(v => v + 1);
+
   var getActiveWoz = item => item['woz' + activeWozJaar] || null;
   var wozCategories = [{
     key: 'onder',
@@ -7804,7 +7865,13 @@ var App = () => {
       title: d.wat === 'WOZ'
         ? 'WOZ-waarden opgehaald bij het Kadaster op ' + d.datum
         : 'Gegevens van kaart.haarlem.nl opgehaald op ' + d.datum
-    }, ' · ' + d.wat + ' ' + d.datum))))), STARTPAGINA_LINK && /*#__PURE__*/React.createElement("a", {
+    }, ' · ' + d.wat + ' ' + d.datum)),
+    verseWozAantal() > 0 && /*#__PURE__*/React.createElement("span", {
+      style: { color: '#fde68a' },
+      title: verseWozAantal().toLocaleString('nl-NL') + ' adressen deze sessie los bij het Kadaster opgehaald, '
+        + 'waarvan ' + verseWozGewijzigd().toLocaleString('nl-NL') + ' met een ander bedrag dan de dataset. '
+        + 'Alleen in dit tabblad; leg het vast met de beheertool.'
+    }, ' · ' + verseWozAantal().toLocaleString('nl-NL') + ' vers')))), STARTPAGINA_LINK && /*#__PURE__*/React.createElement("a", {
     href: STARTPAGINA_LINK,
     title: "Naar de startpagina",
     style: {
@@ -10673,6 +10740,7 @@ var App = () => {
     dossierVisible: dossierVisible,
     gespikkeldLookup: gespikkeldLookup,
     activeWozJaar: activeWozJaar,
+    onVerseWoz: meldVerseWoz,
     onSelectVve: handleSelectItem
   }) : /*#__PURE__*/React.createElement("div", {
     style: {
@@ -10775,7 +10843,8 @@ var App = () => {
       dossierVisible: dossierVisible,
       gespikkeldLookup: gespikkeldLookup,
       showToolbarPortal: false,
-      activeWozJaar: activeWozJaar
+      activeWozJaar: activeWozJaar,
+      onVerseWoz: meldVerseWoz
     }))));
   })()), showUsernameDialog && /*#__PURE__*/React.createElement("div", {
     style: {
