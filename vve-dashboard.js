@@ -524,6 +524,22 @@
             try { console.info('Brondata gemeente toegepast op ' + n + ' adressen'); } catch (e) {}
         })();
 
+        // Energielabels uit EP-Online (ep_data.inc). Het register is leidend
+        // boven de letter in vve_data.js; de geldigheid hangt eronder in EP_LABEL.
+        (function pasEpToe() {
+            if (typeof EP_DATA === 'undefined' || !EP_DATA) return;
+            if (typeof VVE_DATA === 'undefined') return;
+            var n = 0;
+            VVE_DATA.forEach((item) => {
+                var e = EP_DATA[String(item.verblijfsobject_id)];
+                if (!e || !e.k) return;
+                n++;
+                item.energielabel = e.k;
+                EP_LABEL[String(item.verblijfsobject_id)] = e;
+            });
+            try { console.info('Energielabels uit EP-Online toegepast op ' + n + ' adressen'); } catch (e) {}
+        })();
+
         // WOZ-waarden uit het wozwaardeloket (woz_data.inc, opgehaald met de
         // beheertool). De sleutel is het WOZ-jaar, dus woz2026 hoort bij
         // peildatum 1-1-2025; de veldnamen in vve_data.js volgen dezelfde telling.
@@ -742,7 +758,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 41;
+var APP_BUILD = 43;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -1278,6 +1294,12 @@ var getWozByYear = (item, jaar) => item['woz' + (jaar || '2025')] || null;
 // geheugen van dit tabblad: het dashboard schrijft geen bestanden, dus na een
 // herlaadactie is het weg tenzij je het met de beheertool vastlegt.
 var VERSE_WOZ = {};
+// Energielabels uit EP-Online (ep_data.inc) en wat er deze sessie los bij is
+// gehaald. EP_LABEL houdt de geldigheid vast; de letter zelf gaat in de rij.
+var EP_LABEL = {};
+var VERSE_EP = {};
+var epVan = (item) => item ? (VERSE_EP[String(item.verblijfsobject_id)] || EP_LABEL[String(item.verblijfsobject_id)] || null) : null;
+var verseEpAantal = () => Object.keys(VERSE_EP).length;
 var verseWoz = (item) => item && VERSE_WOZ[String(item.verblijfsobject_id)] || null;
 var verseWozAantal = () => Object.keys(VERSE_WOZ).length;
 var verseWozGewijzigd = () => Object.keys(VERSE_WOZ).filter(k => VERSE_WOZ[k].gewijzigd).length;
@@ -3051,7 +3073,7 @@ var DetailPanel = ({
     }
     wozAfbreken.current = false;
     setWozStand({ bezig: true, gedaan: 0, totaal: lijst.length, nieuw: 0, gelijk: 0, zonder: 0 });
-    var nieuw = 0, gelijk = 0, zonder = 0;
+    var nieuw = 0, gelijk = 0, zonder = 0, inZicht = 0;
     for (var i = 0; i < lijst.length && !wozAfbreken.current; i++) {
       var adres = lijst[i];
       try {
@@ -3079,15 +3101,66 @@ var DetailPanel = ({
           VERSE_WOZ[String(adres.verblijfsobject_id)] = {
             oud: oud, nieuw: vers, gewijzigd: veranderd, historie: erbij, tijd: new Date()
           };
+          // Een afwijking in 2024 of 2026 zie je niet terug in de lijst, want
+          // die toont maar één jaar. Daarom apart tellen wat er in het
+          // getoonde jaar beweegt.
+          var actief = 'woz' + activeWozJaar;
+          if (oud[actief] != null && oud[actief] !== vers[actief]) inZicht++;
           if (veranderd) nieuw++; else gelijk++;
         }
       } catch (e) { zonder++; }
-      setWozStand({ bezig: true, gedaan: i + 1, totaal: lijst.length, nieuw: nieuw, gelijk: gelijk, zonder: zonder });
+      setWozStand({ bezig: true, gedaan: i + 1, totaal: lijst.length, nieuw: nieuw, gelijk: gelijk, zonder: zonder, inZicht: inZicht });
       if (onVerseWoz) onVerseWoz();
       if (i < lijst.length - 1) await new Promise(res => setTimeout(res, 1150));
     }
     setWozStand({ klaar: true, totaal: lijst.length, nieuw: nieuw, gelijk: gelijk, zonder: zonder,
-      afgebroken: wozAfbreken.current });
+      inZicht: inZicht, afgebroken: wozAfbreken.current });
+    if (onVerseWoz) onVerseWoz();
+  };
+
+  var _epState = useState(null),
+    epStand = _epState[0],
+    setEpStand = _epState[1];
+  var epAfbreken = useRef(false);
+
+  // Energielabels voor alleen deze VvE, via de helper die de EP-Online-sleutel
+  // bewaart. Vier per seconde; blijft net als de WOZ in dit scherm staan.
+  var haalEpVoorVve = async () => {
+    var lijst = vveAddresses.filter(a => a.verblijfsobject_id);
+    if (!lijst.length) { setEpStand({ klaar: true, fout: 'Geen verblijfsobjecten bij deze VvE.' }); return; }
+    epAfbreken.current = false;
+    setEpStand({ bezig: true, gedaan: 0, totaal: lijst.length });
+    var anders = 0, gelijk = 0, zonder = 0, erbij = 0;
+    for (var i = 0; i < lijst.length && !epAfbreken.current; i++) {
+      var adres = lijst[i];
+      try {
+        var r = await fetch(HELPERS_URL + '/ep-proxy.php?bagid=' + encodeURIComponent(adres.verblijfsobject_id));
+        var d = r.ok ? await r.json() : null;
+        var rec = d && d._httpStatus === 200 ? (d['0'] || d) : null;
+        var letter = rec ? (rec.Energieklasse || rec.energieklasse || rec.LabelLetter || null) : null;
+        if (!letter) { zonder++; }
+        else {
+          var had = adres.energielabel;
+          if (!had || had === '-') erbij++;
+          else if (String(had).trim() !== String(letter).trim()) anders++;
+          else gelijk++;
+          adres.energielabel = letter;
+          VERSE_EP[String(adres.verblijfsobject_id)] = {
+            k: letter,
+            opname: (rec.Opnamedatum || '').slice(0, 10) || null,
+            geldig: (rec.Geldig_tot || '').slice(0, 10) || null,
+            methode: (rec.Berekeningstype || '').indexOf('NTA') !== -1 ? 'nta8800' : 'oud',
+            kwh: rec.BerekendeEnergieverbruik || null,
+            vers: true
+          };
+        }
+      } catch (e) { zonder++; }
+      setEpStand({ bezig: true, gedaan: i + 1, totaal: lijst.length, anders: anders, gelijk: gelijk, zonder: zonder, erbij: erbij });
+      if (onVerseWoz) onVerseWoz();
+      if (i < lijst.length - 1) await new Promise(res => setTimeout(res, 250));
+    }
+    setEpStand({ klaar: true, totaal: lijst.length, anders: anders, gelijk: gelijk, zonder: zonder, erbij: erbij,
+      afgebroken: epAfbreken.current });
     if (onVerseWoz) onVerseWoz();
   };
 
@@ -3961,7 +4034,43 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
         className: "text-xs text-pa-gray-500 mt-0.5"
       }, leden.length + (leden.length === 1 ? ' andere VvE' : ' andere VvE\u2019s'), c.toelichting ? ' \u00B7 ' + c.toelichting : ''));
     })));
-  })(), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr)), vveSummary.erfpacht !== '-' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Erfpacht"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, vveSummary.erfpacht === 'Erfpacht' ? 'Ja' : 'Nee')), /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "WOZ"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, (() => {
+  })(), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr)), vveSummary.erfpacht !== '-' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Erfpacht"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, vveSummary.erfpacht === 'Erfpacht' ? 'Ja' : 'Nee')), /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Labels"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, (() => {
+    if (epStand && epStand.bezig) return /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-500"},
+      'Bezig \u2014 ' + epStand.gedaan + ' van ' + epStand.totaal + ' adressen \u00b7 ',
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => { epAfbreken.current = true; },
+        className: "text-pa-blue-500 hover:underline"
+      }, "stoppen"));
+    if (epStand && epStand.fout) return /*#__PURE__*/React.createElement("span", {className: "text-orange-600"}, epStand.fout);
+    if (epStand && epStand.klaar) return /*#__PURE__*/React.createElement("span", null,
+      (epStand.gelijk + epStand.anders + epStand.erbij) + ' van ' + epStand.totaal + ' met een label in EP-Online'
+      + (epStand.anders ? ', ' + epStand.anders + ' andere letter' : '')
+      + (epStand.erbij ? ', ' + epStand.erbij + ' nieuw' : '')
+      + (!epStand.anders && !epStand.erbij ? ', alles gelijk' : '')
+      + (epStand.afgebroken ? ' (afgebroken)' : ''),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => setEpStand(null),
+        className: "text-pa-blue-500 hover:underline",
+        style: { marginLeft: 6 }
+      }, "opnieuw"));
+    // Wat weten we al over de houdbaarheid van de labels in deze VvE?
+    var bekend = vveAddresses.map(a => epVan(a)).filter(Boolean);
+    var nu = new Date();
+    var verlopen = bekend.filter(e => e.geldig && new Date(e.geldig) < nu).length;
+    var oudste = bekend.filter(e => e.geldig).map(e => e.geldig).sort()[0];
+    return /*#__PURE__*/React.createElement("span", null,
+      bekend.length
+        ? /*#__PURE__*/React.createElement("span", null,
+            bekend.length + ' van ' + vveAddresses.length + ' uit EP-Online'
+            + (verlopen ? ', ' + verlopen + ' verlopen' : '')
+            + (oudste ? ', eerste verloopt ' + new Date(oudste).toLocaleDateString('nl-NL') : '') + ' \u00b7 ')
+        : null,
+      /*#__PURE__*/React.createElement("button", {
+        onClick: haalEpVoorVve,
+        className: "text-pa-blue-500 hover:underline",
+        title: "Vraagt EP-Online voor elk adres van deze VvE; ongeveer vier adressen per seconde"
+      }, bekend.length ? "opnieuw ophalen" : "Labels ophalen"));
+  })())), /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "WOZ"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, (() => {
     if (wozStand && wozStand.bezig) return /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-500"},
       'Bezig \u2014 ' + wozStand.gedaan + ' van ' + wozStand.totaal + ' adressen \u00b7 ',
       /*#__PURE__*/React.createElement("button", {
@@ -3973,7 +4082,12 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
       var schuif = verseWozVerschuiving(activeWozJaar);
       return /*#__PURE__*/React.createElement("span", null,
         (wozStand.gelijk + wozStand.nieuw) + ' van ' + wozStand.totaal + ' opgehaald'
-        + (wozStand.nieuw ? ', ' + wozStand.nieuw + ' afwijkend' : ', alles gelijk')
+        + (wozStand.nieuw
+            ? ', ' + wozStand.nieuw + ' afwijkend'
+              + (wozStand.inZicht
+                  ? ' waarvan ' + wozStand.inZicht + ' in ' + activeWozJaar
+                  : ', geen daarvan in ' + activeWozJaar + ' \u2014 daarom verandert de lijst niet')
+            : ', alles gelijk')
         + (wozStand.zonder ? ', ' + wozStand.zonder + ' niet bekend' : '')
         + (wozStand.afgebroken ? ' (afgebroken)' : ''),
         schuif !== null && /*#__PURE__*/React.createElement("span", {

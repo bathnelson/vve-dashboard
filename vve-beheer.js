@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSIE = 6;
+  var VERSIE = 7;
   var app = document.getElementById('beheer');
   if (!app) return;
 
@@ -29,6 +29,7 @@
   var OPSLAG_PANDEN = 'vve-beheer-panden-v1';
   var OPSLAG_BRON = 'vve-beheer-bron-v1';
   var OPSLAG_WOZ = 'vve-beheer-woz-v1';
+  var OPSLAG_EP = 'vve-beheer-ep-v1';
 
   // ── data inlezen ────────────────────────────────────────────────────────
   var RIJEN = (typeof VVE_DATA !== 'undefined' && Array.isArray(VVE_DATA)) ? VVE_DATA : [];
@@ -734,6 +735,189 @@
     return uit;
   }
 
+
+  // ── Energielabels (EP-Online, via de helper op adresverkenner) ──────────
+  // EP-Online vraagt een sleutel, dus het loopt via ep-proxy.php; die kent het
+  // BAG-verblijfsobject-ID, hetzelfde ID dat wij al hebben. Er zit geen
+  // zichtbare limiet op, maar de helper praat met een sleutel namens ons, dus
+  // we houden het op vier per seconde. De hele stad is dan ruim twee uur.
+  var EP_URL = 'https://adresverkenner.nl/helpers/ep-proxy.php?bagid=';
+  var EP_PAUZE = 250;
+
+  var ep = (typeof EP_DATA !== 'undefined') ? kopie(EP_DATA) : {};
+  var epGewijzigd = false;
+  var epOpgehaald = null;
+  try {
+    var bewaardeEp = JSON.parse(localStorage.getItem(OPSLAG_EP) || 'null');
+    if (bewaardeEp && bewaardeEp.ep) {
+      ep = bewaardeEp.ep;
+      epOpgehaald = bewaardeEp.opgehaald || null;
+      epGewijzigd = true;
+    }
+  } catch (e) {}
+
+  var epBezig = false, epStop = false, epMelding = '', epFouten = 0;
+
+  function epWachtrij() {
+    var rij = [];
+    Object.keys(RIJ_OP_VBO).forEach(function (vo) {
+      if (ep[vo] === undefined) rij.push(vo);
+    });
+    return rij;
+  }
+
+  // 'Rekenmethodiek Definitief Energielabel, versie 1.2, ...' tegenover
+  // 'NTA 8800:2024 ...'. Dezelfde letter betekent bij die twee niet hetzelfde,
+  // dus dat onderscheid bewaren we.
+  function epMethode(v) {
+    if (!v) return null;
+    return String(v).indexOf('NTA') !== -1 ? 'nta8800' : 'oud';
+  }
+
+  function bewaarEpWerk() {
+    try { localStorage.setItem(OPSLAG_EP, JSON.stringify({ ep: ep, opgehaald: epOpgehaald })); } catch (e) {}
+  }
+
+  async function haalEpOp() {
+    var rij = epWachtrij();
+    if (!rij.length) { alert('Alle adressen zijn al bevraagd. Met "Opnieuw beginnen" haal je ze nog een keer op.'); return; }
+    epBezig = true; epStop = false; epMelding = ''; epFouten = 0;
+    teken();
+
+    for (var i = 0; i < rij.length && !epStop; i++) {
+      var vo = rij[i];
+      var klaar = false, poging = 0;
+      while (!klaar && !epStop) {
+        try {
+          var r = await fetch(EP_URL + encodeURIComponent(vo), { cache: 'no-store' });
+          if (!r.ok) throw new Error('status ' + r.status);
+          var d = await r.json();
+          // De helper geeft de EP-status mee in _httpStatus; 404 = geen label.
+          if (d._httpStatus === 404) { ep[vo] = null; klaar = true; break; }
+          if (d._httpStatus && d._httpStatus >= 400) throw new Error('EP-Online: ' + d._httpStatus);
+          var rec = d['0'] || d;
+          var letter = rec.Energieklasse || rec.energieklasse || rec.LabelLetter || null;
+          ep[vo] = letter ? {
+            k: letter,
+            opname: (rec.Opnamedatum || '').slice(0, 10) || null,
+            geldig: (rec.Geldig_tot || '').slice(0, 10) || null,
+            methode: epMethode(rec.Berekeningstype),
+            klasse: rec.Gebouwklasse || null,
+            type: rec.Gebouwtype || null,
+            kwh: rec.BerekendeEnergieverbruik || null
+          } : null;
+          klaar = true;
+        } catch (err) {
+          poging++;
+          if (poging >= 3) { epFouten++; klaar = true; break; }
+          epMelding = vo + ' mislukte, nieuwe poging ' + (poging + 1) + ' van 3';
+          teken();
+          await new Promise(function (res) { setTimeout(res, 2000 * poging); });
+        }
+      }
+      if (i % 50 === 0) bewaarEpWerk();
+      teken();
+      if (!epStop) await new Promise(function (res) { setTimeout(res, EP_PAUZE); });
+    }
+
+    epOpgehaald = new Date().toISOString();
+    epGewijzigd = true;
+    bewaarEpWerk();
+    epBezig = false;
+    teken();
+  }
+
+  // Wat levert het op tegenover wat we nu weten?
+  function epVerschillen() {
+    var uit = { gelijk: 0, anders: 0, nieuw: 0, zonder: 0, verlopen: 0, bijna: 0, oudeMethode: 0 };
+    var nu = new Date();
+    var over2 = new Date(nu.getTime() + 730 * 86400000);
+    Object.keys(ep).forEach(function (vo) {
+      var r = RIJ_OP_VBO[vo], e = ep[vo];
+      if (!r) return;
+      if (!e) { uit.zonder++; return; }
+      var huidig = (bron[vo] && bron[vo].label) || r.energielabel;
+      if (!huidig || huidig === '-') uit.nieuw++;
+      else if (String(huidig).trim() !== String(e.k).trim()) uit.anders++;
+      else uit.gelijk++;
+      if (e.geldig) {
+        var g = new Date(e.geldig);
+        if (g < nu) uit.verlopen++;
+        else if (g < over2) uit.bijna++;
+      }
+      if (e.methode === 'oud') uit.oudeMethode++;
+    });
+    return uit;
+  }
+
+  function bewaarEpBestand() {
+    var tekst = '// ep_data.inc - energielabels uit EP-Online, via ep-proxy.php op adresverkenner.nl\n'
+      + '// Opgehaald met de beheertool, laatste ronde ' + new Date(epOpgehaald || Date.now()).toLocaleString('nl-NL') + '.\n'
+      + '//\n'
+      + '// Per verblijfsobject-ID:\n'
+      + '//   k        energieklasse        opname   datum van de opname\n'
+      + '//   geldig   label geldig tot     methode  nta8800 of oud\n'
+      + '//   klasse   woningbouw of utiliteitsbouw  type  gebouwtype\n'
+      + '//   kwh      berekend verbruik. Let op: bij nta8800 is dat kWh per m2,\n'
+      + '//            bij de oude methodiek het totaal in kWh. Niet vergelijkbaar.\n'
+      + '// null betekent: EP-Online kent geen label voor dit adres.\n'
+      + "const EP_DATA_OPGEHAALD = '" + (epOpgehaald || new Date().toISOString()).slice(0, 10) + "';\n"
+      + 'const EP_DATA = ' + JSON.stringify(ep) + ';\n';
+    download('ep_data.inc', tekst);
+    epGewijzigd = false;
+    teken();
+  }
+
+  function tekenEp() {
+    var gedaan = Object.keys(ep).length;
+    var tedoen = epWachtrij().length;
+    var totaal = gedaan + tedoen;
+    var minuten = Math.round(tedoen * EP_PAUZE / 60000);
+
+    var uit = '<div class="bh-paneel"><div class="bh-paneel-kop"><h2>Energielabels uit EP-Online</h2></div>'
+      + '<p class="bh-hint" style="margin-top:0">Vraagt per adres het officiële register, via de helper op '
+      + 'adresverkenner.nl die de sleutel bewaart. Naast de letter komen de opnamedatum, tot wanneer het label '
+      + 'geldig is, de rekenmethodiek en het berekende verbruik mee. Er zit geen dagrem op, dus de hele stad is '
+      + 'in één zitting te doen.</p>'
+      + '<div class="bh-velden" style="grid-template-columns:repeat(3,minmax(0,1fr))">'
+      + '<div><div class="bh-kaart-meta">Bevraagd</div><strong>' + gedaan.toLocaleString('nl-NL') + ' van ' + totaal.toLocaleString('nl-NL') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Nog te gaan</div><strong>' + (tedoen ? minuten + ' min' : 'niets') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Laatste ronde</div><strong>'
+      + (epOpgehaald ? new Date(epOpgehaald).toLocaleDateString('nl-NL') : '–') + '</strong></div></div>';
+
+    if (epBezig) {
+      var pct = totaal ? Math.round(gedaan / totaal * 100) : 0;
+      uit += '<h3>Bezig: ' + gedaan.toLocaleString('nl-NL') + ' van ' + totaal.toLocaleString('nl-NL') + ' (' + pct + '%)</h3>'
+        + '<div class="bh-voortgang"><div class="bh-voortgang-vul" style="width:' + pct + '%"></div></div>'
+        + '<div class="bh-form-knoppen"><button class="bh-knop" data-actie="ep-stop">Stoppen</button></div>';
+    } else {
+      uit += '<div class="bh-form-knoppen" style="margin-top:14px">'
+        + (tedoen ? '<button class="bh-knop is-primair" data-actie="ep-ophalen">' + (gedaan ? 'Verder ophalen' : 'Ophalen') + '</button>' : '')
+        + (epGewijzigd ? '<button class="bh-knop is-primair" data-actie="ep-bewaar">ep_data.inc downloaden</button>' : '')
+        + (gedaan ? '<button class="bh-knop bh-gevaar" data-actie="ep-wis">Opnieuw beginnen</button>' : '')
+        + '</div>';
+    }
+    if (epMelding) uit += '<p class="bh-hint">' + epMelding + '</p>';
+    if (epFouten) uit += '<p class="bh-hint">' + epFouten.toLocaleString('nl-NL') + ' adressen zijn na drie pogingen overgeslagen; die komen bij een volgende ronde opnieuw aan de beurt.</p>';
+
+    if (gedaan) {
+      var v = epVerschillen();
+      uit += '<h3>Wat het oplevert</h3><ul class="bh-leden">'
+        + '<li><span class="bh-lid-naam">Gelijk aan wat we al hadden</span><span class="bh-lid-meta">' + v.gelijk.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '<li><span class="bh-lid-naam">Andere letter dan we hadden</span><span class="bh-lid-meta">' + v.anders.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '<li><span class="bh-lid-naam">Label waar we er geen hadden</span><span class="bh-lid-meta">' + v.nieuw.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '<li><span class="bh-lid-naam">Geen label in EP-Online</span><span class="bh-lid-meta">' + v.zonder.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '</ul>'
+        + '<h3>Houdbaarheid</h3><ul class="bh-leden">'
+        + '<li><span class="bh-lid-naam">Label al verlopen</span><span class="bh-lid-meta">' + v.verlopen.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '<li><span class="bh-lid-naam">Verloopt binnen twee jaar</span><span class="bh-lid-meta">' + v.bijna.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '<li><span class="bh-lid-naam">Nog op de oude rekenmethodiek</span><span class="bh-lid-meta">' + v.oudeMethode.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '</ul>';
+    }
+    uit += '<p class="bh-hint">Zet ep_data.inc naast het dashboard; dat gebruikt deze labels boven die uit vve_data.js en toont de geldigheid erbij.</p></div>';
+    return uit;
+  }
+
   // ── toestand van het scherm ─────────────────────────────────────────────
   var tab = 'clusters';
   var gekozenCluster = null;   // id
@@ -787,6 +971,7 @@
       + '<button class="bh-tab' + (tab === 'panden' ? ' is-actief' : '') + '" data-actie="tab" data-tab="panden">Panddata <span class="bh-telling">' + pandenMetGrond() + '</span></button>'
       + '<button class="bh-tab' + (tab === 'bron' ? ' is-actief' : '') + '" data-actie="tab" data-tab="bron">Brondata</button>'
       + '<button class="bh-tab' + (tab === 'woz' ? ' is-actief' : '') + '" data-actie="tab" data-tab="woz">WOZ <span class="bh-telling">' + Object.keys(woz).length.toLocaleString('nl-NL') + '</span></button>'
+      + '<button class="bh-tab' + (tab === 'ep' ? ' is-actief' : '') + '" data-actie="tab" data-tab="ep">Energielabels <span class="bh-telling">' + Object.keys(ep).length.toLocaleString('nl-NL') + '</span></button>'
       + '</nav></div></header>';
 
     if (vuil) {
@@ -798,7 +983,7 @@
 
     html += '<main class="bh-in">'
       + (tab === 'clusters' ? tekenClusters() : tab === 'handmatig' ? tekenHandmatig()
-         : tab === 'panden' ? tekenPanden() : tab === 'woz' ? tekenWoz() : tekenBron())
+         : tab === 'panden' ? tekenPanden() : tab === 'woz' ? tekenWoz() : tab === 'ep' ? tekenEp() : tekenBron())
       + '</main>'
       + '<footer class="bh-voet bh-in">Beheertool versie ' + VERSIE + ' · ' + vveLijst.length.toLocaleString('nl-NL')
       + ' VvE’s uit de data · wijzigingen blijven in deze browser staan tot je ze downloadt</footer>';
@@ -937,6 +1122,15 @@
     if (actie === 'woz-ophalen') { haalWozOp(); return; }
     if (actie === 'woz-stop') { wozStop = true; return; }
     if (actie === 'woz-bewaar') { bewaarWozBestand(); return; }
+    if (actie === 'ep-ophalen') { haalEpOp(); return; }
+    if (actie === 'ep-stop') { epStop = true; return; }
+    if (actie === 'ep-bewaar') { bewaarEpBestand(); return; }
+    if (actie === 'ep-wis') {
+      if (!confirm('De opgehaalde energielabels weggooien en opnieuw beginnen?')) return;
+      ep = {}; epOpgehaald = null; epGewijzigd = false; epMelding = ''; epFouten = 0;
+      try { localStorage.removeItem(OPSLAG_EP); } catch (e) {}
+      teken(); return;
+    }
     if (actie === 'woz-wis') {
       if (!confirm('De opgehaalde WOZ-waarden weggooien en opnieuw beginnen? Dat kost weer zes dagen aan bevragingen.')) return;
       woz = {}; wozOpgehaald = null; wozGewijzigd = false; wozMelding = ''; wozFouten = 0;
