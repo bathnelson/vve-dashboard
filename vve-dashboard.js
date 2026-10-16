@@ -1,4 +1,8 @@
 // VvE Dashboard Haarlem — applicatielogica
+// Energielabels uit EP-Online en wat er deze sessie los is opgehaald.
+// Hier gedeclareerd omdat de overlay ze vroeg in het bestand al vult.
+var EP_LABEL = {};
+var VERSE_EP = {};
 // Gegenereerd uit vve_dashboard.html. Data komt uit losse bestanden naast de HTML.
 
 // ============================================
@@ -496,6 +500,8 @@
         // energielabel, monumentale status, oppervlakte, bouwjaar; het
         // warmteprogramma hangt eronder in BRON_WARMTE.
         var BRON_WARMTE = {};
+        EP_LABEL = {};
+        VERSE_EP = {};
         (function pasBrondataToe() {
             if (typeof BRON_HAARLEM === 'undefined' || !BRON_HAARLEM) return;
             if (typeof VVE_DATA === 'undefined') return;
@@ -524,6 +530,9 @@
             try { console.info('Brondata gemeente toegepast op ' + n + ' adressen'); } catch (e) {}
         })();
 
+        // EP_LABEL en VERSE_EP worden hieronder al gevuld, dus ze moeten hier
+        // staan en niet verderop bij de andere hulpjes: een var wordt wel
+        // omhooggehaald, maar de toekenning blijft staan waar hij staat.
         // Energielabels uit EP-Online (ep_data.inc). Het register is leidend
         // boven de letter in vve_data.js; de geldigheid hangt eronder in EP_LABEL.
         (function pasEpToe() {
@@ -758,7 +767,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 44;
+var APP_BUILD = 45;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -1296,8 +1305,6 @@ var getWozByYear = (item, jaar) => item['woz' + (jaar || '2025')] || null;
 var VERSE_WOZ = {};
 // Energielabels uit EP-Online (ep_data.inc) en wat er deze sessie los bij is
 // gehaald. EP_LABEL houdt de geldigheid vast; de letter zelf gaat in de rij.
-var EP_LABEL = {};
-var VERSE_EP = {};
 var epVan = (item) => item ? (VERSE_EP[String(item.verblijfsobject_id)] || EP_LABEL[String(item.verblijfsobject_id)] || null) : null;
 var verseEpAantal = () => Object.keys(VERSE_EP).length;
 var verseWoz = (item) => item && VERSE_WOZ[String(item.verblijfsobject_id)] || null;
