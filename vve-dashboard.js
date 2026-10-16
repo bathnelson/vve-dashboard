@@ -758,7 +758,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 43;
+var APP_BUILD = 44;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -2587,12 +2587,15 @@ var VveGroupCard = ({
     var vers = addresses.filter(a => verseWoz(a));
     if (!vers.length) return null;
     var anders = vers.filter(a => verseWoz(a).gewijzigd).length;
+    // Geen bolletje: een groene stip achter de naam betekent al 'heeft
+    // dossierdata' en een paarse 'CRM-status'. Een sterretje leest hier als
+    // een voetnoot: vers opgehaald, nog niet vastgelegd.
     return /*#__PURE__*/React.createElement("span", {
-      style: { color: anders ? '#c2410c' : '#15803d', marginLeft: 3 },
+      style: { color: anders ? '#c2410c' : '#8a8886', marginLeft: 2, fontWeight: 700 },
       title: vers.length + ' van de ' + addresses.length + ' adressen vers opgehaald bij het Kadaster'
         + (anders ? ', ' + anders + ' met een ander bedrag dan de dataset' : ', alle bedragen gelijk aan de dataset')
         + ' \u2014 nog niet opgeslagen'
-    }, '\u25cf');
+    }, '*');
   })()), /*#__PURE__*/React.createElement("div", {
     className: "xl-cell",
     style: {
@@ -3163,6 +3166,16 @@ var DetailPanel = ({
       afgebroken: epAfbreken.current });
     if (onVerseWoz) onVerseWoz();
   };
+
+  // Het paneel blijft dezelfde component als je een andere VvE kiest, dus de
+  // uitkomst van een ophaalronde moet zelf opgeruimd worden; anders lees je de
+  // melding van de vorige VvE bij de volgende.
+  useEffect(() => {
+    setWozStand(null);
+    setEpStand(null);
+    wozAfbreken.current = true;
+    epAfbreken.current = true;
+  }, [item && item.vve_identificatie]);
 
   var _useState3 = useState(false),
     _useState4 = _slicedToArray(_useState3, 2),
