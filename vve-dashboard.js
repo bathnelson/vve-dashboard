@@ -3906,9 +3906,9 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
   })()), activeDetailTab === 'vve' && /*#__PURE__*/React.createElement("div", {
     className: "border-t border-pa-gray-200 pt-3"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"
+    className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2 vd-blokkop-eerste"
   }, "VvE Gegevens"), /*#__PURE__*/React.createElement("table", {
-    className: "w-full text-xs"
+    className: "w-full text-xs vd-vve-tabel"
   }, /*#__PURE__*/React.createElement("tbody", null, /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
@@ -3979,14 +3979,14 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
   }, "Niet-woon"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-800"
   }, item.aantal_niet_woon_adr_in_vve)), /*#__PURE__*/React.createElement("tr", {
-    className: "border-b border-pa-gray-100"
+    className: "border-b border-pa-gray-100 vd-orde-gemlabel"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
   }, "Gem. label"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5"
   }, /*#__PURE__*/React.createElement("span", {
     className: `font-medium ${getEnergyClass(avgEnergy)}`
-  }, avgEnergy))), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, avgEnergy))), /*#__PURE__*/React.createElement("tr", {className: "vd-blokkop"}, /*#__PURE__*/React.createElement("td", {colSpan: 2}, "Dossier en locatie")), /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
   }, "Kaart"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5"
@@ -4056,7 +4056,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
         className: "text-xs text-pa-gray-500 mt-0.5"
       }, leden.length + (leden.length === 1 ? ' andere VvE' : ' andere VvE\u2019s'), c.toelichting ? ' \u00B7 ' + c.toelichting : ''));
     })));
-  })(), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr)), vveSummary.erfpacht !== '-' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Erfpacht"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, vveSummary.erfpacht === 'Erfpacht' ? 'Ja' : 'Nee')), /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Labels"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, (() => {
+  })(), /*#__PURE__*/React.createElement("tr", {className: "vd-blokkop"}, /*#__PURE__*/React.createElement("td", {colSpan: 2}, "Gebouw en ondergrond")), pandFundering !== null && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24"}, "Fundering"), /*#__PURE__*/React.createElement("td", {className: "py-1.5"}, pandFundering.length === 0 ? /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-400 italic"}, "niet geregistreerd") : /*#__PURE__*/React.createElement("a", {href: "https://kaart.haarlem.nl/?map=113", target: "_blank", rel: "noopener noreferrer", className: "text-pa-blue-500 hover:underline"}, [...new Set(pandFundering.map(f => f.properties.type_fundering).filter(Boolean))].join(', ') || "onbekend"))), ontwikkelzoneStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Ontwikkelzone"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, ontwikkelzoneStr)), mjgbStr && mjgbStr !== 'Nee' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "MJGB"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, mjgbStr)), grondwaterStr && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Grondwater"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, grondwaterStr)), vveSummary.erfpacht !== '-' && /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Erfpacht"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, vveSummary.erfpacht === 'Erfpacht' ? 'Ja' : 'Nee')), /*#__PURE__*/React.createElement("tr", {className: "vd-blokkop vd-orde-energie-kop"}, /*#__PURE__*/React.createElement("td", {colSpan: 2}, "Energie en WOZ")), /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100 vd-orde-energie"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "Labels"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, (() => {
     if (epStand && epStand.bezig) return /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-500"},
       'Bezig \u2014 ' + epStand.gedaan + ' van ' + epStand.totaal + ' adressen \u00b7 ',
       /*#__PURE__*/React.createElement("button", {
@@ -4092,7 +4092,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
         className: "text-pa-blue-500 hover:underline",
         title: "Vraagt EP-Online voor elk adres van deze VvE; ongeveer vier adressen per seconde"
       }, bekend.length ? "opnieuw ophalen" : "Labels ophalen"));
-  })())), /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "WOZ"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, (() => {
+  })())), /*#__PURE__*/React.createElement("tr", {className: "border-b border-pa-gray-100 vd-orde-energie"}, /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-pa-gray-500 w-24 text-xs"}, "WOZ"), /*#__PURE__*/React.createElement("td", {className: "py-1.5 text-xs"}, (() => {
     if (wozStand && wozStand.bezig) return /*#__PURE__*/React.createElement("span", {className: "text-pa-gray-500"},
       'Bezig \u2014 ' + wozStand.gedaan + ' van ' + wozStand.totaal + ' adressen \u00b7 ',
       /*#__PURE__*/React.createElement("button", {
@@ -4129,7 +4129,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
       className: "text-pa-blue-500 hover:underline",
       title: "Vraagt het wozwaardeloket voor elk adres van deze VvE; ongeveer \u00e9\u00e9n adres per seconde"
     }, "Actuele waarden ophalen");
-  })()))), activeDetailTab === 'pand' && uniquePandIds.length > 0 && /*#__PURE__*/React.createElement("div", {className: "border-t border-pa-gray-200 pt-3"}, /*#__PURE__*/React.createElement("div", {className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"}, "Pand(en)"), /*#__PURE__*/React.createElement("div", {className: "flex flex-col gap-2"}, uniquePandIds.map((pandId) => /*#__PURE__*/React.createElement("a", {key: pandId, href: `https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${pandId}`, target: "_blank", rel: "noopener noreferrer", className: "font-mono text-pa-blue-500 hover:underline text-xs"}, pandId)))), activeDetailTab === 'dossier' && dossierVisible && enrichment && /*#__PURE__*/React.createElement("div", {
+  })()))))), activeDetailTab === 'pand' && uniquePandIds.length > 0 && /*#__PURE__*/React.createElement("div", {className: "border-t border-pa-gray-200 pt-3"}, /*#__PURE__*/React.createElement("div", {className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"}, "Pand(en)"), /*#__PURE__*/React.createElement("div", {className: "flex flex-col gap-2"}, uniquePandIds.map((pandId) => /*#__PURE__*/React.createElement("a", {key: pandId, href: `https://bagviewer.kadaster.nl/lvbag/bag-viewer/?objectId=${pandId}`, target: "_blank", rel: "noopener noreferrer", className: "font-mono text-pa-blue-500 hover:underline text-xs"}, pandId)))), activeDetailTab === 'dossier' && dossierVisible && enrichment && /*#__PURE__*/React.createElement("div", {
     className: "border-t border-pa-gray-200 pt-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-xs font-medium text-pa-gray-500 uppercase tracking-wide mb-2"
@@ -6457,6 +6457,75 @@ var App = () => {
     setSearch('');
     clearAllFilters();
   }, []);
+  // ── Actieve filters als chips boven de lijst ──────────────────────────
+  // Zo zie je in een oogopslag wat er aanstaat, zonder het filterpaneel af te
+  // scrollen, en haal je er met een klik een weg. Alleen zichtbaar in het
+  // nieuwe ontwerp; de knoppen werken op dezelfde toestand als het paneel.
+  var vdLabelVan = (cats, key) => {
+    var c = (cats || []).find(x => x.key === key);
+    return c ? c.label : String(key);
+  };
+  var vdGroepen = [
+    ['KvK', selectedKvk, setSelectedKvk, kvkCategories],
+    ['Grootte', selectedGrootte, setSelectedGrootte, grootteCategories],
+    ['Gemengd', selectedGemengd, setSelectedGemengd, gemengdCategories],
+    ['Splitsing', selectedHoofdsplitsing, setSelectedHoofdsplitsing, hoofdsplitsingCategories],
+    ['Herkomst', selectedHerkomst, setSelectedHerkomst, herkomstCategories],
+    ['Cluster', selectedCluster, setSelectedCluster, clusterCategories],
+    ['Typologie', selectedTypologie, setSelectedTypologie, null],
+    ['Eenheid', selectedEenheidtype, setSelectedEenheidtype, eenheidtypeCategories],
+    ['Bouwjaar', selectedBouwjaar, setSelectedBouwjaar, bouwjaarCategories],
+    ['Buurt', selectedBuurt, setSelectedBuurt, null],
+    ['Tijdvak', selectedTijdvak, setSelectedTijdvak, tijdvakCategories],
+    ['Warmte', selectedWarmte, setSelectedWarmte, warmteCategories],
+    ['Monument', selectedMonument, setSelectedMonument, monumentCategories],
+    ['Gezicht', selectedBeschermd, setSelectedBeschermd, beschermdCategories],
+    ['Grond', selectedErfpacht, setSelectedErfpacht, erfpachtCategories],
+    ['WOZ', selectedWoz, setSelectedWoz, wozCategories],
+    ['Gem. label', selectedGemLabel, setSelectedGemLabel, null],
+    ['Gespikkeld', selectedGespikkeld, setSelectedGespikkeld, gespikkeldCategories],
+    ['Corporatie', selectedCorpPct, setSelectedCorpPct, corpPctCategories],
+    ['Traject', selectedAdviestraject, setSelectedAdviestraject, null],
+    ['Bureau', selectedBureau, setSelectedBureau, null],
+    ['Begeleider', selectedProcesbegeleider, setSelectedProcesbegeleider, null],
+    ['Intake', selectedIntake, setSelectedIntake, null],
+    ['MWA', selectedMwa, setSelectedMwa, null],
+    ['Verdieping', selectedVerdieping, setSelectedVerdieping, null],
+    ['Uitvoering', selectedUitvoering, setSelectedUitvoering, null]
+  ];
+  var vdActief = [];
+  if (search && search.trim()) {
+    vdActief.push({ groep: 'Zoek', label: '“' + search.trim() + '”', weg: () => setSearch('') });
+  }
+  vdGroepen.forEach(g => {
+    var groep = g[0], sel = g[1], zet = g[2], cats = g[3];
+    if (!sel || !sel.size) return;
+    sel.forEach(key => vdActief.push({
+      groep: groep,
+      label: vdLabelVan(cats, key),
+      weg: () => { zet(prev => { var n = new Set(prev); n.delete(key); return n; }); setDisplayCount(50); }
+    }));
+  });
+  if (selectedNieuw) vdActief.push({ groep: 'Nieuw', label: 'in dataset', weg: () => setSelectedNieuw(false) });
+  var vdChips = vdActief.length ? /*#__PURE__*/React.createElement("div", {
+    className: "vd-chips",
+    role: "group",
+    "aria-label": "Actieve filters"
+  }, vdActief.map((f, i) => /*#__PURE__*/React.createElement("button", {
+    key: f.groep + i,
+    type: "button",
+    className: "vd-chip",
+    onClick: f.weg,
+    title: "Dit filter weghalen",
+    "aria-label": f.groep + ' ' + f.label + ' weghalen'
+  }, /*#__PURE__*/React.createElement("span", { className: "vd-chip-groep" }, f.groep), f.label,
+     /*#__PURE__*/React.createElement("span", { className: "vd-chip-x", "aria-hidden": "true" }, "×"))),
+  vdActief.length > 1 && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "vd-chip-wis",
+    onClick: () => { clearAllFilters(); setSearch(''); }
+  }, "Alles wissen")) : null;
+
   var clearAllFilters = () => {
     setSelectedGrootte(new Set());
     setSelectedBouwjaar(new Set());
@@ -10723,7 +10792,7 @@ var App = () => {
     strokeLinejoin: "round",
     strokeWidth: 2,
     d: "M12 4v16m8-8H4"
-  })), "Nieuw CRM bestand maken")))))), totalVveCount === 0 ? /*#__PURE__*/React.createElement("div", {
+  })), "Nieuw CRM bestand maken")))))), vdChips, totalVveCount === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
       display: 'flex',
@@ -11422,12 +11491,13 @@ ReactDOM.createRoot(document.getElementById('app')).render(/*#__PURE__*/React.cr
 (function vdOntwerpProef() {
   var SLEUTEL = 'vd-ontwerp', SLEUTEL_KLEUR = 'vd-accent';
   var STALEN = [
+    ['Zeegroen', '#2e8b57'],
     ['Haarlems rood', '#b52431'],
     ['Blauwgroen', '#0f6e78'],
     ['Nachtblauw', '#1f4e8c'],
     ['Excel-groen', '#217346']
   ];
-  var standaard = (typeof ACCENT_KLEUR === 'string' && /^#[0-9a-f]{6}$/i.test(ACCENT_KLEUR)) ? ACCENT_KLEUR : '#b52431';
+  var standaard = (typeof ACCENT_KLEUR === 'string' && /^#[0-9a-f]{6}$/i.test(ACCENT_KLEUR)) ? ACCENT_KLEUR : '#2e8b57';
   function lees(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function schrijf(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 

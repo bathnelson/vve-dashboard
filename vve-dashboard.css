@@ -304,3 +304,77 @@ html.vd-nieuw :focus-visible { outline: 2px solid var(--vd-accent); outline-offs
 #vd-proef .vd-staal[aria-pressed="true"] { box-shadow: 0 0 0 2px #1f2328; }
 #vd-proef input[type="color"] { width: 22px; height: 22px; border: 0; padding: 0; background: none; cursor: pointer; }
 #vd-proef .vd-stalen[hidden] { display: none; }
+
+/* Energielabels in het nieuwe ontwerp: een zachte tint met donkere tekst in
+   dezelfde kleur, in plaats van een volle verzadigde vulling. De volgorde
+   A -> G blijft als warmtekaart te lezen, en E/F/G lopen nog steeds op in
+   zwaarte, maar de kolom springt er niet meer uit als een muur van kleur. */
+html.vd-nieuw .energy-A { background-color: #d9f1e1; color: #14532d; }
+html.vd-nieuw .energy-B { background-color: #e7f3cf; color: #3f6212; }
+html.vd-nieuw .energy-C { background-color: #faf0c8; color: #713f12; }
+html.vd-nieuw .energy-D { background-color: #fde4cf; color: #9a3412; }
+html.vd-nieuw .energy-E { background-color: #fbd9d9; color: #991b1b; }
+html.vd-nieuw .energy-F { background-color: #f5c6c6; color: #7f1d1d; }
+html.vd-nieuw .energy-G { background-color: #ebb0b0; color: #5c1313; }
+html.vd-nieuw [class*="energy-"] { font-weight: 600; }
+
+/* Detailpaneel in blokken (nieuw ontwerp). De koppen staan wel in de pagina
+   maar zijn in het oude ontwerp onzichtbaar, zodat dat ongewijzigd blijft.
+   Gem. label staat in de broncode tussen de VvE-gegevens; met flex en
+   order schuift hij hier naar het blok Energie, zonder de volgorde in het
+   oude ontwerp te veranderen. */
+.vd-blokkop { display: none; }
+html.vd-nieuw .vd-vve-tabel,
+html.vd-nieuw .vd-vve-tabel > tbody { display: flex; flex-direction: column; width: 100%; }
+html.vd-nieuw .vd-vve-tabel tr {
+  display: flex; align-items: baseline; gap: 8px;
+  border-bottom: 1px solid var(--vd-lijn) !important;
+}
+html.vd-nieuw .vd-vve-tabel td { padding-top: 6px !important; padding-bottom: 6px !important; }
+html.vd-nieuw .vd-vve-tabel td:first-child { flex: 0 0 6.5rem; color: var(--vd-zacht); }
+html.vd-nieuw .vd-vve-tabel td:last-child { flex: 1; min-width: 0; color: var(--vd-tekst); }
+html.vd-nieuw .vd-blokkop-eerste,
+html.vd-nieuw .vd-blokkop td {
+  font-size: 10.5px !important; font-weight: 600 !important; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--vd-zacht) !important;
+}
+html.vd-nieuw .vd-blokkop {
+  display: flex !important; border-bottom: 0 !important; margin-top: 16px;
+}
+html.vd-nieuw .vd-blokkop td { flex: 1 !important; padding: 0 0 4px !important; }
+html.vd-nieuw .vd-orde-energie-kop { order: 1; }
+html.vd-nieuw .vd-orde-gemlabel { order: 2; }
+html.vd-nieuw .vd-orde-energie { order: 3; }
+
+/* Filterchips boven de lijst (alleen in het nieuwe ontwerp) */
+.vd-chips { display: none; }
+html.vd-nieuw .vd-chips {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 7px 10px; background: #fff;
+  border-bottom: 1px solid var(--vd-lijn);
+  flex-shrink: 0;
+}
+html.vd-nieuw .vd-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 24px; padding: 0 6px 0 9px;
+  border: 1px solid color-mix(in srgb, var(--vd-accent) 35%, white);
+  border-radius: 12px;
+  background: var(--vd-accent-licht);
+  color: var(--vd-tekst); font: 500 12px/1 'Segoe UI', system-ui, sans-serif;
+  cursor: pointer; white-space: nowrap;
+}
+html.vd-nieuw .vd-chip:hover { background: var(--vd-accent-zacht); border-color: var(--vd-accent); }
+html.vd-nieuw .vd-chip-groep { color: var(--vd-zacht); font-weight: 400; }
+html.vd-nieuw .vd-chip-x {
+  display: inline-grid; place-items: center; width: 16px; height: 16px;
+  border-radius: 50%; color: var(--vd-zacht); font-size: 14px; line-height: 1;
+}
+html.vd-nieuw .vd-chip:hover .vd-chip-x { background: var(--vd-accent); color: #fff; }
+html.vd-nieuw .vd-chip-wis {
+  border: 0; background: none; padding: 0 4px; height: 24px;
+  color: var(--vd-accent-donker); font: 600 12px/1 'Segoe UI', system-ui, sans-serif;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.vd-nieuw .xl-grid-row { transition: none; }
+}
