@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSIE = 5;
+  var VERSIE = 6;
   var app = document.getElementById('beheer');
   if (!app) return;
 
@@ -386,6 +386,7 @@
       + '//   erfpacht 1 als de grond in erfpacht is uitgegeven\n'
       + '//\n'
       + '// Het dashboard zet deze waarden over die uit vve_data.js heen.\n'
+      + "const BRON_HAARLEM_OPGEHAALD = '" + (bronOpgehaald || '').slice(0, 10) + "';\n"
       + 'const BRON_HAARLEM = ' + JSON.stringify(bron) + ';\n';
     download('bron_haarlem.inc', tekst);
     try { localStorage.removeItem(OPSLAG_BRON); } catch (e) {}
@@ -472,6 +473,52 @@
   } catch (e) {}
 
   var wozBezig = false, wozStop = false, wozMelding = '', wozFouten = 0;
+  var wozRonde = '';   // leeg = heel Haarlem
+
+  // Zeven ronden die elk onder de dagrem blijven en geografisch bij elkaar
+  // horen. Per stadsdeel lukt het niet: Noord, Zuidwest, Schalkwijk en Centrum
+  // zijn alle vier te groot voor een dag. Oude Stad is in zijn eentje al 5.165
+  // adressen en is daarom op buurt gesplitst.
+  var WOZ_RONDEN = [
+    { naam: 'Binnenstad en Vijfhoek', gebieden: ['Binnenstad', 'Vijfhoek', 'Bakenes', 'Stationsbuurt', 'Heiliglanden'] },
+    { naam: 'Burgwal en Oost', gebieden: ['Burgwal', 'Amsterdamsewijk', 'Parkwijk', 'Slachthuiswijk', 'Waarder- en Veerpolder'] },
+    { naam: 'Noord-oost', gebieden: ['Transvaalwijk', 'Ter Kleefkwartier', 'Te Zaanenkwartier'] },
+    { naam: 'Noord-west', gebieden: ['Delftwijk', 'Indischewijk', 'Vogelenwijk', 'Vondelkwartier', 'Spaarndam'] },
+    { naam: 'Haarlemmerhout en Zijlweg', gebieden: ['Haarlemmerhoutkwartier', 'Zijlwegkwartier'] },
+    { naam: 'Zuid en Schalkwijk-zuid', gebieden: ['Houtvaartkwartier', 'Duinwijk', 'Boerhaavewijk', 'Meerwijk'] },
+    { naam: 'Schalkwijk-noord', gebieden: ['Molenwijk', 'Europawijk'] }
+  ];
+
+  // Een ronde noemt wijken en, voor de Oude Stad, buurten; een adres hoort
+  // erbij als een van de twee matcht.
+  function inRonde(r, naam) {
+    if (!naam) return true;
+    var ronde = null;
+    WOZ_RONDEN.forEach(function (x) { if (x.naam === naam) ronde = x; });
+    if (!ronde) return true;
+    return ronde.gebieden.indexOf(r.wijk) !== -1 || ronde.gebieden.indexOf(r.buurt) !== -1;
+  }
+
+  function wozRondeTelling() {
+    var t = {};
+    WOZ_RONDEN.forEach(function (x) { t[x.naam] = { totaal: 0, open: 0 }; });
+    var buiten = { totaal: 0, open: 0 };
+    Object.keys(RIJ_OP_VBO).forEach(function (vo) {
+      var r = RIJ_OP_VBO[vo];
+      var b = bron[vo];
+      if (!b || !b.na || !wozKanWoningZijn(r)) return;
+      var raak = null;
+      WOZ_RONDEN.forEach(function (x) { if (!raak && inRonde(r, x.naam)) raak = x.naam; });
+      var vak = raak ? t[raak] : buiten;
+      vak.totaal++;
+      if (woz[vo] === undefined) vak.open++;
+    });
+    var uit = WOZ_RONDEN.map(function (x) {
+      return { naam: x.naam, totaal: t[x.naam].totaal, open: t[x.naam].open };
+    });
+    if (buiten.totaal) uit.push({ naam: 'Overig', totaal: buiten.totaal, open: buiten.open, overig: true });
+    return uit;
+  }
 
   function vandaagStr() { return new Date().toISOString().slice(0, 10); }
   function wozVandaagAantal() {
@@ -487,11 +534,24 @@
       if (!b || !b.na) return;
       if (woz[vo] !== undefined) return;
       if (!wozKanWoningZijn(RIJ_OP_VBO[vo])) return;
+      if (!inRonde(RIJ_OP_VBO[vo], wozRonde)) return;
       rij.push({ vo: vo, na: String(b.na) });
     });
     return rij;
   }
   function wozTeDoen() { return wozWachtrij().length; }
+  // Hoeveel van de gekozen wijk is al gedaan? Zonder deze afbakening zou
+  // 'opgehaald' over heel Haarlem gaan en 'nog te doen' over één wijk.
+  function wozGedaan() {
+    var n = 0;
+    Object.keys(woz).forEach(function (vo) {
+      var r = RIJ_OP_VBO[vo];
+      if (!r) return;
+      if (!inRonde(r, wozRonde)) return;
+      n++;
+    });
+    return n;
+  }
   function wozGeenWoning() {
     var n = 0;
     Object.keys(RIJ_OP_VBO).forEach(function (vo) { if (!wozKanWoningZijn(RIJ_OP_VBO[vo])) n++; });
@@ -590,6 +650,7 @@
       + '// is het WOZ-jaar, dus peildatum 1 januari van het jaar ervoor; woz2026\n'
       + '// hoort bij peildatum 2025-01-01, net als in vve_data.js.\n'
       + '// null betekent: het Kadaster kent deze nummeraanduiding niet.\n'
+      + "const WOZ_DATA_OPGEHAALD = '" + (wozOpgehaald || new Date().toISOString()).slice(0, 10) + "';\n"
       + 'const WOZ_DATA = ' + JSON.stringify(woz) + ';\n';
     download('woz_data.inc', tekst);
     wozGewijzigd = false;
@@ -597,7 +658,7 @@
   }
 
   function tekenWoz() {
-    var gedaan = Object.keys(woz).length;
+    var gedaan = wozGedaan();
     var tedoen = wozTeDoen();
     var totaal = gedaan + tedoen;
     var zonderBron = !Object.keys(bron).length;
@@ -617,12 +678,32 @@
 
     var vandaag = wozVandaagAantal();
     var dagen = Math.ceil(tedoen / WOZ_DAGLIMIET);
+    var minuten = Math.round(tedoen * WOZ_PAUZE / 60000);
     uit += '<div class="bh-velden" style="grid-template-columns:repeat(4,minmax(0,1fr))">'
       + '<div><div class="bh-kaart-meta">Opgehaald</div><strong>' + gedaan.toLocaleString('nl-NL') + ' van ' + totaal.toLocaleString('nl-NL') + '</strong></div>'
       + '<div><div class="bh-kaart-meta">Vandaag</div><strong>' + vandaag.toLocaleString('nl-NL') + ' van ' + WOZ_DAGLIMIET.toLocaleString('nl-NL') + '</strong></div>'
-      + '<div><div class="bh-kaart-meta">Nog te gaan</div><strong>' + (dagen ? dagen + (dagen === 1 ? ' dag' : ' dagen') : 'niets') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Nog te gaan</div><strong>'
+      + (!tedoen ? 'niets' : dagen > 1 ? dagen + ' dagen' : minuten + ' min') + '</strong></div>'
       + '<div><div class="bh-kaart-meta">Laatste ronde</div><strong>'
       + (wozOpgehaald ? new Date(wozOpgehaald).toLocaleDateString('nl-NL') : '–') + '</strong></div></div>';
+
+    if (!wozBezig) {
+      var ronden = wozRondeTelling();
+      var open = ronden.reduce(function (n, x) { return n + x.open; }, 0);
+      uit += '<label class="bh-breed" style="display:grid;gap:3px;font-size:12px;color:var(--bh-zacht);margin-top:14px">Ronde'
+        + '<select class="bh-veld" data-actie="woz-ronde">'
+        + '<option value=""' + (wozRonde ? '' : ' selected') + '>Heel Haarlem \u2014 ' + open.toLocaleString('nl-NL')
+        + ' open, ' + Math.ceil(open / WOZ_DAGLIMIET) + ' dagen</option>';
+      ronden.forEach(function (x) {
+        if (x.overig || (!x.open && x.naam !== wozRonde)) return;
+        uit += '<option value="' + x.naam.replace(/"/g, '&quot;') + '"' + (x.naam === wozRonde ? ' selected' : '') + '>'
+          + x.naam + ' \u2014 ' + x.open.toLocaleString('nl-NL') + ' open van ' + x.totaal.toLocaleString('nl-NL')
+          + ' (' + Math.round(x.open * WOZ_PAUZE / 60000) + ' min)</option>';
+      });
+      uit += '</select></label>'
+        + '<p class="bh-hint">Zeven ronden die elk in \u00e9\u00e9n dag passen. Per stadsdeel kan het niet: vier van de '
+        + 'vijf zijn te groot voor de dagrem, en de Oude Stad alleen al is 5.165 adressen.</p>';
+    }
 
     if (wozBezig) {
       var pct = totaal ? Math.round(gedaan / totaal * 100) : 0;
@@ -953,6 +1034,13 @@
     if (nieuw) handmatig.push(h);
     bewerkHandmatig = h.id;
     bewaarWerk();
+  });
+
+  app.addEventListener('change', function (e) {
+    if (e.target.getAttribute('data-actie') === 'woz-ronde') {
+      wozRonde = e.target.value || '';
+      teken();
+    }
   });
 
   app.addEventListener('input', function (e) {
