@@ -524,6 +524,24 @@
             try { console.info('Brondata gemeente toegepast op ' + n + ' adressen'); } catch (e) {}
         })();
 
+        // WOZ-waarden uit het wozwaardeloket (woz_data.inc, opgehaald met de
+        // beheertool). De sleutel is het WOZ-jaar, dus woz2026 hoort bij
+        // peildatum 1-1-2025; de veldnamen in vve_data.js volgen dezelfde telling.
+        (function pasWozToe() {
+            if (typeof WOZ_DATA === 'undefined' || !WOZ_DATA) return;
+            if (typeof VVE_DATA === 'undefined') return;
+            var n = 0;
+            VVE_DATA.forEach((item) => {
+                var w = WOZ_DATA[String(item.verblijfsobject_id)];
+                if (!w) return;
+                n++;
+                Object.keys(w).forEach((jaar) => {
+                    if (w[jaar] != null) item['woz' + jaar] = w[jaar];
+                });
+            });
+            try { console.info('WOZ-waarden toegepast op ' + n + ' adressen'); } catch (e) {}
+        })();
+
         // VvE's die nog niet in de centrale dataset zitten (vve_handmatig.txt).
         // Elke handmatige VvE wordt een rij in VVE_DATA, zodat lijst, filters en
         // kaart hem gewoon zien. De rij is herkenbaar aan _handmatig en telt niet
@@ -724,7 +742,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 38;
+var APP_BUILD = 39;
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
 // Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
