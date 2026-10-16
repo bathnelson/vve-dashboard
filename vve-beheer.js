@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSIE = 4;
+  var VERSIE = 5;
   var app = document.getElementById('beheer');
   if (!app) return;
 
@@ -28,6 +28,7 @@
   var OPSLAG = 'vve-beheer-werk-v1';
   var OPSLAG_PANDEN = 'vve-beheer-panden-v1';
   var OPSLAG_BRON = 'vve-beheer-bron-v1';
+  var OPSLAG_WOZ = 'vve-beheer-woz-v1';
 
   // ── data inlezen ────────────────────────────────────────────────────────
   var RIJEN = (typeof VVE_DATA !== 'undefined' && Array.isArray(VVE_DATA)) ? VVE_DATA : [];
@@ -429,7 +430,226 @@
       }
     }
     uit += '<p class="bh-hint">Na het downloaden zet je bron_haarlem.inc naast het dashboard; dat gebruikt de nieuwe '
-      + 'waarden boven die uit vve_data.js. WOZ-waarden komen in een volgende ronde, via het Kadaster.</p></div>';
+      + 'waarden boven die uit vve_data.js. WOZ-waarden haal je op het tabblad WOZ op.</p></div>';
+    return uit;
+  }
+
+
+  // ── WOZ-waarden (Kadaster) ──────────────────────────────────────────────
+  // Het wozwaardeloket geeft per nummeraanduiding alle peiljaren terug. Let op
+  // de jaartelling: de WOZ-waarde van jaar N hoort bij peildatum 1 januari van
+  // N-1. Die van 2026 staat dus onder peildatum 2025-01-01, net als in
+  // vve_data.js (woz2026 = 573.000 bij peildatum 2025).
+  //
+  // Het Kadaster staat 60 bevragingen per minuut toe en 5.000 per dag. Een
+  // volledige ronde is dus werk van zes dagen; daarom onthoudt de tool waar hij
+  // gebleven was en gaat een volgende keer verder. De limiet-headers staan niet
+  // in Access-Control-Expose-Headers, dus de browser kan ze niet lezen: we
+  // doseren op de klok en stoppen zodra het Kadaster 429 antwoordt.
+  var WOZ_URL = 'https://api.kadaster.nl/lvwoz/wozwaardeloket-api/v1/wozwaarde/nummeraanduiding/';
+  var WOZ_PAUZE = 1150;      // ms tussen twee bevragingen: ~52 per minuut
+  var WOZ_DAGLIMIET = 4900;  // eigen rem, iets onder de 5.000 van het Kadaster
+  // Het wozwaardeloket maakt alleen WOZ-waarden van woningen openbaar. Deze
+  // eenheidtypes leveren dus gegarandeerd een 404 op; die slaan we over in
+  // plaats van er bevragingen aan op te maken.
+  var WOZ_GEEN_WONING = ['garage(box)', 'berging/opslag', 'trafo', 'technische ruimte'];
+  function wozKanWoningZijn(r) {
+    return !r || WOZ_GEEN_WONING.indexOf(String(r.basiseenheidtype)) === -1;
+  }
+
+  var woz = (typeof WOZ_DATA !== 'undefined') ? kopie(WOZ_DATA) : {};
+  var wozGewijzigd = false;
+  var wozOpgehaald = null;
+  var wozVandaag = { datum: '', aantal: 0 };
+  try {
+    var bewaardeWoz = JSON.parse(localStorage.getItem(OPSLAG_WOZ) || 'null');
+    if (bewaardeWoz && bewaardeWoz.woz) {
+      woz = bewaardeWoz.woz;
+      wozOpgehaald = bewaardeWoz.opgehaald || null;
+      wozVandaag = bewaardeWoz.vandaag || wozVandaag;
+      wozGewijzigd = true;
+    }
+  } catch (e) {}
+
+  var wozBezig = false, wozStop = false, wozMelding = '', wozFouten = 0;
+
+  function vandaagStr() { return new Date().toISOString().slice(0, 10); }
+  function wozVandaagAantal() {
+    return wozVandaag.datum === vandaagStr() ? wozVandaag.aantal : 0;
+  }
+
+  // Adressen die nog een WOZ-bevraging nodig hebben: ze hebben een
+  // nummeraanduiding uit de brondata en staan nog niet in de uitkomst.
+  function wozWachtrij() {
+    var rij = [];
+    Object.keys(RIJ_OP_VBO).forEach(function (vo) {
+      var b = bron[vo];
+      if (!b || !b.na) return;
+      if (woz[vo] !== undefined) return;
+      if (!wozKanWoningZijn(RIJ_OP_VBO[vo])) return;
+      rij.push({ vo: vo, na: String(b.na) });
+    });
+    return rij;
+  }
+  function wozTeDoen() { return wozWachtrij().length; }
+  function wozGeenWoning() {
+    var n = 0;
+    Object.keys(RIJ_OP_VBO).forEach(function (vo) { if (!wozKanWoningZijn(RIJ_OP_VBO[vo])) n++; });
+    return n;
+  }
+
+  function bewaarWozWerk() {
+    try {
+      localStorage.setItem(OPSLAG_WOZ, JSON.stringify({ woz: woz, opgehaald: wozOpgehaald, vandaag: wozVandaag }));
+    } catch (e) {}
+  }
+
+  async function haalWozOp() {
+    var rij = wozWachtrij();
+    if (!rij.length) { alert('Er is niets meer op te halen. Haal eerst de brondata op; daar komen de nummeraanduidingen vandaan.'); return; }
+    wozBezig = true; wozStop = false; wozMelding = ''; wozFouten = 0;
+    if (wozVandaag.datum !== vandaagStr()) wozVandaag = { datum: vandaagStr(), aantal: 0 };
+    teken();
+
+    for (var i = 0; i < rij.length && !wozStop; i++) {
+      if (wozVandaag.aantal >= WOZ_DAGLIMIET) {
+        wozMelding = 'De dagrem van ' + WOZ_DAGLIMIET.toLocaleString('nl-NL') + ' bevragingen is bereikt. Morgen verder.';
+        break;
+      }
+      var post = rij[i];
+      var klaar = false, poging = 0;
+      while (!klaar && !wozStop) {
+        try {
+          var r = await fetch(WOZ_URL + post.na, { cache: 'no-store' });
+          wozVandaag.aantal++;
+          if (r.status === 429) {
+            wozMelding = 'Het Kadaster houdt de bevragingen af (429). Waarschijnlijk is de daggrens bereikt; morgen verder.';
+            wozStop = true;
+            break;
+          }
+          if (r.status === 404) { woz[post.vo] = null; klaar = true; break; }
+          if (!r.ok) throw new Error('status ' + r.status);
+          var d = await r.json();
+          var jaren = {};
+          (d.wozWaarden || []).forEach(function (w) {
+            if (!w.peildatum || w.vastgesteldeWaarde == null) return;
+            // WOZ-jaar is het jaar na de peildatum
+            jaren[String(Number(w.peildatum.slice(0, 4)) + 1)] = w.vastgesteldeWaarde;
+          });
+          woz[post.vo] = jaren;
+          klaar = true;
+        } catch (err) {
+          poging++;
+          if (poging >= 3) { wozFouten++; klaar = true; break; }
+          wozMelding = post.na + ' mislukte, nieuwe poging ' + (poging + 1) + ' van 3';
+          teken();
+          await new Promise(function (res) { setTimeout(res, 3000 * poging); });
+        }
+      }
+      if (i % 25 === 0) bewaarWozWerk();
+      teken();
+      if (!wozStop) await new Promise(function (res) { setTimeout(res, WOZ_PAUZE); });
+    }
+
+    wozOpgehaald = new Date().toISOString();
+    wozGewijzigd = true;
+    bewaarWozWerk();
+    wozBezig = false;
+    teken();
+  }
+
+  // Wat wijkt af van de WOZ-waarden in vve_data.js?
+  // Het loket geeft alle peiljaren terug, de dataset kent er maar een paar.
+  // Vergelijken doen we daarom alleen op de jaren die in vve_data.js staan;
+  // de oudere jaren zijn aanwinst, geen verschil.
+  function wozVerschillen() {
+    var uit = { gelijk: 0, anders: 0, zonder: 0, oudste: null };
+    Object.keys(woz).forEach(function (vo) {
+      var r = RIJ_OP_VBO[vo], w = woz[vo];
+      if (!r) return;
+      if (!w || !Object.keys(w).length) { uit.zonder++; return; }
+      var vergeleken = 0, afwijkend = false;
+      Object.keys(w).forEach(function (jaar) {
+        if (uit.oudste === null || Number(jaar) < uit.oudste) uit.oudste = Number(jaar);
+        var huidig = r['woz' + jaar];
+        if (huidig == null || huidig === '') return;
+        vergeleken++;
+        if (Number(huidig) !== Number(w[jaar])) afwijkend = true;
+      });
+      if (afwijkend) uit.anders++;
+      else if (vergeleken) uit.gelijk++;
+    });
+    return uit;
+  }
+
+  function bewaarWozBestand() {
+    var tekst = '// woz_data.inc - WOZ-waarden uit het wozwaardeloket van het Kadaster\n'
+      + '// Opgehaald met de beheertool, laatste ronde ' + new Date(wozOpgehaald || Date.now()).toLocaleString('nl-NL') + '.\n'
+      + '//\n'
+      + '// Per verblijfsobject-ID een lijstje jaar -> vastgestelde waarde. Het jaar\n'
+      + '// is het WOZ-jaar, dus peildatum 1 januari van het jaar ervoor; woz2026\n'
+      + '// hoort bij peildatum 2025-01-01, net als in vve_data.js.\n'
+      + '// null betekent: het Kadaster kent deze nummeraanduiding niet.\n'
+      + 'const WOZ_DATA = ' + JSON.stringify(woz) + ';\n';
+    download('woz_data.inc', tekst);
+    wozGewijzigd = false;
+    teken();
+  }
+
+  function tekenWoz() {
+    var gedaan = Object.keys(woz).length;
+    var tedoen = wozTeDoen();
+    var totaal = gedaan + tedoen;
+    var zonderBron = !Object.keys(bron).length;
+
+    var uit = '<div class="bh-paneel"><div class="bh-paneel-kop"><h2>WOZ-waarden van het Kadaster</h2></div>'
+      + '<p class="bh-hint" style="margin-top:0">Vraagt per adres het wozwaardeloket, op het nummeraanduiding-ID '
+      + 'uit de brondata. Het Kadaster staat 60 bevragingen per minuut toe en 5.000 per dag, dus een hele ronde '
+      + 'duurt ongeveer zes dagen. De tool onthoudt waar hij gebleven was; een volgende keer gaat hij verder.</p>'
+      + '<p class="bh-hint">Het loket maakt alleen WOZ-waarden van woningen openbaar. Garageboxen, bergingen, '
+      + 'trafohuisjes en technische ruimtes worden daarom overgeslagen (' + wozGeenWoning().toLocaleString('nl-NL')
+      + ' adressen). Bedrijfsruimtes staan niet als zodanig in de data; die leveren een lege uitkomst op.</p>';
+
+    if (zonderBron) {
+      uit += '<p class="bh-leeg">Haal eerst de brondata op: daar komen de nummeraanduidingen vandaan.</p></div>';
+      return uit;
+    }
+
+    var vandaag = wozVandaagAantal();
+    var dagen = Math.ceil(tedoen / WOZ_DAGLIMIET);
+    uit += '<div class="bh-velden" style="grid-template-columns:repeat(4,minmax(0,1fr))">'
+      + '<div><div class="bh-kaart-meta">Opgehaald</div><strong>' + gedaan.toLocaleString('nl-NL') + ' van ' + totaal.toLocaleString('nl-NL') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Vandaag</div><strong>' + vandaag.toLocaleString('nl-NL') + ' van ' + WOZ_DAGLIMIET.toLocaleString('nl-NL') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Nog te gaan</div><strong>' + (dagen ? dagen + (dagen === 1 ? ' dag' : ' dagen') : 'niets') + '</strong></div>'
+      + '<div><div class="bh-kaart-meta">Laatste ronde</div><strong>'
+      + (wozOpgehaald ? new Date(wozOpgehaald).toLocaleDateString('nl-NL') : '–') + '</strong></div></div>';
+
+    if (wozBezig) {
+      var pct = totaal ? Math.round(gedaan / totaal * 100) : 0;
+      uit += '<h3>Bezig: ' + gedaan.toLocaleString('nl-NL') + ' van ' + totaal.toLocaleString('nl-NL') + ' (' + pct + '%)</h3>'
+        + '<div class="bh-voortgang"><div class="bh-voortgang-vul" style="width:' + pct + '%"></div></div>'
+        + '<div class="bh-form-knoppen"><button class="bh-knop" data-actie="woz-stop">Stoppen</button></div>';
+    } else {
+      uit += '<div class="bh-form-knoppen" style="margin-top:14px">'
+        + (tedoen ? '<button class="bh-knop is-primair" data-actie="woz-ophalen">' + (gedaan ? 'Verder ophalen' : 'Ophalen') + '</button>' : '')
+        + (wozGewijzigd ? '<button class="bh-knop is-primair" data-actie="woz-bewaar">woz_data.inc downloaden</button>' : '')
+        + (gedaan ? '<button class="bh-knop bh-gevaar" data-actie="woz-wis">Opnieuw beginnen</button>' : '')
+        + '</div>';
+    }
+    if (wozMelding) uit += '<p class="bh-hint">' + wozMelding + '</p>';
+    if (wozFouten) uit += '<p class="bh-hint">' + wozFouten.toLocaleString('nl-NL') + ' adressen zijn na drie pogingen overgeslagen; die komen bij een volgende ronde opnieuw aan de beurt.</p>';
+
+    if (gedaan) {
+      var v = wozVerschillen();
+      uit += '<h3>Vergeleken met vve_data.js</h3><ul class="bh-leden">'
+        + '<li><span class="bh-lid-naam">Afwijkend in een jaar dat de dataset kent</span><span class="bh-lid-meta">' + v.anders.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '<li><span class="bh-lid-naam">Gelijk aan de dataset</span><span class="bh-lid-meta">' + v.gelijk.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '<li><span class="bh-lid-naam">Niet bekend bij het Kadaster</span><span class="bh-lid-meta">' + v.zonder.toLocaleString('nl-NL') + ' adressen</span></li>'
+        + '</ul>'
+        + (v.oudste ? '<p class="bh-hint">Het loket geeft de reeks terug tot ' + v.oudste
+            + '; vve_data.js heeft alleen de laatste jaren. Die oudere waarden komen gewoon mee in het bestand.</p>' : '');
+    }
+    uit += '<p class="bh-hint">Zet woz_data.inc naast het dashboard; dat gebruikt deze waarden boven die uit vve_data.js.</p></div>';
     return uit;
   }
 
@@ -485,6 +705,7 @@
       + '<button class="bh-tab' + (tab === 'handmatig' ? ' is-actief' : '') + '" data-actie="tab" data-tab="handmatig">Handmatige VvE’s <span class="bh-telling">' + handmatig.length + '</span></button>'
       + '<button class="bh-tab' + (tab === 'panden' ? ' is-actief' : '') + '" data-actie="tab" data-tab="panden">Panddata <span class="bh-telling">' + pandenMetGrond() + '</span></button>'
       + '<button class="bh-tab' + (tab === 'bron' ? ' is-actief' : '') + '" data-actie="tab" data-tab="bron">Brondata</button>'
+      + '<button class="bh-tab' + (tab === 'woz' ? ' is-actief' : '') + '" data-actie="tab" data-tab="woz">WOZ <span class="bh-telling">' + Object.keys(woz).length.toLocaleString('nl-NL') + '</span></button>'
       + '</nav></div></header>';
 
     if (vuil) {
@@ -496,7 +717,7 @@
 
     html += '<main class="bh-in">'
       + (tab === 'clusters' ? tekenClusters() : tab === 'handmatig' ? tekenHandmatig()
-         : tab === 'panden' ? tekenPanden() : tekenBron())
+         : tab === 'panden' ? tekenPanden() : tab === 'woz' ? tekenWoz() : tekenBron())
       + '</main>'
       + '<footer class="bh-voet bh-in">Beheertool versie ' + VERSIE + ' · ' + vveLijst.length.toLocaleString('nl-NL')
       + ' VvE’s uit de data · wijzigingen blijven in deze browser staan tot je ze downloadt</footer>';
@@ -632,6 +853,15 @@
     if (actie === 'bron-ophalen') { haalBronOp(); return; }
     if (actie === 'bron-stop') { bronStop = true; return; }
     if (actie === 'bron-bewaar') { bewaarBronBestand(); return; }
+    if (actie === 'woz-ophalen') { haalWozOp(); return; }
+    if (actie === 'woz-stop') { wozStop = true; return; }
+    if (actie === 'woz-bewaar') { bewaarWozBestand(); return; }
+    if (actie === 'woz-wis') {
+      if (!confirm('De opgehaalde WOZ-waarden weggooien en opnieuw beginnen? Dat kost weer zes dagen aan bevragingen.')) return;
+      woz = {}; wozOpgehaald = null; wozGewijzigd = false; wozMelding = ''; wozFouten = 0;
+      try { localStorage.removeItem(OPSLAG_WOZ); } catch (e) {}
+      teken(); return;
+    }
     if (actie === 'bewaar-clusters') { bewaarClusters(); return; }
     if (actie === 'bewaar-handmatig') { bewaarHandmatig(); return; }
     if (actie === 'verwerp') {
