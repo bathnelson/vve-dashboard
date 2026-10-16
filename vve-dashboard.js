@@ -1141,7 +1141,7 @@ var FacetSection = ({
 }, title), activeCount > 0 && /*#__PURE__*/React.createElement("span", {
   style: {
     fontSize: 9,
-    background: '#217346',
+    background: 'var(--vd-accent)',
     color: 'white',
     padding: '1px 5px',
     borderRadius: 2,
@@ -1166,8 +1166,8 @@ var FacetOption = ({
 }, !isAllOption && /*#__PURE__*/React.createElement("span", {
   className: `xl-check ${active ? 'xl-check-active' : ''}`,
   style: active ? {
-    background: '#217346',
-    borderColor: '#217346'
+    background: 'var(--vd-accent)',
+    borderColor: 'var(--vd-accent)'
   } : {}
 }, active && /*#__PURE__*/React.createElement("svg", {
   className: "w-2 h-2 text-white",
@@ -1856,7 +1856,7 @@ var StatistiekenView = ({
     style: {
       height: '100%',
       width: `${Math.round(count / max * 100)}%`,
-      background: color || '#217346',
+      background: color || 'var(--vd-accent)',
       transition: 'width .3s'
     }
   })), /*#__PURE__*/React.createElement("div", {
@@ -1987,8 +1987,8 @@ var StatistiekenView = ({
     style: {
       fontSize: 12,
       fontWeight: 700,
-      color: '#1a5c38',
-      borderBottom: '2px solid #217346',
+      color: 'var(--vd-accent-donker)',
+      borderBottom: '2px solid var(--vd-accent)',
       paddingBottom: 6,
       marginBottom: 8,
       letterSpacing: '0.01em'
@@ -2015,7 +2015,7 @@ var StatistiekenView = ({
   }, [{
     label: "VvE's gefilterd",
     value: groups.length.toLocaleString(),
-    color: '#217346'
+    color: 'var(--vd-accent)'
   }, {
     label: 'Adressen gefilterd',
     value: totalAddresses.toLocaleString(),
@@ -2072,7 +2072,7 @@ var StatistiekenView = ({
     label: k,
     count: v,
     max: bjMax,
-    color: "#217346"
+    color: "var(--vd-accent)"
   }))), /*#__PURE__*/React.createElement(Panel, {
     title: "Grootte VvE"
   }, Object.entries(grootteMap).map(([k, v]) => /*#__PURE__*/React.createElement(MiniBar, {
@@ -2184,7 +2184,7 @@ var StatistiekenView = ({
         });
         var total=metKvk+zonderKvk,max=Math.max(metKvk,zonderKvk,1);
         return [
-          /*#__PURE__*/React.createElement(MiniBar,{key:'met',label:'Met KvK ('+(total?Math.round(metKvk/total*100):0)+'%)',count:metKvk,max:max,color:'#217346'}),
+          /*#__PURE__*/React.createElement(MiniBar,{key:'met',label:'Met KvK ('+(total?Math.round(metKvk/total*100):0)+'%)',count:metKvk,max:max,color:'var(--vd-accent)'}),
           /*#__PURE__*/React.createElement(MiniBar,{key:'zonder',label:'Zonder KvK ('+(total?Math.round(zonderKvk/total*100):0)+'%)',count:zonderKvk,max:max,color:'#dc2626'})
         ];
       })()
@@ -2332,7 +2332,7 @@ var StatistiekenView = ({
       footprints.length ? {label:'Grootste footprint', main:footprints[footprints.length-1].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[footprints.length-1].vve)+' · '+footprints[footprints.length-1].detail, item:footprints[footprints.length-1].vve} : {label:'Footprint', main:'Nog niet opgehaald', sub:'Haal de panddata op in de beheertool (tabblad Panddata)'}
     ].filter(Boolean);
     return /*#__PURE__*/React.createElement("div", {style:{marginTop:14}},
-      /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700,color:'#1a5c38',borderBottom:'2px solid #217346',paddingBottom:6,marginBottom:10}}, "Opmerkelijke VvE's — in gefilterde selectie"),
+      /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700,color:'var(--vd-accent-donker)',borderBottom:'2px solid var(--vd-accent)',paddingBottom:6,marginBottom:10}}, "Opmerkelijke VvE's — in gefilterde selectie"),
       /*#__PURE__*/React.createElement("div", {style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8}},
         cards.map(function(c, i) {
           return /*#__PURE__*/React.createElement("div", {
@@ -2444,7 +2444,7 @@ var VveGroupCard = ({
   }, enrichment?.nickname ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
       fontWeight: 600,
-      color: '#217346'
+      color: 'var(--vd-accent)'
     }
   }, enrichment.nickname), /*#__PURE__*/React.createElement("span", {
     style: {
@@ -2530,6 +2530,8 @@ var VveGroupCard = ({
       width: 6,
       height: 6,
       borderRadius: '50%',
+      // Vast groen, niet de accentkleur: dit is een statussignaal ('er is
+      // dossierdata'), en een rode stip zou als waarschuwing gelezen worden.
       background: '#217346',
       display: 'inline-block'
     },
@@ -2665,7 +2667,7 @@ var VveGroupCard = ({
   }, enrichment?.adviestraject ? /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 13,
-      color: '#217346'
+      color: 'var(--vd-accent)'
     },
     title: enrichment.adviestraject
   }, "✓") : /*#__PURE__*/React.createElement("span", {
@@ -3634,7 +3636,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     onClick: () => setShowEditModal(true),
     className: "flex items-center gap-1 px-2 py-0.5 hover:bg-pa-gray-200 text-pa-gray-600 hover:text-pa-gray-800 text-xs",
     style: enrichment ? {
-      color: '#217346',
+      color: 'var(--vd-accent)',
       background: '#e8f4ee',
       borderRadius: 2
     } : {},
@@ -7957,7 +7959,7 @@ var App = () => {
   }, []);
 
   // Excel grid column template
-  var xlBaseTemplate = '36px minmax(200px,1fr)' + (MAPNAMEN_AAN ? ' 44px' : '') + ' 52px 52px 108px 52px 76px 68px 80px 72px 34px 34px 34px';
+  var xlBaseTemplate = 'var(--vd-rijnr, 36px) minmax(200px,1fr)' + (MAPNAMEN_AAN ? ' 44px' : '') + ' 52px 52px 108px 52px 76px 68px 80px 72px 34px 34px 34px';
   var xlColTemplate = dossierVisible ? xlBaseTemplate + ' 34px 88px 68px 84px' : xlBaseTemplate;
   var xlMinWidth = (dossierVisible ? 1160 : 874) + (MAPNAMEN_AAN ? 44 : 0);
   var xlColLabels = ['', 'Naam', ...(MAPNAMEN_AAN ? ['Map'] : []), 'Won.', 'Label', 'Buurt', 'Bj.', 'WOZ ' + activeWozJaar, 'Warmtew.', 'Warmte', 'Wijk', 'Mon.', 'Bsch.', 'Gem.', ...(dossierVisible ? ['Traj.', 'Bureau', 'Intake', 'Beheerder'] : [])];
@@ -7971,7 +7973,7 @@ var App = () => {
     className: "font-segoe"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      background: '#217346',
+      background: 'var(--vd-accent)',
       padding: '5px 12px',
       display: 'flex',
       alignItems: 'center',
@@ -8194,7 +8196,7 @@ var App = () => {
       background: showDetailPanelDesktop === 'hidden' ? 'white' : '#e8f4ee',
       fontSize: 11,
       cursor: 'pointer',
-      color: showDetailPanelDesktop === 'hidden' ? '#606060' : '#217346',
+      color: showDetailPanelDesktop === 'hidden' ? '#606060' : 'var(--vd-accent)',
       flexShrink: 0,
       whiteSpace: 'nowrap'
     }
@@ -8458,7 +8460,7 @@ var App = () => {
     d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
   })), "CRM", crmConnected && /*#__PURE__*/React.createElement("span", {
     style: {
-      background: '#217346',
+      background: 'var(--vd-accent)',
       color: 'white',
       fontSize: 10,
       padding: '1px 5px',
@@ -8564,7 +8566,7 @@ var App = () => {
       gap: 4,
       padding: '3px 8px',
       border: '1px solid #d0d0d0',
-      background: currentUser ? '#f0faf4' : '#fff8e1',
+      background: currentUser ? 'var(--vd-accent-licht)' : '#fff8e1',
       fontSize: 11,
       cursor: 'pointer',
       color: currentUser ? '#217346' : '#b45309',
@@ -8794,6 +8796,8 @@ var App = () => {
     var isOk = enrichmentSaveStatus === 'ok';
     var isError = enrichmentSaveStatus === 'error';
     var needsMap = !dossierDirLinked && fsApiAvailable();
+    // Vaste statuskleuren, niet de accentkleur: met een rode accent zou
+    // 'gekoppeld' niet meer te onderscheiden zijn van 'fout'.
     var bg = isOk ? '#217346' : isError ? '#dc2626' : enrichmentDirty ? '#217346' : needsMap ? 'white' : '#f0faf4';
     var fg = isOk || enrichmentDirty && !isError ? 'white' : isError ? 'white' : needsMap ? '#555' : '#217346';
     var border = needsMap || !enrichmentDirty && !isOk && !isError ? '1px solid #d0d0d0' : '1px solid transparent';
@@ -8943,7 +8947,7 @@ var App = () => {
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      background: '#1a5c38',
+      background: 'var(--vd-accent-donker)',
       color: '#fff',
       padding: '12px 20px',
       display: 'flex',
@@ -9009,8 +9013,8 @@ var App = () => {
         lineHeight: 1.5
       },
       onMouseEnter: function(e) {
-        e.currentTarget.style.color = '#217346';
-        e.currentTarget.style.borderLeftColor = '#217346';
+        e.currentTarget.style.color = 'var(--vd-accent)';
+        e.currentTarget.style.borderLeftColor = 'var(--vd-accent)';
       },
       onMouseLeave: function(e) {
         e.currentTarget.style.color = '#4a5e52';
@@ -9033,7 +9037,7 @@ var App = () => {
         style: {
           fontSize: 15,
           fontWeight: 700,
-          color: '#1a5c38',
+          color: 'var(--vd-accent-donker)',
           borderBottom: '2px solid #e0ece4',
           paddingBottom: 6,
           marginBottom: 10,
@@ -9066,7 +9070,7 @@ var App = () => {
       return /*#__PURE__*/React.createElement("div", {
         style: {
           background: '#e8f4ee',
-          borderLeft: '3px solid #217346',
+          borderLeft: '3px solid var(--vd-accent)',
           padding: '8px 12px',
           borderRadius: '0 4px 4px 0',
           marginBottom: 12,
@@ -9311,7 +9315,7 @@ var App = () => {
     checked: showDossier,
     onChange: e => toggleDossier(e.target.checked),
     style: {
-      accentColor: '#217346',
+      accentColor: 'var(--vd-accent)',
       cursor: 'pointer'
     }
   }), "Dossierdata tonen")), hasActiveFilters && /*#__PURE__*/React.createElement("div", {
@@ -9824,7 +9828,7 @@ var App = () => {
     onClick: clearAllFilters,
     style: {
       fontSize: 10,
-      color: '#217346',
+      color: 'var(--vd-accent)',
       fontWeight: 600,
       background: 'none',
       border: 'none',
@@ -9859,7 +9863,7 @@ var App = () => {
     style: {
       padding: '1px 7px',
       fontSize: 10,
-      background: !showVveCounts ? '#217346' : 'white',
+      background: !showVveCounts ? 'var(--vd-accent)' : 'white',
       color: !showVveCounts ? 'white' : '#555',
       border: 'none',
       cursor: 'pointer'
@@ -9869,7 +9873,7 @@ var App = () => {
     style: {
       padding: '1px 7px',
       fontSize: 10,
-      background: showVveCounts ? '#217346' : 'white',
+      background: showVveCounts ? 'var(--vd-accent)' : 'white',
       color: showVveCounts ? 'white' : '#555',
       border: 'none',
       cursor: 'pointer',
@@ -9896,7 +9900,7 @@ var App = () => {
       width: 11,
       height: 11,
       margin: 0,
-      accentColor: '#217346',
+      accentColor: 'var(--vd-accent)',
       cursor: 'pointer'
     }
   }), "Dossier")), /*#__PURE__*/React.createElement("div", {
@@ -10584,7 +10588,7 @@ var App = () => {
       gap: 4,
       padding: '3px 8px',
       border: '1px solid #d0d0d0',
-      background: currentUser ? '#f0faf4' : '#fff8e1',
+      background: currentUser ? 'var(--vd-accent-licht)' : '#fff8e1',
       fontSize: 11,
       cursor: 'pointer',
       color: currentUser ? '#217346' : '#b45309',
@@ -10761,6 +10765,7 @@ var App = () => {
       minWidth: xlMinWidth
     }
   }, /*#__PURE__*/React.createElement("div", {
+    className: "vd-kolomletters",
     style: {
       display: 'grid',
       gridTemplateColumns: xlColTemplate,
@@ -10783,6 +10788,7 @@ var App = () => {
       height: 18
     }
   }, i > 0 ? String.fromCharCode(64 + i) : ''))), /*#__PURE__*/React.createElement("div", {
+    className: "vd-kolomkop",
     style: {
       display: 'grid',
       gridTemplateColumns: xlColTemplate,
@@ -10791,6 +10797,7 @@ var App = () => {
     }
   }, xlColLabels.map((label, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
+    className: "vd-kolomkop-cel",
     style: {
       padding: '3px 6px',
       fontSize: 10,
@@ -10836,6 +10843,7 @@ var App = () => {
       length: count
     }, (_, i) => /*#__PURE__*/React.createElement("div", {
       key: `ph-${i}`,
+      className: "vd-opvulrij",
       style: {
         display: 'grid',
         gridTemplateColumns: xlColTemplate,
@@ -11017,7 +11025,7 @@ var App = () => {
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      background: '#217346',
+      background: 'var(--vd-accent)',
       padding: '8px 12px',
       display: 'flex',
       alignItems: 'center',
@@ -11097,7 +11105,7 @@ var App = () => {
     }
   }, "Wordt gebruikt om jouw wijzigingen bij te houden.", !dossierDirLinked && fsApiAvailable() && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
     style: {
-      color: '#217346',
+      color: 'var(--vd-accent)',
       fontWeight: 500
     }
   }, "Daarna vragen we je de gedeelde map te selecteren.")))), /*#__PURE__*/React.createElement("div", {
@@ -11129,7 +11137,7 @@ var App = () => {
     style: {
       padding: '5px 14px',
       fontSize: 12,
-      background: '#217346',
+      background: 'var(--vd-accent)',
       color: 'white',
       border: 'none',
       cursor: 'pointer',
@@ -11186,7 +11194,7 @@ var App = () => {
       onClick: e => e.stopPropagation()
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        background: '#217346',
+        background: 'var(--vd-accent)',
         padding: '8px 12px',
         display: 'flex',
         alignItems: 'center',
@@ -11296,7 +11304,7 @@ var App = () => {
         padding: '3px 8px',
         whiteSpace: 'nowrap',
         fontWeight: 500,
-        color: '#217346'
+        color: 'var(--vd-accent)'
       }
     }, entry.user || ''), /*#__PURE__*/React.createElement("td", {
       style: {
@@ -11328,7 +11336,7 @@ var App = () => {
     }, "—")), /*#__PURE__*/React.createElement("td", {
       style: {
         padding: '3px 8px',
-        color: '#217346',
+        color: 'var(--vd-accent)',
         maxWidth: 140,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
@@ -11342,7 +11350,7 @@ var App = () => {
     }, "—")))))))));
   })(), /*#__PURE__*/React.createElement("div", {
     style: {
-      background: '#217346',
+      background: 'var(--vd-accent)',
       color: 'white',
       fontSize: 10,
       padding: '2px 10px',
@@ -11399,8 +11407,88 @@ var App = () => {
       color: activeSheet === key ? '#222' : '#666',
       fontWeight: activeSheet === key ? 500 : 400,
       borderRight: '1px solid #bbb',
-      borderTop: activeSheet === key ? '2px solid #217346' : '2px solid transparent'
+      borderTop: activeSheet === key ? '2px solid var(--vd-accent)' : '2px solid transparent'
     }
   }, label))));
 };
 ReactDOM.createRoot(document.getElementById('app')).render(/*#__PURE__*/React.createElement(App, null));
+
+// ── Ontwerpproef ─────────────────────────────────────────────────────────
+// Schakelt tussen het oude en het nieuwe ontwerp en laat de accentkleur
+// kiezen. Beide keuzes worden per browser onthouden. Een standaardkleur kan
+// in team_config.js met ACCENT_KLEUR = '#......'. Dit blokje is alleen voor
+// de proef; na goedkeuring verhuist de kleur naar team_config.js en gaat
+// de schakelaar weg.
+(function vdOntwerpProef() {
+  var SLEUTEL = 'vd-ontwerp', SLEUTEL_KLEUR = 'vd-accent';
+  var STALEN = [
+    ['Haarlems rood', '#b52431'],
+    ['Blauwgroen', '#0f6e78'],
+    ['Nachtblauw', '#1f4e8c'],
+    ['Excel-groen', '#217346']
+  ];
+  var standaard = (typeof ACCENT_KLEUR === 'string' && /^#[0-9a-f]{6}$/i.test(ACCENT_KLEUR)) ? ACCENT_KLEUR : '#b52431';
+  function lees(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function schrijf(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  var aan = lees(SLEUTEL) === 'nieuw';
+  var kleur = lees(SLEUTEL_KLEUR) || standaard;
+  var vak, vink, stalen, kiezer;
+
+  function pasToe() {
+    var h = document.documentElement;
+    h.classList.toggle('vd-nieuw', aan);
+    if (aan) h.style.setProperty('--vd-accent', kleur);
+    else h.style.removeProperty('--vd-accent');
+    if (!vak) return;
+    vink.checked = aan;
+    stalen.hidden = !aan;
+    kiezer.value = kleur;
+    stalen.querySelectorAll('.vd-staal').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-kleur').toLowerCase() === kleur.toLowerCase() ? 'true' : 'false');
+    });
+  }
+
+  function bouw() {
+    vak = document.createElement('div');
+    vak.id = 'vd-proef';
+    vak.setAttribute('role', 'group');
+    vak.setAttribute('aria-label', 'Ontwerpproef');
+    var lbl = document.createElement('label');
+    vink = document.createElement('input');
+    vink.type = 'checkbox';
+    vink.addEventListener('change', function () {
+      aan = vink.checked; schrijf(SLEUTEL, aan ? 'nieuw' : 'oud'); pasToe();
+    });
+    lbl.appendChild(vink);
+    lbl.appendChild(document.createTextNode('Nieuw ontwerp'));
+    vak.appendChild(lbl);
+
+    stalen = document.createElement('div');
+    stalen.className = 'vd-stalen';
+    STALEN.forEach(function (s) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vd-staal';
+      b.title = s[0];
+      b.setAttribute('aria-label', 'Accentkleur ' + s[0]);
+      b.setAttribute('data-kleur', s[1]);
+      b.style.background = s[1];
+      b.addEventListener('click', function () { kleur = s[1]; schrijf(SLEUTEL_KLEUR, kleur); pasToe(); });
+      stalen.appendChild(b);
+    });
+    kiezer = document.createElement('input');
+    kiezer.type = 'color';
+    kiezer.title = 'Eigen kleur';
+    kiezer.setAttribute('aria-label', 'Eigen accentkleur');
+    kiezer.addEventListener('input', function () { kleur = kiezer.value; schrijf(SLEUTEL_KLEUR, kleur); pasToe(); });
+    stalen.appendChild(kiezer);
+    vak.appendChild(stalen);
+    document.body.appendChild(vak);
+    pasToe();
+  }
+
+  pasToe();   // klasse zo vroeg mogelijk, zodat het niet eerst in het oude ontwerp knippert
+  if (document.body) bouw();
+  else document.addEventListener('DOMContentLoaded', bouw);
+})();
