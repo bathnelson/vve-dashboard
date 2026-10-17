@@ -768,7 +768,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 49;
+var APP_BUILD = 50;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -8060,13 +8060,13 @@ var App = () => {
   }, []);
 
   // Excel grid column template
-  // De naamkolom kreeg met 1fr alle ruimte die over was: op een breed scherm
-  // meer dan 1.300 px, op een regel, terwijl Buurt en Wijk werden afgekapt.
-  // Nu heeft hij een maximum en loopt een lange naam over twee regels; de
-  // ruimte die overblijft gaat naar Buurt, Wijk en (met dossier) Bureau en
-  // Beheerder, tot een redelijke breedte.
-  var xlBaseTemplate = 'var(--vd-rijnr, 36px) minmax(200px,340px)' + (MAPNAMEN_AAN ? ' 44px' : '') + ' 52px 52px minmax(108px,200px) 52px 76px 68px 80px minmax(72px,180px) 34px 34px 34px';
-  var xlColTemplate = dossierVisible ? xlBaseTemplate + ' 34px minmax(88px,150px) 68px minmax(84px,150px)' : xlBaseTemplate;
+  // De ruimte die over is wordt naar verhouding verdeeld over de kolommen met
+  // tekst: de naam krijgt het grootste deel (2fr), Buurt, Warmtew. en Wijk
+  // elk ongeveer de helft daarvan. Zo vult het raster de hele breedte, zonder
+  // dat de naamkolom alles opslokt zoals met de oude 1fr, toen hij op een
+  // breed scherm meer dan 1.300 px werd. De minimumbreedtes zijn ongewijzigd.
+  var xlBaseTemplate = 'var(--vd-rijnr, 36px) minmax(200px,2fr)' + (MAPNAMEN_AAN ? ' 44px' : '') + ' 52px 52px minmax(108px,1.2fr) 52px 76px minmax(68px,1fr) 80px minmax(72px,1fr) 34px 34px 34px';
+  var xlColTemplate = dossierVisible ? xlBaseTemplate + ' 34px minmax(88px,0.8fr) 68px minmax(84px,0.8fr)' : xlBaseTemplate;
   var xlMinWidth = (dossierVisible ? 1160 : 874) + (MAPNAMEN_AAN ? 44 : 0);
   var xlColLabels = ['', 'Naam', ...(MAPNAMEN_AAN ? ['Map'] : []), 'Won.', 'Label', 'Buurt', 'Bj.', 'WOZ ' + activeWozJaar, 'Warmtew.', 'Warmte', 'Wijk', 'Mon.', 'Bsch.', 'Gem.', ...(dossierVisible ? ['Traj.', 'Bureau', 'Intake', 'Beheerder'] : [])];
   return /*#__PURE__*/React.createElement("div", {
