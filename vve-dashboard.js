@@ -768,7 +768,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 48;
+var APP_BUILD = 49;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -8060,8 +8060,13 @@ var App = () => {
   }, []);
 
   // Excel grid column template
-  var xlBaseTemplate = 'var(--vd-rijnr, 36px) minmax(200px,1fr)' + (MAPNAMEN_AAN ? ' 44px' : '') + ' 52px 52px 108px 52px 76px 68px 80px 72px 34px 34px 34px';
-  var xlColTemplate = dossierVisible ? xlBaseTemplate + ' 34px 88px 68px 84px' : xlBaseTemplate;
+  // De naamkolom kreeg met 1fr alle ruimte die over was: op een breed scherm
+  // meer dan 1.300 px, op een regel, terwijl Buurt en Wijk werden afgekapt.
+  // Nu heeft hij een maximum en loopt een lange naam over twee regels; de
+  // ruimte die overblijft gaat naar Buurt, Wijk en (met dossier) Bureau en
+  // Beheerder, tot een redelijke breedte.
+  var xlBaseTemplate = 'var(--vd-rijnr, 36px) minmax(200px,340px)' + (MAPNAMEN_AAN ? ' 44px' : '') + ' 52px 52px minmax(108px,200px) 52px 76px 68px 80px minmax(72px,180px) 34px 34px 34px';
+  var xlColTemplate = dossierVisible ? xlBaseTemplate + ' 34px minmax(88px,150px) 68px minmax(84px,150px)' : xlBaseTemplate;
   var xlMinWidth = (dossierVisible ? 1160 : 874) + (MAPNAMEN_AAN ? 44 : 0);
   var xlColLabels = ['', 'Naam', ...(MAPNAMEN_AAN ? ['Map'] : []), 'Won.', 'Label', 'Buurt', 'Bj.', 'WOZ ' + activeWozJaar, 'Warmtew.', 'Warmte', 'Wijk', 'Mon.', 'Bsch.', 'Gem.', ...(dossierVisible ? ['Traj.', 'Bureau', 'Intake', 'Beheerder'] : [])];
   return /*#__PURE__*/React.createElement("div", {
