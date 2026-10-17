@@ -782,7 +782,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 51;
+var APP_BUILD = 52;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -3863,7 +3863,15 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
   }, "Type"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-800",
     colSpan: "3"
-  }, typeVan(item) || '-')), /*#__PURE__*/React.createElement("tr", {
+  }, item.basiseenheidtype || '-')), /*#__PURE__*/React.createElement("tr", {
+    className: "border-b border-pa-gray-100"
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-500",
+    title: "Gebruiksdoel volgens de BAG, uit de gemeentelaag"
+  }, "Gebruiksfunctie"), /*#__PURE__*/React.createElement("td", {
+    className: "py-1.5 text-pa-gray-800",
+    colSpan: "3"
+  }, item.gebruiksdoel || '-')), /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
@@ -7305,13 +7313,13 @@ var App = () => {
     setShowCsvMenu(false);
     if (includeAddresses) {
       // Export alle adressen
-      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'label_verlopen', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
+      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'label_verlopen', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'gebruiksdoel', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
       var rows = alleenMetVve(fullyFilteredData).map(item => {
         var warmte = getWarmteProg(item);
         var enr = getVveEnrichment(item.vve_identificatie);
         return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
         // nickname
-        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', labelVerlopen(item) ? 'ja' : '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(typeVan(item)).replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
+        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', labelVerlopen(item) ? 'ja' : '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(item.basiseenheidtype || '').replace(/"/g, '""')}"`, `"${(item.gebruiksdoel || '').replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
       });
       var csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
       var blob = new Blob(['\ufeff' + csvContent], {
@@ -7834,6 +7842,10 @@ var App = () => {
         key: 'type',
         width: 20
       }, {
+        header: 'Gebruiksfunctie (BAG)',
+        key: 'gebruiksdoel',
+        width: 24
+      }, {
         header: 'Verblijfsobject ID',
         key: 'vbo_id',
         width: 20
@@ -7920,7 +7932,8 @@ var App = () => {
           labelVerlopen: labelVerlopen(item) ? 'ja' : '',
           monument: item.monumentale_status || '',
           beschermd: getBeschermdGezicht(item.vve_identificatie) || '',
-          type: typeVan(item),
+          type: item.basiseenheidtype || '',
+          gebruiksdoel: item.gebruiksdoel || '',
           vbo_id: item.verblijfsobject_id || '',
           pand_id: item.gerelateerd_pand_id || '',
           warmteplan: warmte?.tijdvak || '',
