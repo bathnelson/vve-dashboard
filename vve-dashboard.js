@@ -1314,6 +1314,10 @@ var labelTitel = a => {
   var e = (typeof epVan === 'function') ? epVan(a) : null;
   return e && e.geldig ? 'Geldig tot ' + new Date(e.geldig).toLocaleDateString('nl-NL') : undefined;
 };
+// Verlopen labels tellen bewust mee in het gemiddelde (besluit 17-10-2026):
+// het gemiddelde per VvE is een indicatie, geen beslisgrond, en een nieuw
+// label zal zelden ver van het oude afwijken. Per adres zijn ze wel als
+// verlopen gemarkeerd.
 var getAverageEnergyLabel = addresses => {
   var labelOrder = ['A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G'];
   var validLabels = addresses.filter(isWoonunit).map(a => a.energielabel).filter(l => l && l !== '-' && labelOrder.includes(l));
