@@ -519,6 +519,7 @@ var VERSE_EP = {};
                 // Expliciet 0 als de bron dit adres kent maar geen erfpacht
                 // meldt; blijft het veld leeg, dan wéten we het niet.
                 item.erfpacht = b.erfpacht ? 1 : 0;
+                if (b.doel) item.gebruiksdoel = b.doel;
                 if (b.warmte) {
                     BRON_WARMTE[String(item.verblijfsobject_id)] = {
                         warmte: b.warmte,
@@ -767,7 +768,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 47;
+var APP_BUILD = 48;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -1298,6 +1299,13 @@ var getAverageEnergyLabel = addresses => {
   return labelOrder[Math.min(avgScore, labelOrder.length - 1)] || '-';
 };
 var getWozByYear = (item, jaar) => item['woz' + (jaar || '2025')] || null;
+
+// Het type van een eenheid. basiseenheidtype komt uit de Kadaster-typering en
+// bestaat alleen voor woningen en een paar bijzaken; voor winkels, kantoren en
+// bedrijfsruimtes is het leeg. Dan nemen we het BAG-gebruiksdoel uit de
+// brondata. basiseenheidtype zelf blijft onaangeroerd, want daar hangt de
+// logica aan van wat als woning telt.
+var typeVan = (a) => a ? (a.basiseenheidtype || a.gebruiksdoel || '') : '';
 
 // Wat tijdens deze sessie los bij het Kadaster is opgehaald. Blijft in het
 // geheugen van dit tabblad: het dashboard schrijft geen bestanden, dus na een
@@ -3468,7 +3476,7 @@ var DetailPanel = ({
     var adresDetailRows = vveSummary.adresDetails.map((a, idx) => {
       var adresStr = `${a.straatnaam || ''} ${a.huisnummer || ''}${a.huisletter || ''}${a.huisnummertoevoeging ? '-' + a.huisnummertoevoeging : ''}`.trim();
       var bg = idx % 2 === 0 ? '' : 'background-color:#f9fafb;';
-      return `<tr style="${bg}"><td style="border:1px solid #ccc;">${adresStr}</td><td style="border:1px solid #ccc;">${a.basiseenheidtype || '-'}</td><td style="border:1px solid #ccc;">${getDisplayEnergyLabel(a)}</td><td style="border:1px solid #ccc;">${(getWozByYear(a, activeWozJaar)) ? (getWozByYear(a, activeWozJaar)).toLocaleString('nl-NL', {
+      return `<tr style="${bg}"><td style="border:1px solid #ccc;">${adresStr}</td><td style="border:1px solid #ccc;">${typeVan(a) || '-'}</td><td style="border:1px solid #ccc;">${getDisplayEnergyLabel(a)}</td><td style="border:1px solid #ccc;">${(getWozByYear(a, activeWozJaar)) ? (getWozByYear(a, activeWozJaar)).toLocaleString('nl-NL', {
         style: 'currency',
         currency: 'EUR',
         maximumFractionDigits: 0
@@ -3508,7 +3516,7 @@ Contact duurzaamheid\t${duurzaamheidInfo}
 Notities\t${notitiesInfo}` : '';
     var adresDetailTextRows = vveSummary.adresDetails.map(a => {
       var adresStr = `${a.straatnaam || ''} ${a.huisnummer || ''}${a.huisletter || ''}${a.huisnummertoevoeging ? '-' + a.huisnummertoevoeging : ''}`.trim();
-      return `  ${adresStr}\t${a.basiseenheidtype || '-'}\t${getDisplayEnergyLabel(a)}\t${getWozByYear(a, activeWozJaar) || '-'}\t${a.bouwjaar_gerelateerd_pand || '-'}\t${a.oppervlakte ? a.oppervlakte + ' m²' : '-'}`;
+      return `  ${adresStr}\t${typeVan(a) || '-'}\t${getDisplayEnergyLabel(a)}\t${getWozByYear(a, activeWozJaar) || '-'}\t${a.bouwjaar_gerelateerd_pand || '-'}\t${a.oppervlakte ? a.oppervlakte + ' m²' : '-'}`;
     }).join('\n');
     var plainText = `VvE-naam\t${vveSummary.vveNaam}
 VvE-ID\t${vveSummary.vveId}
@@ -3822,7 +3830,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
   }, "Type"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-800",
     colSpan: "3"
-  }, item.basiseenheidtype || '-')), /*#__PURE__*/React.createElement("tr", {
+  }, typeVan(item) || '-')), /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
@@ -4468,7 +4476,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     }, adresStr), /*#__PURE__*/React.createElement("td", {
       className: "py-1 px-1.5 text-pa-gray-600 max-w-[80px] truncate",
       title: a.basiseenheidtype
-    }, a.basiseenheidtype || '-'), /*#__PURE__*/React.createElement("td", {
+    }, typeVan(a) || '-'), /*#__PURE__*/React.createElement("td", {
       className: `py-1 px-1.5 text-right font-medium ${getEnergyClass(getDisplayEnergyLabel(a))}`
     }, getDisplayEnergyLabel(a)), /*#__PURE__*/React.createElement("td", {
       className: "py-1 px-1.5 text-right text-pa-gray-700"
@@ -5860,10 +5868,34 @@ var App = () => {
     key: 'garage',
     label: 'Garage/berging'
   }, {
+    key: 'winkel',
+    label: 'Winkel'
+  }, {
+    key: 'kantoor',
+    label: 'Kantoor'
+  }, {
+    key: 'bedrijf',
+    label: 'Bedrijfsruimte'
+  }, {
+    key: 'maatschappelijk',
+    label: 'Maatschappelijk'
+  }, {
     key: 'overig',
     label: 'Overig/onbekend'
   }];
-  var getEenheidtypeKey = type => {
+  // Zonder basiseenheidtype kijken we naar het BAG-gebruiksdoel. Heeft een
+  // eenheid er meer dan een, dan wint de niet-woonfunctie: dat is voor een
+  // VvE het onderscheidende (een gemengde VvE).
+  var getEenheidtypeKey = (type, doel) => {
+    if (!type && doel) {
+      var d = String(doel).toLowerCase();
+      if (d.includes('winkel')) return 'winkel';
+      if (d.includes('kantoor')) return 'kantoor';
+      if (d.includes('industrie')) return 'bedrijf';
+      if (/bijeenkomst|gezondheidszorg|onderwijs|sport|logies|cel/.test(d)) return 'maatschappelijk';
+      if (d.includes('woon')) return 'overig_woning';
+      return 'overig';
+    }
     if (!type) return 'overig';
     var t = type.toLowerCase();
     if (t.includes('appartement')) return 'appartement';
@@ -5954,7 +5986,7 @@ var App = () => {
     },
     eenheidtype: {
       active: selectedEenheidtype.size > 0,
-      fn: item => selectedEenheidtype.has(getEenheidtypeKey(item.basiseenheidtype))
+      fn: item => selectedEenheidtype.has(getEenheidtypeKey(item.basiseenheidtype, item.gebruiksdoel))
     },
     bouwjaar: {
       active: selectedBouwjaar.size > 0,
@@ -6178,7 +6210,7 @@ var App = () => {
       vves: {}
     };
     eenheidtypeCategories.forEach(cat => {
-      var filtered = base.filter(item => getEenheidtypeKey(item.basiseenheidtype) === cat.key);
+      var filtered = base.filter(item => getEenheidtypeKey(item.basiseenheidtype, item.gebruiksdoel) === cat.key);
       counts.addresses[cat.key] = filtered.length;
       counts.vves[cat.key] = countUniqueVves(filtered);
     });
@@ -7245,7 +7277,7 @@ var App = () => {
         var enr = getVveEnrichment(item.vve_identificatie);
         return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
         // nickname
-        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(item.basiseenheidtype || '').replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
+        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(typeVan(item)).replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
       });
       var csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
       var blob = new Blob(['\ufeff' + csvContent], {
@@ -7845,7 +7877,7 @@ var App = () => {
           label: item.energielabel || '',
           monument: item.monumentale_status || '',
           beschermd: getBeschermdGezicht(item.vve_identificatie) || '',
-          type: item.basiseenheidtype || '',
+          type: typeVan(item),
           vbo_id: item.verblijfsobject_id || '',
           pand_id: item.gerelateerd_pand_id || '',
           warmteplan: warmte?.tijdvak || '',

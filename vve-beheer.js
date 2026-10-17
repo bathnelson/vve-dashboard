@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var VERSIE = 8;
+  var VERSIE = 9;
   var app = document.getElementById('beheer');
   if (!app) return;
 
@@ -249,7 +249,7 @@
   var WFS = 'https://data.haarlem.nl/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'
     + '&typeName=gemeentehaarlem:bag_adres_RD&outputFormat=application/json'
     + '&propertyName=bag_id,nummeraanduiding_id,energielabel,monumentale_status,binnen_beschermd_gezicht,'
-    + 'warmteprogramma,warmteprogramma_tijdvak,oppervlakte,bouwjaar_gerelateerd_pand,thema_brk';
+    + 'warmteprogramma,warmteprogramma_tijdvak,oppervlakte,bouwjaar_gerelateerd_pand,thema_brk,gebruiksdoel';
   var WFS_PAGINA = 2000;   // kleinere pagina's; de server weigert grote reeksen sneller
   var WFS_PAUZE = 1500;    // ms tussen twee pagina's
   var WFS_POGINGEN = 6;
@@ -331,7 +331,10 @@
             // thema_brk noemt de eigenaar van de grond; binnen een VvE is dat
             // altijd de VvE zelf, dus daar valt geen corporatiebezit uit af te
             // leiden. De toevoeging 'Erfpacht' gaat wel over die grond.
-            erfpacht: (p.thema_brk && String(p.thema_brk).indexOf('Erfpacht') !== -1) ? 1 : null
+            erfpacht: (p.thema_brk && String(p.thema_brk).indexOf('Erfpacht') !== -1) ? 1 : null,
+            // BAG-gebruiksdoel, letterlijk: geeft winkels, kantoren en andere
+            // eenheden zonder basiseenheidtype toch een type in het dashboard
+            doel: (p.gebruiksdoel && String(p.gebruiksdoel).trim()) || null
           };
         });
         bronGedaan += (d.features || []).length;
@@ -385,6 +388,7 @@
       + '//   erf     1 als het warmteprogramma erfgoed meldt\n'
       + '//   opp     oppervlakte           bj     bouwjaar van het pand\n'
       + '//   erfpacht 1 als de grond in erfpacht is uitgegeven\n'
+      + '//   doel    BAG-gebruiksdoel, bv. winkelfunctie of woonfunctie, kantoorfunctie\n'
       + '//\n'
       + '// Het dashboard zet deze waarden over die uit vve_data.js heen.\n'
       + "const BRON_HAARLEM_OPGEHAALD = '" + (bronOpgehaald || '').slice(0, 10) + "';\n"
@@ -399,7 +403,7 @@
     var aantal = Object.keys(bron).length;
     var uit = '<div class="bh-paneel"><div class="bh-paneel-kop"><h2>Brondata van de gemeente</h2></div>'
       + '<p class="bh-hint" style="margin-top:0">Haalt per adres het energielabel, de monumentale status, '
-      + 'het beschermd gezicht, het warmteprogramma met tijdvak, de oppervlakte, het bouwjaar en het '
+      + 'het beschermd gezicht, het warmteprogramma met tijdvak, de oppervlakte, het bouwjaar, de erfpacht, het gebruiksdoel en het '
       + 'nummeraanduiding-ID op uit de open WFS van de gemeente. Alleen adressen die in het dashboard '
       + 'staan worden bewaard; de laag bevat heel Haarlem.</p>'
       + '<div class="bh-velden" style="grid-template-columns:repeat(3,minmax(0,1fr))">'
