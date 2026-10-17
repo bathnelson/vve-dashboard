@@ -539,15 +539,29 @@ var VERSE_EP = {};
         (function pasEpToe() {
             if (typeof EP_DATA === 'undefined' || !EP_DATA) return;
             if (typeof VVE_DATA === 'undefined') return;
-            var n = 0;
+            var n = 0, verlopen = 0;
+            var vandaag = new Date().toISOString().slice(0, 10);
             VVE_DATA.forEach((item) => {
-                var e = EP_DATA[String(item.verblijfsobject_id)];
-                if (!e || !e.k) return;
-                n++;
-                item.energielabel = e.k;
-                EP_LABEL[String(item.verblijfsobject_id)] = e;
+                var vo = String(item.verblijfsobject_id);
+                // Niet bevraagd: dan weten we niets en markeren we niets.
+                if (!Object.prototype.hasOwnProperty.call(EP_DATA, vo)) return;
+                var e = EP_DATA[vo];
+                if (e && e.k) {
+                    n++;
+                    item.energielabel = e.k;
+                    EP_LABEL[vo] = e;
+                    // Een label dat sinds het ophalen over zijn datum is gegaan.
+                    if (e.geldig && e.geldig < vandaag) { item.label_verlopen = 1; verlopen++; }
+                } else if (item.energielabel && item.energielabel !== '-') {
+                    // EP-Online geeft alleen geldige labels terug (het vroegste
+                    // geldig-tot in de hele ronde was de dag na het ophalen).
+                    // Kent het register het adres zonder label, terwijl de
+                    // gemeentelaag er wel een toont, dan is dat label verlopen.
+                    item.label_verlopen = 1;
+                    verlopen++;
+                }
             });
-            try { console.info('Energielabels uit EP-Online toegepast op ' + n + ' adressen'); } catch (e) {}
+            try { console.info('Energielabels uit EP-Online toegepast op ' + n + ' adressen, ' + verlopen + ' verlopen'); } catch (e) {}
         })();
 
         // WOZ-waarden uit het wozwaardeloket (woz_data.inc, opgehaald met de
@@ -768,7 +782,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 50;
+var APP_BUILD = 51;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -1290,6 +1304,16 @@ var isWoonunit = a => {
 
 // Geef het energielabel van een adres terug, maar alleen voor woonunits
 var getDisplayEnergyLabel = a => isWoonunit(a) ? a.energielabel || '-' : '-';
+// Verlopen labels blijven zichtbaar maar gearceerd en grijs, met uitleg in
+// de tooltip. Bij een geldig EP-label staat de geldigheid in de tooltip.
+var labelVerlopen = a => !!(a && a.label_verlopen);
+var labelKlasse = a => labelVerlopen(a) ? ' vd-label-verlopen' : '';
+var labelTitel = a => {
+  if (!a) return undefined;
+  if (labelVerlopen(a)) return 'Verlopen: EP-Online kent voor dit adres geen geldig energielabel meer. Laatst bekend: ' + (a.energielabel || '?');
+  var e = (typeof epVan === 'function') ? epVan(a) : null;
+  return e && e.geldig ? 'Geldig tot ' + new Date(e.geldig).toLocaleDateString('nl-NL') : undefined;
+};
 var getAverageEnergyLabel = addresses => {
   var labelOrder = ['A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G'];
   var validLabels = addresses.filter(isWoonunit).map(a => a.energielabel).filter(l => l && l !== '-' && labelOrder.includes(l));
@@ -1384,7 +1408,8 @@ var AddressCard = ({
     }), /*#__PURE__*/React.createElement("div", {
       className: "xl-cell xl-cell-center"
     }), /*#__PURE__*/React.createElement("div", {
-      className: `xl-cell xl-cell-center font-medium ${getEnergyClass(getDisplayEnergyLabel(item))}`,
+      className: `xl-cell xl-cell-center font-medium ${getEnergyClass(getDisplayEnergyLabel(item))}${labelKlasse(item)}`,
+      title: labelTitel(item),
       style: {
         fontSize: 11
       }
@@ -1436,7 +1461,8 @@ var AddressCard = ({
   }, formatAddress(item)), compact && /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-3 mt-0.5 text-xs text-pa-gray-500"
   }, /*#__PURE__*/React.createElement("span", null, item.oppervlakte, " m²"), /*#__PURE__*/React.createElement("span", null, formatCurrency(getWozByYear(item, activeWozJaar))))), /*#__PURE__*/React.createElement("span", {
-    className: `text-xs font-medium shrink-0 ${getEnergyClass(getDisplayEnergyLabel(item))}`
+    className: `text-xs font-medium shrink-0 ${getEnergyClass(getDisplayEnergyLabel(item))}${labelKlasse(item)}`,
+    title: labelTitel(item)
   }, getDisplayEnergyLabel(item))));
 };
 
@@ -3822,8 +3848,11 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
   }, "Label"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5"
   }, /*#__PURE__*/React.createElement("span", {
-    className: `font-medium ${getEnergyClass(item.energielabel)}`
-  }, item.energielabel || '-'))), /*#__PURE__*/React.createElement("tr", {
+    className: `font-medium ${getEnergyClass(item.energielabel)}${labelKlasse(item)}`,
+    title: labelTitel(item)
+  }, item.energielabel || '-'), labelVerlopen(item) && /*#__PURE__*/React.createElement("span", {
+    className: "vd-verlopen-tekst"
+  }, "verlopen"))), /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
@@ -4086,10 +4115,10 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     // Wat weten we al over de houdbaarheid van de labels in deze VvE?
     var bekend = vveAddresses.map(a => epVan(a)).filter(Boolean);
     var nu = new Date();
-    var verlopen = bekend.filter(e => e.geldig && new Date(e.geldig) < nu).length;
+    var verlopen = vveAddresses.filter(labelVerlopen).length;
     var oudste = bekend.filter(e => e.geldig).map(e => e.geldig).sort()[0];
     return /*#__PURE__*/React.createElement("span", null,
-      bekend.length
+      (bekend.length || verlopen)
         ? /*#__PURE__*/React.createElement("span", null,
             bekend.length + ' van ' + vveAddresses.length + ' uit EP-Online'
             + (verlopen ? ', ' + verlopen + ' verlopen' : '')
@@ -4477,7 +4506,8 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
       className: "py-1 px-1.5 text-pa-gray-600 max-w-[80px] truncate",
       title: a.basiseenheidtype
     }, typeVan(a) || '-'), /*#__PURE__*/React.createElement("td", {
-      className: `py-1 px-1.5 text-right font-medium ${getEnergyClass(getDisplayEnergyLabel(a))}`
+      className: `py-1 px-1.5 text-right font-medium ${getEnergyClass(getDisplayEnergyLabel(a))}${labelKlasse(a)}`,
+      title: labelTitel(a)
     }, getDisplayEnergyLabel(a)), /*#__PURE__*/React.createElement("td", {
       className: "py-1 px-1.5 text-right text-pa-gray-700"
     }, a.woz2024 ? formatCurrency(a.woz2024) : '-'), /*#__PURE__*/React.createElement("td", {
@@ -7271,13 +7301,13 @@ var App = () => {
     setShowCsvMenu(false);
     if (includeAddresses) {
       // Export alle adressen
-      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
+      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'label_verlopen', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
       var rows = alleenMetVve(fullyFilteredData).map(item => {
         var warmte = getWarmteProg(item);
         var enr = getVveEnrichment(item.vve_identificatie);
         return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
         // nickname
-        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(typeVan(item)).replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
+        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', labelVerlopen(item) ? 'ja' : '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(typeVan(item)).replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
       });
       var csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
       var blob = new Blob(['\ufeff' + csvContent], {
@@ -7525,9 +7555,11 @@ var App = () => {
       });
 
       // Autofilter over alle kolommen
+      // Tot en met de laatste kolom, hoeveel dat er ook zijn; een vaste
+      // letter liep achter zodra er een kolom bijkwam.
       ws.autoFilter = {
-        from: 'A1',
-        to: 'AI1'
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: ws.columns.length }
       };
 
       // Invoerkolommen (1-based): nickname t/m beheerder
@@ -7782,6 +7814,10 @@ var App = () => {
         key: 'label',
         width: 14
       }, {
+        header: 'Label verlopen',
+        key: 'labelVerlopen',
+        width: 14
+      }, {
         header: 'Monumentale status',
         key: 'monument',
         width: 22
@@ -7845,9 +7881,11 @@ var App = () => {
           }
         };
       });
+      // Tot en met de laatste kolom, hoeveel dat er ook zijn; een vaste
+      // letter liep achter zodra er een kolom bijkwam.
       ws.autoFilter = {
-        from: 'A1',
-        to: 'AE1'
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: ws.columns.length }
       };
 
       // Invoerkolom (1-based): nickname
@@ -7875,6 +7913,7 @@ var App = () => {
           woz2024: item.woz2024 || null,
           woz: item.woz2025 || null,
           label: item.energielabel || '',
+          labelVerlopen: labelVerlopen(item) ? 'ja' : '',
           monument: item.monumentale_status || '',
           beschermd: getBeschermdGezicht(item.vve_identificatie) || '',
           type: typeVan(item),
