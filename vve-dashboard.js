@@ -440,7 +440,7 @@ var VERSE_EP = {};
             URL.revokeObjectURL(url);
         };
 
-        // Exporteer handmatige KvK nummers als kvk_handmatig.txt, in scriptvorm
+        // Exporteer handmatige KvK nummers als kvk_handmatig.inc, in scriptvorm
         // (var KVK_HANDMATIG = {...}) zodat de loader hem met een <script>-tag
         // kan inlezen: een XHR op een lokaal bestand blokkeert de browser via file://.
         // Alleen entries die nog NIET in kvk_lookup.js zitten (echt nieuwe nummers)
@@ -456,7 +456,7 @@ var VERSE_EP = {};
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'kvk_handmatig.txt';
+            link.download = 'kvk_handmatig.inc';
             link.click();
             URL.revokeObjectURL(url);
             return count;
