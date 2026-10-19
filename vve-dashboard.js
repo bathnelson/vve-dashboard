@@ -440,7 +440,9 @@ var VERSE_EP = {};
             URL.revokeObjectURL(url);
         };
 
-        // Exporteer handmatige KvK nummers als kvk_handmatig.txt (JSON)
+        // Exporteer handmatige KvK nummers als kvk_handmatig.txt, in scriptvorm
+        // (var KVK_HANDMATIG = {...}) zodat de loader hem met een <script>-tag
+        // kan inlezen: een XHR op een lokaal bestand blokkeert de browser via file://.
         // Alleen entries die nog NIET in kvk_lookup.js zitten (echt nieuwe nummers)
         const exportKvkHandmatigJs = () => {
             const allData = loadEnrichmentData();
@@ -450,7 +452,7 @@ var VERSE_EP = {};
             });
             const count = Object.keys(kvkEntries).length;
             if (count === 0) return 0;
-            const blob = new Blob([JSON.stringify(kvkEntries, null, 2) + '\n'], { type: 'text/plain' });
+            const blob = new Blob(['var KVK_HANDMATIG = ' + JSON.stringify(kvkEntries, null, 2) + ';\n'], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
