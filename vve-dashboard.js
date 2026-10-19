@@ -178,7 +178,7 @@ var VERSE_EP = {};
         const VVE_ENRICHMENT_KEY = 'vve_enrichment_data';
 
         // Verrijkte VvE data laden uit LocalStorage
-        // Bij eerste keer: merge KVK_HANDMATIG (uit kvk_handmatig.txt) in localStorage
+        // Bij eerste keer: merge KVK_HANDMATIG (uit kvk_handmatig.inc) in localStorage
         const _mergeHandmatigeKvk = () => {
             try {
                 if (typeof KVK_HANDMATIG === 'undefined' || !KVK_HANDMATIG) return;
@@ -8540,7 +8540,7 @@ var App = () => {
       strokeLinejoin: "round",
       strokeWidth: 2,
       d: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-    })), "kvk_handmatig.txt (", n, ")") : null;
+    })), "kvk_handmatig.inc (", n, ")") : null;
   })(), (() => {
     var zonKvk = data.reduce((s, item) => { if (!s.has(item.vve_identificatie)) { s.add(item.vve_identificatie); } return s; }, new Set());
     var count = [...zonKvk].filter(id => { var item = data.find(d => d.vve_identificatie === id); return item && getKvkKey(item) === 'zonder_kvk'; }).length;
@@ -10693,7 +10693,7 @@ var App = () => {
       strokeLinejoin: "round",
       strokeWidth: 2,
       d: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-    })), "kvk_handmatig.txt (", kvkCount, ")") : null;
+    })), "kvk_handmatig.inc (", kvkCount, ")") : null;
   })(), (() => {
     var zonKvk2 = data.reduce((s, item) => { if (!s.has(item.vve_identificatie)) s.add(item.vve_identificatie); return s; }, new Set());
     var count2 = [...zonKvk2].filter(id => { var item = data.find(d => d.vve_identificatie === id); return item && getKvkKey(item) === 'zonder_kvk'; }).length;
