@@ -784,7 +784,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 52;
+var APP_BUILD = 53;
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
