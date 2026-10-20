@@ -784,7 +784,13 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 53;
+var APP_BUILD = 54;
+
+// Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
+function kvkBestelUrl(nr) {
+  var cijfers = String(nr || '').replace(/\D/g, '');
+  return cijfers ? 'https://www.kvk.nl/bestellen/#/' + cijfers : null;
+}
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
 // beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
@@ -3980,8 +3986,12 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     }, "-");
     return /*#__PURE__*/React.createElement("span", {
       className: "flex items-center gap-1.5"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: `font-medium ${kvkSourceColor[src]}`
+    }, /*#__PURE__*/React.createElement("a", {
+      href: kvkBestelUrl(nr),
+      target: "_blank",
+      rel: "noopener noreferrer",
+      title: "Open bij KvK",
+      className: `font-medium hover:underline ${kvkSourceColor[src]}`
     }, nr), /*#__PURE__*/React.createElement("span", {
       className: `text-[9px] px-1 py-0.5 rounded border ${kvkSourceBg[src]}`
     }, kvkSourceLabel[src]));
@@ -4318,7 +4328,13 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     className: "py-1.5 text-pa-gray-500"
   }, "KvK nummer"), /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-800"
-  }, vveSummary.kvkNummer)), dossierVisible && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
+  }, kvkBestelUrl(vveSummary.kvkNummer) ? /*#__PURE__*/React.createElement("a", {
+    href: kvkBestelUrl(vveSummary.kvkNummer),
+    target: "_blank",
+    rel: "noopener noreferrer",
+    title: "Open bij KvK",
+    className: "hover:underline"
+  }, vveSummary.kvkNummer) : vveSummary.kvkNummer)), dossierVisible && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-200"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
