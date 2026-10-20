@@ -363,16 +363,12 @@ html.vd-nieuw .vd-chip-wis {
   html.vd-nieuw .xl-grid-row { transition: none; }
 }
 
-/* Verlopen energielabel, in beide ontwerpen. De letter blijft staan (het is
-   wel het laatst bekende label), maar grijs, gearceerd en doorgehaald, zodat
-   het niet gelezen wordt als een geldig label. Uitleg staat in de tooltip. */
+/* Verlopen energielabel, in beide ontwerpen. De letter en de kleur van het
+   laatst bekende label blijven staan; lichte streepjes over die kleur laten
+   zien dat het label verlopen is. Niet doorgehaald, want dat leest slecht.
+   Uitleg staat in de tooltip. */
 .vd-label-verlopen {
-  background: repeating-linear-gradient(135deg, #f1f2f4 0 3px, #e3e6ea 3px 6px) !important;
-  color: #6b7280 !important;
-  text-decoration: line-through;
-  text-decoration-color: rgba(75, 85, 99, 0.55);
-  text-decoration-thickness: 1.5px;
-  font-weight: 500 !important;
+  background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0 3px, transparent 3px 6px) !important;
 }
 .vd-verlopen-tekst {
   margin-left: 6px;
