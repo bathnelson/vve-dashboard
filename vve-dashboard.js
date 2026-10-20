@@ -955,7 +955,8 @@ var ADRESVERKENNER_URL = (function () {
   return typeof basis === 'string' ? basis.replace(/\/+$/, '') + '/' : '';
 })();
 // Adreschecker van de gemeente: per woning de duurzaamheidsinformatie. De
-// link wordt <basis>?postal_code_auth=<postcode zonder spatie><huisnummer>.
+// link wordt <basis>?postal_code_auth=<postcode><huisnummer><letter>[-<toevoeging>],
+// dus 2013SL11, 2011JJ14J of 2021KL70-RD.
 // Instelbaar met ADRESCHECKER_BASIS in team_config.js; leeg zet hem uit.
 var ADRESCHECKER_URL = (function () {
   var basis = (typeof ADRESCHECKER_BASIS !== 'undefined') ? ADRESCHECKER_BASIS : 'https://haarlem.nl/duurzaam/adreschecker';
@@ -965,7 +966,10 @@ var adrescheckerUrl = function (item) {
   if (!ADRESCHECKER_URL || !item || !isWoonunit(item)) return '';
   var pc = String(item.postcode || '').replace(/\s+/g, '').toUpperCase();
   if (!/^\d{4}[A-Z]{2}$/.test(pc) || !item.huisnummer) return '';
-  return ADRESCHECKER_URL + '?postal_code_auth=' + encodeURIComponent(pc + item.huisnummer);
+  var letter = String(item.huisletter || '').trim();
+  var toevoeging = String(item.huisnummertoevoeging || '').trim();
+  var adres = pc + item.huisnummer + letter + (toevoeging ? '-' + toevoeging : '');
+  return ADRESCHECKER_URL + '?postal_code_auth=' + encodeURIComponent(adres);
 };
 var adresverkennerUrl = function (vboId) {
   return (ADRESVERKENNER_URL && vboId) ? ADRESVERKENNER_URL + '?bagid=' + encodeURIComponent(vboId) : '';
