@@ -954,6 +954,19 @@ var ADRESVERKENNER_URL = (function () {
   var basis = (typeof ADRESVERKENNER_BASIS !== 'undefined') ? ADRESVERKENNER_BASIS : 'https://adresverkenner.nl/haarlem/';
   return typeof basis === 'string' ? basis.replace(/\/+$/, '') + '/' : '';
 })();
+// Adreschecker van de gemeente: per woning de duurzaamheidsinformatie. De
+// link wordt <basis>?postal_code_auth=<postcode zonder spatie><huisnummer>.
+// Instelbaar met ADRESCHECKER_BASIS in team_config.js; leeg zet hem uit.
+var ADRESCHECKER_URL = (function () {
+  var basis = (typeof ADRESCHECKER_BASIS !== 'undefined') ? ADRESCHECKER_BASIS : 'https://haarlem.nl/duurzaam/adreschecker';
+  return typeof basis === 'string' ? basis.replace(/\/+$/, '') : '';
+})();
+var adrescheckerUrl = function (item) {
+  if (!ADRESCHECKER_URL || !item || !isWoonunit(item)) return '';
+  var pc = String(item.postcode || '').replace(/\s+/g, '').toUpperCase();
+  if (!/^\d{4}[A-Z]{2}$/.test(pc) || !item.huisnummer) return '';
+  return ADRESCHECKER_URL + '?postal_code_auth=' + encodeURIComponent(pc + item.huisnummer);
+};
 var adresverkennerUrl = function (vboId) {
   return (ADRESVERKENNER_URL && vboId) ? ADRESVERKENNER_URL + '?bagid=' + encodeURIComponent(vboId) : '';
 };
@@ -3919,7 +3932,13 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     rel: "noopener noreferrer",
     title: "Dit adres openen in de Adresverkenner",
     className: "px-1.5 py-0.5 border border-pa-gray-300 rounded text-[10px] text-pa-gray-700 hover:border-pa-blue-500 hover:text-pa-blue-500"
-  }, "Adresverkenner \u2197")) : '-')))), (() => {
+  }, "Adresverkenner \u2197"), adrescheckerUrl(item) && /*#__PURE__*/React.createElement("a", {
+    href: adrescheckerUrl(item),
+    target: "_blank",
+    rel: "noopener noreferrer",
+    title: "Deze woning openen in de adreschecker van de gemeente",
+    className: "px-1.5 py-0.5 border border-pa-gray-300 rounded text-[10px] text-pa-gray-700 hover:border-pa-blue-500 hover:text-pa-blue-500"
+  }, "Adreschecker \u2197")) : '-')))), (() => {
     var warmte = getWarmteProg(item);
     if (!warmte) return null;
     return /*#__PURE__*/React.createElement("table", {
