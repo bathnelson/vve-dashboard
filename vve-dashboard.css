@@ -381,3 +381,28 @@ html.vd-nieuw .vd-chip-wis {
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
+
+/* (i)-knop bij het energielabel en het uitklapblok met de EP-Online-details */
+.vd-info-knop {
+  display: inline-grid; place-items: center;
+  width: 16px; height: 16px; margin-left: 6px; padding: 0;
+  border: 1px solid #b8bec7; border-radius: 50%;
+  background: #fff; color: #5b6370;
+  font: italic 700 10px/1 Georgia, 'Times New Roman', serif;
+  cursor: pointer; vertical-align: middle;
+}
+.vd-info-knop:hover,
+.vd-info-knop[aria-expanded="true"] { border-color: var(--vd-accent); color: var(--vd-accent); }
+.vd-info-knop:focus-visible { outline: 2px solid var(--vd-accent); outline-offset: 1px; }
+.vd-ep-detail {
+  margin: 2px 0 8px; padding: 8px 10px;
+  border: 1px solid #e7e9ed; border-left: 3px solid var(--vd-accent); border-radius: 4px;
+  background: #fafbfc; font-size: 11px; color: #1f2328;
+}
+.vd-ep-lijst {
+  display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 0;
+}
+.vd-ep-lijst dt { color: #5b6370; }
+.vd-ep-lijst dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.vd-ep-stil { color: #6b7280; }
+.vd-ep-detail .vd-ep-stil + .vd-ep-lijst, .vd-ep-lijst + .vd-ep-stil { margin-top: 6px; }

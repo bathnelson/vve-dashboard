@@ -784,7 +784,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 56;
+var APP_BUILD = 57;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -3115,6 +3115,80 @@ var ExtreemModal = function(_ref_ex) {
   ));
 };
 
+// Uitklapblok met de registratie uit EP-Online. Eerst de velden die ertoe
+// doen, in een vaste volgorde; daarna alles wat EP-Online verder nog meestuurt,
+// zodat er niets verborgen blijft.
+var EP_VELDEN = [
+  ['Energieklasse', 'Label'],
+  ['Opnamedatum', 'Opgenomen', 'datum'],
+  ['Geldig_tot', 'Geldig tot', 'datum'],
+  ['Registratiedatum', 'Geregistreerd', 'datum'],
+  ['Berekeningstype', 'Methode'],
+  ['Gebouwklasse', 'Gebouwklasse'],
+  ['Gebouwtype', 'Gebouwtype'],
+  ['Gebouwsubtype', 'Subtype'],
+  ['SBIcode', 'Bedrijfstak'],
+  ['Bouwjaar', 'Bouwjaar (EP)', 'jaar'],
+  ['EnergieIndex', 'Energie-index'],
+  ['BerekendeEnergieverbruik', 'Verbruik', 'verbruik'],
+  ['BerekendeCO2Emissie', 'CO\u2082-uitstoot', 'co2'],
+  // velden die alleen NTA 8800 meestuurt
+  ['PrimaireFossieleEnergie', 'Primair fossiel', 'perm2'],
+  ['Energiebehoefte', 'Energiebehoefte', 'perm2'],
+  ['Warmtebehoefte', 'Warmtebehoefte', 'perm2'],
+  ['Aandeel_hernieuwbare_energie', 'Hernieuwbaar', 'procent'],
+  ['Gebruiksoppervlakte_thermische_zone', 'Oppervlakte', 'm2'],
+  ['Certificaathouder', 'Opgesteld door']
+];
+var EP_NIET_TONEN = new Set(['Postcode', 'Huisnummer', 'Huisletter', 'Huisnummertoevoeging',
+  'BAGVerblijfsobjectID', 'BAGLigplaatsID', 'BAGStandplaatsID', 'LabelLetter', '_httpStatus']);
+var epWaarde = (sleutel, v, soort, nta) => {
+  if (v === null || v === undefined || v === '') return null;
+  if (soort === 'datum') { var d = new Date(v); return isNaN(d) ? String(v) : d.toLocaleDateString('nl-NL'); }
+  if (soort === 'jaar') return String(v);
+  var getal = typeof v === 'number' ? v.toLocaleString('nl-NL', { maximumFractionDigits: 1 }) : null;
+  // Bij NTA 8800 per vierkante meter, bij de oude methodiek het totaal per jaar.
+  if (soort === 'verbruik' && getal) return getal + (nta ? ' kWh/m\u00b2 per jaar' : ' kWh per jaar (totaal)');
+  if (soort === 'co2' && getal) return getal + (nta ? ' kg/m\u00b2 per jaar' : ' kg per jaar (totaal)');
+  if (soort === 'perm2' && getal) return getal + ' kWh/m\u00b2 per jaar';
+  if (soort === 'procent' && getal) return getal + '%';
+  if (soort === 'm2' && getal) return getal + ' m\u00b2';
+  if (typeof v === 'boolean') return v ? 'ja' : 'nee';
+  return getal || String(v);
+};
+var EpLabelDetail = ({ stand, item }) => {
+  var E = React.createElement;
+  var vak = (inhoud) => E('div', { className: 'vd-ep-detail' }, inhoud);
+  if (stand.bezig) return vak(E('span', { className: 'vd-ep-stil' }, 'EP-Online raadplegen\u2026'));
+  if (stand.geen) return vak(E('span', null,
+    'EP-Online kent voor dit adres geen geldig energielabel.',
+    labelVerlopen(item) ? ' Het label uit de gemeentelaag (' + item.energielabel + ') is daarom als verlopen gemarkeerd.' : ''));
+  var rec = stand.rec;
+  if (!rec && stand.bewaard) {
+    var b = stand.bewaard;
+    rec = { Energieklasse: b.k, Opnamedatum: b.opname, Geldig_tot: b.geldig, Gebouwklasse: b.klasse,
+            Gebouwtype: b.type, BerekendeEnergieverbruik: b.kwh,
+            Berekeningstype: b.methode === 'nta8800' ? 'NTA 8800' : (b.methode ? 'oude methodiek' : null) };
+  }
+  if (!rec) return vak(E('span', { className: 'vd-ep-stil' }, 'EP-Online is nu niet bereikbaar, en er is geen bewaard label voor dit adres.'));
+  var nta = String(rec.Berekeningstype || '').indexOf('NTA') !== -1;
+  var regels = [];
+  var gehad = new Set();
+  EP_VELDEN.forEach(v => {
+    gehad.add(v[0]);
+    var w = epWaarde(v[0], rec[v[0]], v[2], nta);
+    if (w !== null) regels.push([v[1], w]);
+  });
+  Object.keys(rec).forEach(k => {
+    if (gehad.has(k) || EP_NIET_TONEN.has(k)) return;
+    var w = epWaarde(k, rec[k], null, nta);
+    if (w !== null && typeof rec[k] !== 'object') regels.push([k.replace(/_/g, ' '), w]);
+  });
+  return vak(E(React.Fragment, null,
+    E('dl', { className: 'vd-ep-lijst' }, regels.map((r, i) => E(React.Fragment, { key: i }, E('dt', null, r[0]), E('dd', null, r[1])))),
+    stand.fout && E('div', { className: 'vd-ep-stil' }, 'EP-Online was niet bereikbaar; dit is wat er bij de laatste ronde bewaard is.')));
+};
+
 var DetailPanel = ({
   item,
   vveAddresses,
@@ -3196,6 +3270,30 @@ var DetailPanel = ({
   var _epState = useState(null),
     epStand = _epState[0],
     setEpStand = _epState[1];
+
+  // Details van het energielabel van dit ene adres, live uit EP-Online via de
+  // helper. Daar staat meer in dan wat ep_data.inc bewaart (certificaathouder,
+  // energie-index, CO2). Lukt het ophalen niet, dan tonen we wat we hebben.
+  var _epDetail = useState(null),
+    epDetail = _epDetail[0],
+    setEpDetail = _epDetail[1];
+  useEffect(() => { setEpDetail(null); }, [item && item.verblijfsobject_id]);
+  var toonEpDetail = async () => {
+    var vo = item && String(item.verblijfsobject_id || '');
+    if (!vo) return;
+    if (epDetail && epDetail.vo === vo) { setEpDetail(null); return; }
+    setEpDetail({ vo: vo, bezig: true });
+    try {
+      var r = await fetch(HELPERS_URL + '/ep-proxy.php?bagid=' + encodeURIComponent(vo));
+      var d = r.ok ? await r.json() : null;
+      if (d && d._httpStatus === 404) { setEpDetail({ vo: vo, geen: true }); return; }
+      var rec = d && (d['0'] || d);
+      if (!rec || !(rec.Energieklasse || rec.LabelLetter)) throw new Error('leeg');
+      setEpDetail({ vo: vo, rec: rec });
+    } catch (e) {
+      setEpDetail({ vo: vo, fout: true, bewaard: epVan(item) });
+    }
+  };
   var epAfbreken = useRef(false);
 
   // Energielabels voor alleen deze VvE, via de helper die de EP-Online-sleutel
@@ -3881,7 +3979,16 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     title: labelTitel(item)
   }, item.energielabel || '-'), labelVerlopen(item) && /*#__PURE__*/React.createElement("span", {
     className: "vd-verlopen-tekst"
-  }, "verlopen"))), /*#__PURE__*/React.createElement("tr", {
+  }, "verlopen"), HELPERS_URL && item.verblijfsobject_id && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "vd-info-knop",
+    onClick: toonEpDetail,
+    "aria-expanded": !!(epDetail && epDetail.vo === String(item.verblijfsobject_id)),
+    "aria-label": "Details van het energielabel uit EP-Online",
+    title: "Details uit EP-Online"
+  }, "i"))), epDetail && epDetail.vo === String(item.verblijfsobject_id) && /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    colSpan: 4
+  }, /*#__PURE__*/React.createElement(EpLabelDetail, { stand: epDetail, item: item }))), /*#__PURE__*/React.createElement("tr", {
     className: "border-b border-pa-gray-100"
   }, /*#__PURE__*/React.createElement("td", {
     className: "py-1.5 text-pa-gray-500"
