@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 64;
+var APP_BUILD = 65;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -5102,7 +5102,15 @@ var EditDossierModal = ({
     title: "Een link die met https:// begint",
     placeholder: "Waar de bestanden nu staan",
     value: formData.huidigeLocatie,
-    onChange: e => handleChange('huidigeLocatie', e.target.value),
+    onChange: e => {
+      var waarde = e.target.value;
+      // Een locatie invullen betekent: de VvE is bekend en moet nog over
+      setFormData(prev => ({
+        ...prev,
+        huidigeLocatie: waarde,
+        dossierStatus: waarde.trim() && prev.dossierStatus === 'onbekend' ? 'over_te_zetten' : prev.dossierStatus
+      }));
+    },
     className: "w-full px-2 py-1.5 border border-pa-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
   })), [{
     field: 'adviestraject',
