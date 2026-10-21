@@ -1,11 +1,11 @@
 // VvE-beheer — clusters en handmatig toegevoegde VvE's bijhouden.
 // Aparte tool, los van het dashboard: hier wordt data gemaakt, daar gebruikt.
-// Leest vve_data.js, vve_mapnamen.js, vve_handmatig.txt en vve_clusters.txt;
+// Leest data/vve_data.inc, data/mapnamen.inc, config/vve_handmatig.inc en config/clusters.inc;
 // schrijft die laatste twee als download terug.
 (function () {
   'use strict';
 
-  var VERSIE = 9;
+  var VERSIE = 10;
   var app = document.getElementById('beheer');
   if (!app) return;
 
@@ -110,15 +110,15 @@
   function kopTekst(bestand, uitleg) {
     return '// ' + bestand + ' - ' + uitleg + '\n'
       + '// Gemaakt met de beheertool op ' + new Date().toLocaleString('nl-NL') + '.\n'
-      + '// Zet dit bestand naast vve_dashboard.html. Niet naar GitHub.\n\n';
+      + '// Zet dit bestand in de map config/ naast vve_dashboard.html. Niet naar GitHub.\n\n';
   }
   function bewaarClusters() {
-    download('vve_clusters.txt', kopTekst('vve_clusters.txt', 'clusters van VvE’s die samen een proces ingaan')
+    download('clusters.inc', kopTekst('config/clusters.inc', 'clusters van VvE’s die samen een proces ingaan')
       + 'const VVE_CLUSTERS = ' + JSON.stringify(clusters, null, 2) + ';\n');
     werkOpgeslagen();
   }
   function bewaarHandmatig() {
-    download('vve_handmatig.txt', kopTekst('vve_handmatig.txt', 'VvE’s die nog niet in de centrale dataset zitten')
+    download('vve_handmatig.inc', kopTekst('config/vve_handmatig.inc', 'VvE’s die nog niet in de centrale dataset zitten')
       + 'const VVE_HANDMATIG = ' + JSON.stringify(handmatig, null, 2) + ';\n');
     werkOpgeslagen();
   }
@@ -197,13 +197,13 @@
   }
 
   function bewaarPandBestand() {
-    var tekst = '// pand_hoogte_data.js - gebouwgegevens uit de 3D BAG (api.3dbag.nl)\n'
+    var tekst = '// data/pand_hoogte.inc - gebouwgegevens uit de 3D BAG (api.3dbag.nl)\n'
       + '// grond = grondvlak in m2 (b3_opp_grond, de footprint), h = nok minus maaiveld,\n'
       + '// opp = dakoppervlak, dak = daktype, bouwlagen = aantal lagen.\n'
       + '// Opgehaald met de beheertool op ' + new Date().toLocaleString('nl-NL') + ': '
       + Object.keys(panden).length + ' panden, ' + pandenMetGrond() + ' met grondvlak.\n\n'
       + 'const PAND_HOOGTE_DATA = ' + JSON.stringify(panden) + ';\n';
-    download('pand_hoogte_data.inc', tekst);
+    download('pand_hoogte.inc', tekst);
     try { localStorage.removeItem(OPSLAG_PANDEN); } catch (e) {}
     pandenGewijzigd = false;
     teken();
@@ -232,12 +232,11 @@
         + '<button class="bh-knop is-primair" data-actie="pand-ophalen">'
         + (rest ? 'Ontbrekende panden ophalen (' + rest.toLocaleString('nl-NL') + ')' : 'Alles is opgehaald') + '</button>'
         + '<button class="bh-knop" data-actie="pand-opnieuw">Alles opnieuw ophalen</button>'
-        + (pandenGewijzigd ? '<button class="bh-knop is-primair" data-actie="pand-bewaar">pand_hoogte_data.inc downloaden</button>' : '')
+        + (pandenGewijzigd ? '<button class="bh-knop is-primair" data-actie="pand-bewaar">pand_hoogte.inc downloaden</button>' : '')
         + '</div>';
       if (ophalenFout) uit += '<p class="bh-hint">' + ophalenFout + ' panden gaven een fout; die staan nog bij \u201cnog op te halen\u201d.</p>';
     }
-    uit += '<p class="bh-hint">Na het downloaden zet je pand_hoogte_data.inc naast het dashboard; .js, .inc en .txt worden alle drie gelezen, '
-      + 'dus kies de extensie die door jullie beveiliging komt. Zolang dat niet gebeurd is, '
+    uit += '<p class="bh-hint">Na het downloaden zet je pand_hoogte.inc in de map data/ naast het dashboard. Zolang dat niet gebeurd is, '
       + 'blijft het opgehaalde in deze browser staan.</p></div>';
     return uit;
   }
@@ -280,7 +279,7 @@
 
   // De WFS zet het warmteprogramma in een samengesteld veld: 'MT, vve, erfgoed'.
   // Het dashboard verwacht alleen de soort ('MT') plus een losse erfgoed-vlag,
-  // net zoals pandid_warmteprogramma.js die altijd aanleverde.
+  // net zoals data/warmteprogramma.inc die altijd aanleverde.
   function warmteSoort(v) {
     if (leeg(v)) return null;
     var eerste = String(v).split(',')[0].trim();
@@ -354,7 +353,7 @@
     teken();
   }
 
-  // Wat wijkt af van wat nu in vve_data.js staat?
+  // Wat wijkt af van wat nu in data/vve_data.inc staat?
   function bronVerschillen() {
     var kanWarmteVergelijken = (typeof getWarmteprogramma === 'function');
     var uit = { label: 0, mon: 0, warmte: kanWarmteVergelijken ? 0 : null, opp: 0 };
@@ -364,7 +363,7 @@
       if (b.label && b.label !== r.energielabel) uit.label++;
       if (b.mon && b.mon !== r.monumentale_status) uit.mon++;
       if (b.opp && Number(b.opp) !== Number(r.oppervlakte)) uit.opp++;
-      // Zonder pandid_warmteprogramma.js valt er niets te vergelijken; dan
+      // Zonder data/warmteprogramma.inc valt er niets te vergelijken; dan
       // zou elk adres als afwijkend tellen en dat zegt niets.
       if (!kanWarmteVergelijken) return;
       var huidig = r.gerelateerd_pand_id
@@ -375,7 +374,7 @@
   }
 
   function bewaarBronBestand() {
-    var tekst = '// bron_haarlem.inc - adresgegevens uit de WFS van de gemeente Haarlem\n'
+    var tekst = '// data/bron_haarlem.inc - adresgegevens uit de WFS van de gemeente Haarlem\n'
       + '// Laag gemeentehaarlem:bag_adres_RD van data.haarlem.nl.\n'
       + '// Opgehaald met de beheertool op ' + new Date().toLocaleString('nl-NL') + ': '
       + Object.keys(bron).length + ' adressen.\n'
@@ -390,7 +389,7 @@
       + '//   erfpacht 1 als de grond in erfpacht is uitgegeven\n'
       + '//   doel    BAG-gebruiksdoel, bv. winkelfunctie of woonfunctie, kantoorfunctie\n'
       + '//\n'
-      + '// Het dashboard zet deze waarden over die uit vve_data.js heen.\n'
+      + '// Het dashboard zet deze waarden over die uit data/vve_data.inc heen.\n'
       + "const BRON_HAARLEM_OPGEHAALD = '" + (bronOpgehaald || '').slice(0, 10) + "';\n"
       + 'const BRON_HAARLEM = ' + JSON.stringify(bron) + ';\n';
     download('bron_haarlem.inc', tekst);
@@ -435,8 +434,8 @@
           + '</ul>';
       }
     }
-    uit += '<p class="bh-hint">Na het downloaden zet je bron_haarlem.inc naast het dashboard; dat gebruikt de nieuwe '
-      + 'waarden boven die uit vve_data.js. WOZ-waarden haal je op het tabblad WOZ op.</p></div>';
+    uit += '<p class="bh-hint">Na het downloaden zet je bron_haarlem.inc in de map data/ naast het dashboard; dat gebruikt de nieuwe '
+      + 'waarden boven die uit data/vve_data.inc. WOZ-waarden haal je op het tabblad WOZ op.</p></div>';
     return uit;
   }
 
@@ -445,7 +444,7 @@
   // Het wozwaardeloket geeft per nummeraanduiding alle peiljaren terug. Let op
   // de jaartelling: de WOZ-waarde van jaar N hoort bij peildatum 1 januari van
   // N-1. Die van 2026 staat dus onder peildatum 2025-01-01, net als in
-  // vve_data.js (woz2026 = 573.000 bij peildatum 2025).
+  // data/vve_data.inc (woz2026 = 573.000 bij peildatum 2025).
   //
   // Het Kadaster staat 60 bevragingen per minuut toe en 5.000 per dag. Een
   // volledige ronde is dus werk van zes dagen; daarom onthoudt de tool waar hij
@@ -623,9 +622,9 @@
     teken();
   }
 
-  // Wat wijkt af van de WOZ-waarden in vve_data.js?
+  // Wat wijkt af van de WOZ-waarden in data/vve_data.inc?
   // Het loket geeft alle peiljaren terug, de dataset kent er maar een paar.
-  // Vergelijken doen we daarom alleen op de jaren die in vve_data.js staan;
+  // Vergelijken doen we daarom alleen op de jaren die in data/vve_data.inc staan;
   // de oudere jaren zijn aanwinst, geen verschil.
   function wozVerschillen() {
     var uit = { gelijk: 0, anders: 0, zonder: 0, oudste: null };
@@ -648,12 +647,12 @@
   }
 
   function bewaarWozBestand() {
-    var tekst = '// woz_data.inc - WOZ-waarden uit het wozwaardeloket van het Kadaster\n'
+    var tekst = '// data/woz_data.inc - WOZ-waarden uit het wozwaardeloket van het Kadaster\n'
       + '// Opgehaald met de beheertool, laatste ronde ' + new Date(wozOpgehaald || Date.now()).toLocaleString('nl-NL') + '.\n'
       + '//\n'
       + '// Per verblijfsobject-ID een lijstje jaar -> vastgestelde waarde. Het jaar\n'
       + '// is het WOZ-jaar, dus peildatum 1 januari van het jaar ervoor; woz2026\n'
-      + '// hoort bij peildatum 2025-01-01, net als in vve_data.js.\n'
+      + '// hoort bij peildatum 2025-01-01, net als in data/vve_data.inc.\n'
       + '// null betekent: het Kadaster kent deze nummeraanduiding niet.\n'
       + "const WOZ_DATA_OPGEHAALD = '" + (wozOpgehaald || new Date().toISOString()).slice(0, 10) + "';\n"
       + 'const WOZ_DATA = ' + JSON.stringify(woz) + ';\n';
@@ -727,15 +726,15 @@
 
     if (gedaan) {
       var v = wozVerschillen();
-      uit += '<h3>Vergeleken met vve_data.js</h3><ul class="bh-leden">'
+      uit += '<h3>Vergeleken met data/vve_data.inc</h3><ul class="bh-leden">'
         + '<li><span class="bh-lid-naam">Afwijkend in een jaar dat de dataset kent</span><span class="bh-lid-meta">' + v.anders.toLocaleString('nl-NL') + ' adressen</span></li>'
         + '<li><span class="bh-lid-naam">Gelijk aan de dataset</span><span class="bh-lid-meta">' + v.gelijk.toLocaleString('nl-NL') + ' adressen</span></li>'
         + '<li><span class="bh-lid-naam">Niet bekend bij het Kadaster</span><span class="bh-lid-meta">' + v.zonder.toLocaleString('nl-NL') + ' adressen</span></li>'
         + '</ul>'
         + (v.oudste ? '<p class="bh-hint">Het loket geeft de reeks terug tot ' + v.oudste
-            + '; vve_data.js heeft alleen de laatste jaren. Die oudere waarden komen gewoon mee in het bestand.</p>' : '');
+            + '; data/vve_data.inc heeft alleen de laatste jaren. Die oudere waarden komen gewoon mee in het bestand.</p>' : '');
     }
-    uit += '<p class="bh-hint">Zet woz_data.inc naast het dashboard; dat gebruikt deze waarden boven die uit vve_data.js.</p></div>';
+    uit += '<p class="bh-hint">Zet woz_data.inc in de map data/ naast het dashboard; dat gebruikt deze waarden boven die uit data/vve_data.inc.</p></div>';
     return uit;
   }
 
@@ -884,7 +883,7 @@
   }
 
   function bewaarEpBestand() {
-    var tekst = '// ep_data.inc - energielabels uit EP-Online, via ep-proxy.php op adresverkenner.nl\n'
+    var tekst = '// data/ep_data.inc - energielabels uit EP-Online, via ep-proxy.php op adresverkenner.nl\n'
       + '// Opgehaald met de beheertool, laatste ronde ' + new Date(epOpgehaald || Date.now()).toLocaleString('nl-NL') + '.\n'
       + '//\n'
       + '// Per verblijfsobject-ID:\n'
@@ -964,7 +963,7 @@
         + '<li><span class="bh-lid-naam">Nog op de oude rekenmethodiek</span><span class="bh-lid-meta">' + v.oudeMethode.toLocaleString('nl-NL') + ' adressen</span></li>'
         + '</ul>';
     }
-    uit += '<p class="bh-hint">Zet ep_data.inc naast het dashboard; dat gebruikt deze labels boven die uit vve_data.js en toont de geldigheid erbij.</p></div>';
+    uit += '<p class="bh-hint">Zet ep_data.inc in de map data/ naast het dashboard; dat gebruikt deze labels boven die uit data/vve_data.inc en toont de geldigheid erbij.</p></div>';
     return uit;
   }
 
@@ -1014,7 +1013,7 @@
   function teken() {
     var html = '<header class="bh-kop"><div class="bh-in">'
       + '<h1>VvE-beheer</h1>'
-      + '<p class="bh-sub">Clusters en handmatig toegevoegde VvE’s. Wijzigingen bewaar je door de bestanden te downloaden en naast het dashboard te zetten.</p>'
+      + '<p class="bh-sub">Clusters en handmatig toegevoegde VvE’s. Wijzigingen bewaar je door de bestanden te downloaden en in de map config/ naast het dashboard te zetten.</p>'
       + '<nav class="bh-tabs">'
       + '<button class="bh-tab' + (tab === 'clusters' ? ' is-actief' : '') + '" data-actie="tab" data-tab="clusters">Clusters <span class="bh-telling">' + clusters.length + '</span></button>'
       + '<button class="bh-tab' + (tab === 'handmatig' ? ' is-actief' : '') + '" data-actie="tab" data-tab="handmatig">Handmatige VvE’s <span class="bh-telling">' + handmatig.length + '</span></button>'
@@ -1026,8 +1025,8 @@
 
     if (vuil) {
       html += '<div class="bh-balk bh-in"><span>Er zijn wijzigingen die nog niet in een bestand staan.</span>'
-        + '<button class="bh-knop is-primair" data-actie="bewaar-clusters">vve_clusters.txt downloaden</button>'
-        + '<button class="bh-knop is-primair" data-actie="bewaar-handmatig">vve_handmatig.txt downloaden</button>'
+        + '<button class="bh-knop is-primair" data-actie="bewaar-clusters">clusters.inc downloaden</button>'
+        + '<button class="bh-knop is-primair" data-actie="bewaar-handmatig">vve_handmatig.inc downloaden</button>'
         + '<button class="bh-knop" data-actie="verwerp">Wijzigingen weggooien</button></div>';
     }
 
@@ -1254,7 +1253,7 @@
     if (actie === 'hand-annuleer') { bewerkHandmatig = null; teken(); return; }
     if (actie === 'hand-weg') {
       var h = handmatig.find(function (x) { return x.id === id; });
-      if (confirm('"' + (h.naam || h.id) + '" verwijderen uit vve_handmatig.txt?')) {
+      if (confirm('"' + (h.naam || h.id) + '" verwijderen uit vve_handmatig.inc?')) {
         handmatig = handmatig.filter(function (x) { return x.id !== id; });
         bewerkHandmatig = null;
         bewaarWerk();

@@ -34,7 +34,7 @@ var VERSE_EP = {};
         ];
 
         // Teamleden (kan later uitgebreid worden)
-        // TEAM_MEMBERS komt uit team_config.js naast de HTML; fallback als dat ontbreekt
+        // TEAM_MEMBERS komt uit config/team.inc naast de HTML; fallback als dat ontbreekt
         if (typeof TEAM_MEMBERS === 'undefined') {
             window.TEAM_MEMBERS = ['Gemeente Haarlem', 'Extern adviseur'];
         }
@@ -185,7 +185,7 @@ var VERSE_EP = {};
         const VVE_ENRICHMENT_KEY = 'vve_enrichment_data';
 
         // Verrijkte VvE data laden uit LocalStorage
-        // Bij eerste keer: merge KVK_HANDMATIG (uit kvk_handmatig.inc) in localStorage
+        // Bij eerste keer: merge KVK_HANDMATIG (uit config/kvk_handmatig.inc) in localStorage
         const _mergeHandmatigeKvk = () => {
             try {
                 if (typeof KVK_HANDMATIG === 'undefined' || !KVK_HANDMATIG) return;
@@ -231,8 +231,8 @@ var VERSE_EP = {};
         };
 
         // Het gedeelde dossierbestand kan op twee manieren in de map staan:
-        // vve_dossier_data.js (geschreven door Map koppelen) en
-        // vve_dossier_data.inc (gedownload, voor als de mapkoppeling niet mag).
+        // config/dossier.inc (geschreven door Map koppelen) en
+        // config/dossier.inc (gedownload, voor als de mapkoppeling niet mag).
         // Staan ze er allebei, dan wint per VvE het jongste item, zodat een
         // oude .js een nieuwere .inc niet ongemerkt overstemt.
         const DOSSIER_BESTAND = (() => {
@@ -251,7 +251,7 @@ var VERSE_EP = {};
 
         // Verrijkte data voor specifieke VvE ophalen
         const getVveEnrichment = (vveId) => {
-            // Bestandsdata (vve_dossier_data.js/.inc) vormt de basis; localStorage overschrijft (handmatige edits winnen)
+            // Bestandsdata (config/dossier.inc) vormt de basis; localStorage overschrijft (handmatige edits winnen)
             const fileEntry  = DOSSIER_BESTAND[vveId] || {};
             const localEntry = loadEnrichmentData()[vveId] || {};
             const merged = { ...fileEntry, ...localEntry };
@@ -323,6 +323,7 @@ var VERSE_EP = {};
 
         // Laad alle enrichment_*.json bestanden uit de gekoppelde map en merge tot cache
         const loadUserEnrichmentFiles = async (dirHandle) => {
+            dirHandle = await configMap(dirHandle);
             const allUserData = {};
             try {
                 for await (const [name, handle] of dirHandle.entries()) {
@@ -373,8 +374,15 @@ var VERSE_EP = {};
             return Object.keys(allUserData);
         };
 
-        // Schrijf enrichment_[username].json naar de gekoppelde map
+        // De gekoppelde map is de dashboardmap; de bestanden die het dashboard
+        // daar zelf schrijft (dossier.inc, enrichment_*.json) staan in config/.
+        // Is de map config/ zelf gekoppeld, dan die.
+        const configMap = async (dirHandle) =>
+            dirHandle.name === 'config' ? dirHandle : dirHandle.getDirectoryHandle('config', { create: true });
+
+        // Schrijf enrichment_[username].json naar config/ in de gekoppelde map
         const saveUserEnrichmentFile = async (dirHandle) => {
+            dirHandle = await configMap(dirHandle);
             const username = _getCurrentUser();
             if (!username) throw new Error('Geen gebruikersnaam ingesteld');
             const payload = {
@@ -392,6 +400,7 @@ var VERSE_EP = {};
 
         // Consolideer alle enrichment files tot één enrichment_consolidated.json (admin)
         const consolidateEnrichmentFiles = async (dirHandle) => {
+            dirHandle = await configMap(dirHandle);
             const users = await loadUserEnrichmentFiles(dirHandle);
             // Bouw gecombineerde log: lees alle user-files opnieuw voor de logs
             const combinedLog = [];
@@ -467,7 +476,7 @@ var VERSE_EP = {};
         };
 
         // Exporteer alle dossiergegevens (bestand + lokale wijzigingen) als
-        // vve_dossier_data.inc, in scriptvorm (var VVE_DOSSIER_INC = {...}).
+        // config/dossier.inc, in scriptvorm (var VVE_DOSSIER_INC = {...}).
         // Naast de dashboardshell gezet ziet iedereen de dossierstatus.
         const exportDossierInc = () => {
             const lokaal = loadEnrichmentData();
@@ -483,16 +492,16 @@ var VERSE_EP = {};
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'vve_dossier_data.inc';
+            link.download = 'dossier.inc';
             link.click();
             URL.revokeObjectURL(url);
             return telling;
         };
 
-        // Exporteer handmatige KvK nummers als kvk_handmatig.inc, in scriptvorm
+        // Exporteer handmatige KvK nummers als config/kvk_handmatig.inc, in scriptvorm
         // (var KVK_HANDMATIG = {...}) zodat de loader hem met een <script>-tag
         // kan inlezen: een XHR op een lokaal bestand blokkeert de browser via file://.
-        // Alleen entries die nog NIET in kvk_lookup.js zitten (echt nieuwe nummers)
+        // Alleen entries die nog NIET in data/kvk_lookup.inc zitten (echt nieuwe nummers)
         const exportKvkHandmatigJs = () => {
             const allData = loadEnrichmentData();
             const kvkEntries = {};
@@ -536,8 +545,8 @@ var VERSE_EP = {};
             return rows.length;
         };
 
-        // Handmatig gecontroleerde KvK-nummers (kvk_correcties.js) gaan voor op
-        // vve_data.js en kvk_lookup.js. Een lege waarde betekent: geen KvK-nummer.
+        // Handmatig gecontroleerde KvK-nummers (config/kvk_correcties.inc) gaan voor op
+        // data/vve_data.inc en data/kvk_lookup.inc. Een lege waarde betekent: geen KvK-nummer.
         (function pasKvkCorrectiesToe() {
             if (typeof KVK_CORRECTIES === 'undefined') return;
             if (typeof VVE_DATA !== 'undefined') VVE_DATA.forEach(item => {
@@ -546,8 +555,8 @@ var VERSE_EP = {};
             if (typeof KVK_LOOKUP !== 'undefined') Object.keys(KVK_CORRECTIES).forEach(vveId => { delete KVK_LOOKUP[vveId]; });
         })();
 
-        // Verse gegevens van de gemeente (bron_haarlem.inc, opgehaald met de
-        // beheertool) gaan voor op wat in vve_data.js staat. Per verblijfsobject:
+        // Verse gegevens van de gemeente (data/bron_haarlem.inc, opgehaald met de
+        // beheertool) gaan voor op wat in data/vve_data.inc staat. Per verblijfsobject:
         // energielabel, monumentale status, oppervlakte, bouwjaar; het
         // warmteprogramma hangt eronder in BRON_WARMTE.
         var BRON_WARMTE = {};
@@ -585,8 +594,8 @@ var VERSE_EP = {};
         // EP_LABEL en VERSE_EP worden hieronder al gevuld, dus ze moeten hier
         // staan en niet verderop bij de andere hulpjes: een var wordt wel
         // omhooggehaald, maar de toekenning blijft staan waar hij staat.
-        // Energielabels uit EP-Online (ep_data.inc). Het register is leidend
-        // boven de letter in vve_data.js; de geldigheid hangt eronder in EP_LABEL.
+        // Energielabels uit EP-Online (data/ep_data.inc). Het register is leidend
+        // boven de letter in data/vve_data.inc; de geldigheid hangt eronder in EP_LABEL.
         (function pasEpToe() {
             if (typeof EP_DATA === 'undefined' || !EP_DATA) return;
             if (typeof VVE_DATA === 'undefined') return;
@@ -615,9 +624,9 @@ var VERSE_EP = {};
             try { console.info('Energielabels uit EP-Online toegepast op ' + n + ' adressen, ' + verlopen + ' verlopen'); } catch (e) {}
         })();
 
-        // WOZ-waarden uit het wozwaardeloket (woz_data.inc, opgehaald met de
+        // WOZ-waarden uit het wozwaardeloket (data/woz_data.inc, opgehaald met de
         // beheertool). De sleutel is het WOZ-jaar, dus woz2026 hoort bij
-        // peildatum 1-1-2025; de veldnamen in vve_data.js volgen dezelfde telling.
+        // peildatum 1-1-2025; de veldnamen in data/vve_data.inc volgen dezelfde telling.
         (function pasWozToe() {
             if (typeof WOZ_DATA === 'undefined' || !WOZ_DATA) return;
             if (typeof VVE_DATA === 'undefined') return;
@@ -633,7 +642,7 @@ var VERSE_EP = {};
             try { console.info('WOZ-waarden toegepast op ' + n + ' adressen'); } catch (e) {}
         })();
 
-        // VvE's die nog niet in de centrale dataset zitten (vve_handmatig.txt).
+        // VvE's die nog niet in de centrale dataset zitten (config/vve_handmatig.inc).
         // Elke handmatige VvE wordt een rij in VVE_DATA, zodat lijst, filters en
         // kaart hem gewoon zien. De rij is herkenbaar aan _handmatig en telt niet
         // mee als adres: die adressen kennen we immers niet.
@@ -694,7 +703,7 @@ var VERSE_EP = {};
 
 
         // Functie om warmte data op te halen voor een buurt (met fuzzy matching)
-        // ── Warmteprogramma op pandniveau (bron: pandid_warmteprogramma.js) ──
+        // ── Warmteprogramma op pandniveau (bron: data/warmteprogramma.inc) ──
         const getWarmteProg = (item) => {
             if (!item) return null;
             const vers = BRON_WARMTE[String(item.verblijfsobject_id)];
@@ -833,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 61;
+var APP_BUILD = 62;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -842,7 +851,7 @@ function kvkBestelUrl(nr) {
 }
 
 // Wanneer zijn de twee bijgewerkte bronnen voor het laatst opgehaald? De
-// beheertool schrijft die datums in bron_haarlem.inc en woz_data.inc.
+// beheertool schrijft die datums in data/bron_haarlem.inc en data/woz_data.inc.
 function bronDatums() {
   var uit = [];
   var kort = (d) => {
@@ -859,11 +868,11 @@ function bronDatums() {
 }
 // 'e' achter het buildnummer zodra de code extern geladen is (GitHub Pages)
 // in plaats van naast de HTML.
-// Mapnaam per VvE uit vve_mapnamen.js (lokaal). Zonder dat bestand geen kolom.
+// Mapnaam per VvE uit data/mapnamen.inc (lokaal). Zonder dat bestand geen kolom.
 var MAPNAMEN_AAN = typeof VVE_MAPNAMEN !== 'undefined';
 var getMapnaam = vveId => MAPNAMEN_AAN && VVE_MAPNAMEN[vveId] || '';
-// Link naar de VvE-map; de locatie komt uit DOSSIER_BASIS in team_config.js (lokaal).
-// Mini-VvE's (VVE_MINI uit vve_mapnamen.js) staan op een eigen locatie: DOSSIER_BASIS.mini,
+// Link naar de VvE-map; de locatie komt uit DOSSIER_BASIS in config/team.inc (lokaal).
+// Mini-VvE's (VVE_MINI uit data/mapnamen.inc) staan op een eigen locatie: DOSSIER_BASIS.mini,
 // met als standaard de submap _mini's in dezelfde bibliotheek.
 var _miniSet = null;
 var isMiniVve = vveId => {
@@ -915,9 +924,9 @@ var adresTelling = vve => {
 // Zet de mapnaam in de Excel-export om in een klikbare link naar de dossiermap.
 // Adressen die bij geen enkele VvE horen (trafo's, technische ruimtes, losse
 // bedrijfsunits) laten we uit de exports weg; daar valt niets mee te doen.
-// ── Clusters (vve_clusters.txt) ──────────────────────────────────────
+// ── Clusters (config/clusters.inc) ──────────────────────────────────────
 // Een cluster is een vaste lijst VvE's die samen een proces ingaan, met een eigen
-// map in de clusterlocatie uit team_config.js.
+// map in de clusterlocatie uit config/team.inc.
 var CLUSTERS = (typeof VVE_CLUSTERS !== 'undefined' && Array.isArray(VVE_CLUSTERS)) ? VVE_CLUSTERS : [];
 var _clusterPerVve = null;
 var kortVveId = function (vveId) {
@@ -996,9 +1005,9 @@ var APP_EXTERN = (function () {
   } catch (e) {}
 })();
 // Waar de hulpscripts (proxy's) staan. Overschrijfbaar met HELPERS_BASIS in
-// team_config.js; een lege waarde zet het ophalen helemaal uit.
+// config/team.inc; een lege waarde zet het ophalen helemaal uit.
 // Adresverkenner: doorklikken per verblijfsobject. Adres instelbaar met
-// ADRESVERKENNER_BASIS in team_config.js; leeg zet de link uit.
+// ADRESVERKENNER_BASIS in config/team.inc; leeg zet de link uit.
 var ADRESVERKENNER_URL = (function () {
   var basis = (typeof ADRESVERKENNER_BASIS !== 'undefined') ? ADRESVERKENNER_BASIS : 'https://adresverkenner.nl/haarlem/';
   return typeof basis === 'string' ? basis.replace(/\/+$/, '') + '/' : '';
@@ -1006,7 +1015,7 @@ var ADRESVERKENNER_URL = (function () {
 // Adreschecker van de gemeente: per woning de duurzaamheidsinformatie. De
 // link wordt <basis>?postal_code_auth=<postcode><huisnummer><letter>[-<toevoeging>],
 // dus 2013SL11, 2011JJ14J of 2021KL70-RD.
-// Instelbaar met ADRESCHECKER_BASIS in team_config.js; leeg zet hem uit.
+// Instelbaar met ADRESCHECKER_BASIS in config/team.inc; leeg zet hem uit.
 var ADRESCHECKER_URL = (function () {
   var basis = (typeof ADRESCHECKER_BASIS !== 'undefined') ? ADRESCHECKER_BASIS : 'https://haarlem.nl/duurzaam/adreschecker';
   return typeof basis === 'string' ? basis.replace(/\/+$/, '') : '';
@@ -1025,7 +1034,7 @@ var adresverkennerUrl = function (vboId) {
 };
 var HELPERS_URL = (typeof HELPERS_BASIS !== 'undefined' ? HELPERS_BASIS : 'https://adresverkenner.nl/helpers');
 HELPERS_URL = typeof HELPERS_URL === 'string' ? HELPERS_URL.replace(/\/+$/, '') : '';
-// Link naar de startpagina, alleen als STARTPAGINA_URL in team_config.js staat.
+// Link naar de startpagina, alleen als STARTPAGINA_URL in config/team.inc staat.
 var STARTPAGINA_LINK = (typeof STARTPAGINA_URL === 'string' && STARTPAGINA_URL) ? STARTPAGINA_URL : '';
 var APP_BUILD_DATE = '2026-09-03';
 var APP_EXPIRY_DAYS = 58;
@@ -1365,7 +1374,7 @@ var berekenFootprint = function (g) {
   };
 };
 
-// Grondvlak van een pand uit de 3D BAG (pand_hoogte_data.js, veld 'grond').
+// Grondvlak van een pand uit de 3D BAG (data/pand_hoogte.inc, veld 'grond').
 var pandGrondvlak = pandId => {
   if (typeof PAND_HOOGTE_DATA === 'undefined') return 0;
   var p = PAND_HOOGTE_DATA[pandId];
@@ -1433,7 +1442,7 @@ var huidigeLocatieVan = (enr) => {
 // geheugen van dit tabblad: het dashboard schrijft geen bestanden, dus na een
 // herlaadactie is het weg tenzij je het met de beheertool vastlegt.
 var VERSE_WOZ = {};
-// Energielabels uit EP-Online (ep_data.inc) en wat er deze sessie los bij is
+// Energielabels uit EP-Online (data/ep_data.inc) en wat er deze sessie los bij is
 // gehaald. EP_LABEL houdt de geldigheid vast; de letter zelf gaat in de rij.
 var epVan = (item) => item ? (VERSE_EP[String(item.verblijfsobject_id)] || EP_LABEL[String(item.verblijfsobject_id)] || null) : null;
 var verseEpAantal = () => Object.keys(VERSE_EP).length;
@@ -2688,7 +2697,7 @@ var VveGroupCard = ({
     if (elders) url = elders;
     return /*#__PURE__*/React.createElement("div", {
       className: "xl-cell xl-cell-map vd-map-" + dStatus + (elders ? " vd-map-elders" : ""),
-      title: naam + '\nDossier: ' + dossierStatusLabel(dStatus).toLowerCase() + (elders ? '\nKlik om de huidige locatie te openen (nog niet overgezet)' : url ? '\nKlik om de dossiermap te openen' : '\nKlik om de mapnaam te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
+      title: naam + '\nDossier: ' + dossierStatusLabel(dStatus).toLowerCase() + (elders ? '\nKlik om de huidige locatie te openen (nog niet overgezet)' : url ? '\nKlik om de dossiermap te openen' : '\nKlik om de mapnaam te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in config/team.inc)'),
       onClick: e => url ? e.stopPropagation() : kopieerMapnaam(e, naam)
     }, url ? /*#__PURE__*/React.createElement("a", {
       href: url,
@@ -3344,7 +3353,7 @@ var DetailPanel = ({
     setEpStand = _epState[1];
 
   // Details van het energielabel van dit ene adres, live uit EP-Online via de
-  // helper. Daar staat meer in dan wat ep_data.inc bewaart (certificaathouder,
+  // helper. Daar staat meer in dan wat data/ep_data.inc bewaart (certificaathouder,
   // energie-index, CO2). Lukt het ophalen niet, dan tonen we wat we hebben.
   var _epDetail = useState(null),
     epDetail = _epDetail[0],
@@ -3495,7 +3504,7 @@ var DetailPanel = ({
 
   // Haal funderingsdata op via kaart.haarlem.nl (data.haarlem.nl GeoServer WFS)
   // Via proxy om CORS te omzeilen (proxy_fundering.php). Locatie instelbaar met
-  // HELPERS_BASIS in team_config.js; leeg = geen funderingsdata ophalen.
+  // HELPERS_BASIS in config/team.inc; leeg = geen funderingsdata ophalen.
   const FUNDERING_PROXY = HELPERS_URL ? HELPERS_URL + '/proxy_fundering.php' : '';
   useEffect(() => {
     var ids = [...new Set(vveAddresses.map(a => a.gerelateerd_pand_id).filter(Boolean))];
@@ -3668,7 +3677,7 @@ var DetailPanel = ({
       woningtypen: woningtypen || '-',
       monumentStatus: getMonumentLabel(item.monumentale_status) || '-',
       beschermd: getBeschermdGezicht(item.vve_identificatie) || '-',
-      // Zonder bron_haarlem.inc weten we het niet; dan is 'Eigen grond' een
+      // Zonder data/bron_haarlem.inc weten we het niet; dan is 'Eigen grond' een
       // bewering die we niet kunnen waarmaken.
       erfpacht: vveAddresses.some(a => a.erfpacht === 1) ? 'Erfpacht'
         : (vveAddresses.some(a => a.erfpacht === 0) ? 'Eigen grond' : '-'),
@@ -3855,7 +3864,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     }).join('<br>');
 
     // c = checkbox helper (unicode, klikbaar), e = editable div helper (HTML-escaped), ehtml = editable div met vertrouwde HTML (bijv. <br> uit officiële dataset)
-    if (typeof bouwStartdocument !== 'function') { alert('Het sjabloon voor het startdocument (document_sjabloon.js) is niet gevonden in de dashboardmap.'); return; } var html = bouwStartdocument({ item: item, enrichment: enrichment, warmte: warmte, datum: datum, bestuur: bestuur, duurzaamheid: duurzaamheid, bouwjaarStr: bouwjaarStr, woningtypen: woningtypen, avgWoz: avgWoz, avgEnergy: avgEnergy, isMonument: isMonument, beschermdGezicht: beschermdGezicht, funderingStr: funderingStr, ontwikkelzoneStr: ontwikkelzoneStr, mjgbStr: mjgbStr, grondwaterStr: grondwaterStr, pandIds: pandIds, adressenStr: adressenStr });;
+    if (typeof bouwStartdocument !== 'function') { alert('Het sjabloon voor het startdocument (config/document_sjabloon.inc) is niet gevonden in de dashboardmap.'); return; } var html = bouwStartdocument({ item: item, enrichment: enrichment, warmte: warmte, datum: datum, bestuur: bestuur, duurzaamheid: duurzaamheid, bouwjaarStr: bouwjaarStr, woningtypen: woningtypen, avgWoz: avgWoz, avgEnergy: avgEnergy, isMonument: isMonument, beschermdGezicht: beschermdGezicht, funderingStr: funderingStr, ontwikkelzoneStr: ontwikkelzoneStr, mjgbStr: mjgbStr, grondwaterStr: grondwaterStr, pandIds: pandIds, adressenStr: adressenStr });;
     var newWindow = window.open('', '_blank');
     newWindow.document.write(html);
     newWindow.document.close();
@@ -6114,7 +6123,7 @@ var App = () => {
     dossierVersie = _dossierVersieState[0],
     setDossierVersie = _dossierVersieState[1];
   // Base filtered data (search applied - or all data if no search)
-  // Note: VvE's with 0 woningen are already filtered out in vve_data.js
+  // Note: VvE's with 0 woningen are already filtered out in data/vve_data.inc
   var searchFilteredData = useMemo(() => {
     var t0 = performance.now();
     if (deferredSearch.length < 2) {
@@ -7261,7 +7270,7 @@ var App = () => {
     }).catch(() => {});
   }, []);
 
-  // Synchroniseer dossierdata naar vve_dossier_data.js in de gekoppelde map
+  // Synchroniseer dossierdata naar config/dossier.inc in de gekoppelde map
   var fsApiAvailable = () => 'showDirectoryPicker' in window && !fsApiBlocked;
   var _handleFsApiError = e => {
     // SecurityError of NotAllowedError: IT-beleid blokkeert de map-picker
@@ -7353,8 +7362,8 @@ var App = () => {
         ...merged
       };
       var jsonStr = JSON.stringify(output, null, 2);
-      var content = `// VvE dossier data — automatisch geladen door vve_dashboard.html\n` + `// Gesynchroniseerd: ${now.toLocaleString('nl-NL')} via browser\n` + `const VVE_DOSSIER_DATA = ${jsonStr};\n`;
-      var fileHandle = await dirHandle.getFileHandle('vve_dossier_data.js', {
+      var content = `// config/dossier.inc — dossiergegevens per VvE, geschreven door Map koppelen\n` + `// Gesynchroniseerd: ${now.toLocaleString('nl-NL')} via browser\n` + `const VVE_DOSSIER_DATA = ${jsonStr};\n`;
+      var fileHandle = await (await configMap(dirHandle)).getFileHandle('dossier.inc', {
         create: true
       });
       var writable = await fileHandle.createWritable();
@@ -8450,7 +8459,7 @@ var App = () => {
     Object.entries(allEnrichment).forEach(([vveId, enr]) => {
       if (enr?.kvkNummer && !eigenIds.has(vveId)) combined[vveId] = { kvk: enr.kvkNummer, bron: 'handmatig' };
     });
-    // 2. kvk_lookup.js (overschrijft enrichment \u2014 lookup is de bronwaarheid)
+    // 2. data/kvk_lookup.inc (overschrijft enrichment \u2014 lookup is de bronwaarheid)
     if (typeof KVK_LOOKUP !== 'undefined') {
       Object.entries(KVK_LOOKUP).forEach(([vveId, kvk]) => {
         if (!eigenIds.has(vveId)) combined[vveId] = { kvk, bron: 'lookup' };
@@ -9300,7 +9309,7 @@ var App = () => {
       exportDossierInc();
       setShowUserMenu(false);
     },
-    title: "Alle dossiergegevens, met de dossierstatus, als vve_dossier_data.inc. Zet het bestand naast het dashboard, dan ziet iedereen het.",
+    title: "Alle dossiergegevens, met de dossierstatus, als config/dossier.inc. Zet het bestand in de map config/ naast het dashboard, dan ziet iedereen het.",
     className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("svg", {
     className: "w-4 h-4 text-pa-gray-400",
@@ -12020,7 +12029,7 @@ var App = () => {
 ReactDOM.createRoot(document.getElementById('app')).render(/*#__PURE__*/React.createElement(App, null));
 
 // ── Ontwerp en accentkleur ───────────────────────────────────────────────
-// Het nieuwe ontwerp staat standaard aan. Twee instellingen in team_config.js:
+// Het nieuwe ontwerp staat standaard aan. Twee instellingen in config/team.inc:
 //   ACCENT_KLEUR = '#2e8b57'   de accentkleur (standaard zeegroen)
 //   ONTWERP = 'oud'            terug naar het oude Excel-uiterlijk, als uitweg
 // De energielabels en statuskleuren (verbonden, ingelogd, gekoppeld) volgen
