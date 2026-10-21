@@ -223,10 +223,29 @@ var VERSE_EP = {};
             }
         };
 
+        // Het gedeelde dossierbestand kan op twee manieren in de map staan:
+        // vve_dossier_data.js (geschreven door Map koppelen) en
+        // vve_dossier_data.inc (gedownload, voor als de mapkoppeling niet mag).
+        // Staan ze er allebei, dan wint per VvE het jongste item, zodat een
+        // oude .js een nieuwere .inc niet ongemerkt overstemt.
+        const DOSSIER_BESTAND = (() => {
+            const uit = {};
+            [typeof VVE_DOSSIER_DATA !== 'undefined' ? VVE_DOSSIER_DATA : null,
+             typeof VVE_DOSSIER_INC !== 'undefined' ? VVE_DOSSIER_INC : null].forEach((bron) => {
+                if (!bron) return;
+                Object.keys(bron).forEach((id) => {
+                    if (id === '_meta') return;
+                    const nieuw = bron[id], oud = uit[id];
+                    if (!oud || String(nieuw.lastModified || '') >= String(oud.lastModified || '')) uit[id] = nieuw;
+                });
+            });
+            return uit;
+        })();
+
         // Verrijkte data voor specifieke VvE ophalen
         const getVveEnrichment = (vveId) => {
-            // Bestandsdata (vve_dossier_data.js) vormt de basis; localStorage overschrijft (handmatige edits winnen)
-            const fileEntry  = (typeof VVE_DOSSIER_DATA !== 'undefined' && VVE_DOSSIER_DATA[vveId]) || {};
+            // Bestandsdata (vve_dossier_data.js/.inc) vormt de basis; localStorage overschrijft (handmatige edits winnen)
+            const fileEntry  = DOSSIER_BESTAND[vveId] || {};
             const localEntry = loadEnrichmentData()[vveId] || {};
             const merged = { ...fileEntry, ...localEntry };
             return Object.keys(merged).length > 0 ? merged : null;
@@ -247,7 +266,7 @@ var VERSE_EP = {};
         const setVveEnrichment = (vveId, enrichment) => {
             // Vergelijk nieuwe waarden met huidige en log gewijzigde velden
             const oldData = loadEnrichmentData()[vveId] || {};
-            const fieldsToLog = ['nickname','adviestraject','bureau','intake','procesbegeleider','mwa','verdieping','uitvoering','notities','beheerder','kvkNummer',
+            const fieldsToLog = ['nickname','adviestraject','bureau','intake','procesbegeleider','mwa','verdieping','uitvoering','notities','beheerder','kvkNummer','dossierStatus','dossierStatusOp',
                 'bestuurNaam','bestuurEmail','bestuurTelefoon','duurzaamheidNaam','duurzaamheidEmail','duurzaamheidTelefoon'];
             const user = _getCurrentUser();
             const ts = Date.now();
@@ -438,6 +457,29 @@ var VERSE_EP = {};
             link.download = `vve_verrijkte_data_${new Date().toISOString().slice(0, 10)}.json`;
             link.click();
             URL.revokeObjectURL(url);
+        };
+
+        // Exporteer alle dossiergegevens (bestand + lokale wijzigingen) als
+        // vve_dossier_data.inc, in scriptvorm (var VVE_DOSSIER_INC = {...}).
+        // Naast de dashboardshell gezet ziet iedereen de dossierstatus.
+        const exportDossierInc = () => {
+            const lokaal = loadEnrichmentData();
+            const uit = {};
+            Object.keys(DOSSIER_BESTAND).forEach(id => { uit[id] = DOSSIER_BESTAND[id]; });
+            Object.keys(lokaal).forEach(id => { uit[id] = { ...(DOSSIER_BESTAND[id] || {}), ...lokaal[id] }; });
+            const telling = { onbekend: 0, over_te_zetten: 0, overgezet: 0 };
+            Object.values(uit).forEach(e => { telling[dossierStatusVan(e)]++; });
+            uit._meta = { gemaakt: new Date().toISOString(), door: _getCurrentUser(), aantal: Object.keys(uit).length, dossierstatus: telling };
+            const tekst = '// Dossiergegevens per VvE, gemaakt met "Dossierdata downloaden" in het dashboard.\n'
+                + 'var VVE_DOSSIER_INC = ' + JSON.stringify(uit, null, 1) + ';\n';
+            const blob = new Blob([tekst], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'vve_dossier_data.inc';
+            link.click();
+            URL.revokeObjectURL(url);
+            return telling;
         };
 
         // Exporteer handmatige KvK nummers als kvk_handmatig.inc, in scriptvorm
@@ -784,7 +826,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 57;
+var APP_BUILD = 58;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -1359,6 +1401,20 @@ var getWozByYear = (item, jaar) => item['woz' + (jaar || '2025')] || null;
 // brondata. basiseenheidtype zelf blijft onaangeroerd, want daar hangt de
 // logica aan van wat als woning telt.
 var typeVan = (a) => a ? (a.basiseenheidtype || a.gebruiksdoel || '') : '';
+
+// Dossierstatus: staan de bestanden van deze VvE al in de gekoppelde map?
+// Zonder waarde is een VvE onbekend; 'onbekend' kan ook expliciet gezet zijn,
+// zodat het terugzetten wint van een oudere waarde in het gedeelde bestand.
+var DOSSIERSTATUS = [
+  ['onbekend', 'Onbekend', '0'],
+  ['over_te_zetten', 'Over te zetten', '1'],
+  ['overgezet', 'Overgezet', '2']
+];
+var dossierStatusVan = (enr) => {
+  var s = enr && enr.dossierStatus;
+  return (s === 'over_te_zetten' || s === 'overgezet') ? s : 'onbekend';
+};
+var dossierStatusLabel = (k) => (DOSSIERSTATUS.find(x => x[0] === k) || DOSSIERSTATUS[0])[1];
 
 // Wat tijdens deze sessie los bij het Kadaster is opgehaald. Blijft in het
 // geheugen van dit tabblad: het dashboard schrijft geen bestanden, dus na een
@@ -2614,9 +2670,10 @@ var VveGroupCard = ({
     }, /*#__PURE__*/React.createElement("path", {
       d: "M3.5 7.5a1.5 1.5 0 0 1 1.5-1.5h3.6l1.6 1.8h8.3a1.5 1.5 0 0 1 1.5 1.5v8.2a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"
     }));
+    var dStatus = dossierStatusVan(enrichment);
     return /*#__PURE__*/React.createElement("div", {
-      className: "xl-cell xl-cell-map",
-      title: naam + (url ? '\nKlik om de dossiermap te openen' : '\nKlik om de mapnaam te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
+      className: "xl-cell xl-cell-map vd-map-" + dStatus,
+      title: naam + '\nDossier: ' + dossierStatusLabel(dStatus).toLowerCase() + (url ? '\nKlik om de dossiermap te openen' : '\nKlik om de mapnaam te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
       onClick: e => url ? e.stopPropagation() : kopieerMapnaam(e, naam)
     }, url ? /*#__PURE__*/React.createElement("a", {
       href: url,
@@ -4220,6 +4277,39 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
       }
     }, "\u29C9"))));
   })(), (() => {
+    var huidig = dossierStatusVan(enrichment);
+    var zet = s => {
+      if (s === huidig) return;
+      var nieuw = {
+        ...(getVveEnrichment(item.vve_identificatie) || {}),
+        dossierStatus: s,
+        dossierStatusOp: new Date().toISOString().slice(0, 10)
+      };
+      setVveEnrichment(item.vve_identificatie, nieuw);
+      setEnrichment(nieuw);
+      if (onEnrichmentChange) onEnrichmentChange();
+    };
+    return /*#__PURE__*/React.createElement("tr", {
+      className: "border-t border-pa-gray-100"
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5 text-pa-gray-500 align-top"
+    }, "Dossierstatus"), /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "vd-dstatus",
+      role: "radiogroup",
+      "aria-label": "Dossierstatus"
+    }, DOSSIERSTATUS.map(x => /*#__PURE__*/React.createElement("button", {
+      key: x[0],
+      type: "button",
+      role: "radio",
+      "aria-checked": huidig === x[0],
+      className: "vd-dstatus-knop vd-dstatus-" + x[0] + (huidig === x[0] ? " is-aan" : ""),
+      onClick: () => zet(x[0])
+    }, x[1]))), enrichment && enrichment.dossierStatusOp && huidig !== 'onbekend' && /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-pa-gray-500 mt-0.5"
+    }, "Gezet op ", new Date(enrichment.dossierStatusOp).toLocaleDateString('nl-NL'))));
+  })(), (() => {
     var clusters = clustersVan(item.vve_identificatie);
     if (!clusters.length) return null;
     return /*#__PURE__*/React.createElement("tr", {
@@ -4682,6 +4772,11 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     vveNaam: item.statutairenaam,
     initialData: enrichment,
     onSave: data => {
+      // Samenvoegen: het formulier kent niet elk veld, en wat het niet kent mag niet verdwijnen
+      var vorig = getVveEnrichment(item.vve_identificatie) || {};
+      data = { ...vorig, ...data };
+      if (data.dossierStatus === 'onbekend' && !vorig.dossierStatus) delete data.dossierStatus;
+      if (dossierStatusVan(vorig) !== dossierStatusVan(data)) data.dossierStatusOp = new Date().toISOString().slice(0, 10);
       setVveEnrichment(item.vve_identificatie, data);
       setEnrichment(data);
       setShowEditModal(false);
@@ -4730,6 +4825,7 @@ var EditDossierModal = ({
   var _useState15 = useState({
       nickname: initialData?.nickname || '',
       kvkNummer: initialData?.kvkNummer || '',
+      dossierStatus: dossierStatusVan(initialData),
       adviestraject: initialData?.adviestraject || '',
       intake: initialData?.intake || '',
       bureau: initialData?.bureau || '',
@@ -4837,7 +4933,18 @@ var EditDossierModal = ({
     d: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
   })), "Traject"), /*#__PURE__*/React.createElement("div", {
     className: "grid grid-cols-2 gap-2"
-  }, [{
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "col-span-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-pa-gray-500 mb-1"
+  }, "Dossierstatus"), /*#__PURE__*/React.createElement("select", {
+    value: formData.dossierStatus,
+    onChange: e => handleChange('dossierStatus', e.target.value),
+    className: "w-full px-2 py-1.5 border border-pa-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+  }, DOSSIERSTATUS.map(x => /*#__PURE__*/React.createElement("option", {
+    key: x[0],
+    value: x[0]
+  }, x[1])))), [{
     field: 'adviestraject',
     label: 'Adviestraject',
     opties: ADVIESTRAJECT_OPTIES
@@ -5517,6 +5624,9 @@ var App = () => {
   var _erfpachtState = useState(new Set()),
     selectedErfpacht = _erfpachtState[0],
     setSelectedErfpacht = _erfpachtState[1];
+  var _dossierstatusState = useState(new Set()),
+    selectedDossierstatus = _dossierstatusState[0],
+    setSelectedDossierstatus = _dossierstatusState[1];
   var _useState47 = useState(new Set()),
     _useState48 = _slicedToArray(_useState47, 2),
     selectedKvk = _useState48[0],
@@ -5915,6 +6025,9 @@ var App = () => {
     _useState94 = _slicedToArray(_useState93, 2),
     enrichmentCount = _useState94[0],
     setEnrichmentCount = _useState94[1];
+  var _dossierVersieState = useState(0),
+    dossierVersie = _dossierVersieState[0],
+    setDossierVersie = _dossierVersieState[1];
   // Base filtered data (search applied - or all data if no search)
   // Note: VvE's with 0 woningen are already filtered out in vve_data.js
   var searchFilteredData = useMemo(() => {
@@ -5930,7 +6043,7 @@ var App = () => {
     var cijfers = deferredSearch.replace(/[^0-9]/g, '');
     var opKvk = cijfers.length >= 4 && cijfers.length >= deferredSearch.trim().length - 3;
     var localEnrichData = loadEnrichmentData();
-    var dossierData = typeof VVE_DOSSIER_DATA !== 'undefined' ? VVE_DOSSIER_DATA : {};
+    var dossierData = DOSSIER_BESTAND;
     var result = data.filter((item, i) => {
       // Snelle check via pre-computed index (naam + postcode + buurt + adres in één string)
       if (searchIdx[i] && searchIdx[i].includes(searchLower)) return true;
@@ -5950,7 +6063,7 @@ var App = () => {
     });
     console.log(`[perf] searchFilteredData: ${(performance.now() - t0).toFixed(1)}ms → ${result.length} records (query="${deferredSearch}")`);
     return result;
-  }, [data, searchIdx, deferredSearch, enrichmentCount]);
+  }, [data, searchIdx, deferredSearch, enrichmentCount, dossierVersie]);
 
   // KvK categories
   var kvkCategories = [{
@@ -6107,7 +6220,12 @@ var App = () => {
       if (enr) map[item.vve_identificatie] = enr;
     });
     return map;
-  }, [data, enrichmentCount]);
+  }, [data, enrichmentCount, dossierVersie]);
+  var dossierstatusCategories = DOSSIERSTATUS.map(x => ({
+    key: x[0],
+    label: x[1]
+  }));
+  var getDossierstatusKey = item => dossierStatusVan(dossierByVve[item.vve_identificatie]);
 
   // Pre-compute KvK-key per VvE eenmalig (4412 unieke VvE's, niet 27k records × 4 categorieën)
   var kvkKeyByVve = useMemo(() => {
@@ -6212,6 +6330,10 @@ var App = () => {
       active: selectedErfpacht.size > 0,
       fn: item => selectedErfpacht.has(getErfpachtKey(item))
     },
+    dossierstatus: {
+      active: selectedDossierstatus.size > 0,
+      fn: item => selectedDossierstatus.has(getDossierstatusKey(item))
+    },
     woz: {
       active: selectedWoz.size > 0,
       fn: item => selectedWoz.has(getWozKey(getActiveWoz(item)))
@@ -6260,7 +6382,7 @@ var App = () => {
       active: selectedGemLabel.size > 0,
       fn: item => selectedGemLabel.has(avgLabelByVve[item.vve_identificatie] || '')
     }
-  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedHerkomst, selectedCluster, selectedTypologie, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedErfpacht, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
+  }), [selectedKvk, kvkKeyByVve, selectedGrootte, selectedGemengd, selectedHoofdsplitsing, selectedHerkomst, selectedCluster, selectedTypologie, selectedEenheidtype, selectedBouwjaar, selectedBuurt, selectedTijdvak, selectedWarmte, selectedMonument, selectedBeschermd, selectedErfpacht, selectedDossierstatus, selectedWoz, selectedGespikkeld, selectedCorpPct, selectedAdviestraject, selectedBureau, selectedIntake, selectedMwa, selectedVerdieping, selectedUitvoering, selectedProcesbegeleider, dossierByVve, selectedNieuw, newVves, selectedGemLabel, avgLabelByVve]);
 
   // Apply all filters except the excluded one(s)
   var applyFiltersExcept = useCallback((baseData, excludeKey) => {
@@ -6503,6 +6625,19 @@ var App = () => {
     });
     return counts;
   }, [searchFilteredData, applyFiltersExcept]);
+  var dossierstatusFacetCounts = useMemo(() => {
+    var base = applyFiltersExcept(searchFilteredData, 'dossierstatus');
+    var counts = {
+      addresses: {},
+      vves: {}
+    };
+    dossierstatusCategories.forEach(cat => {
+      var filtered = base.filter(item => getDossierstatusKey(item) === cat.key);
+      counts.addresses[cat.key] = filtered.length;
+      counts.vves[cat.key] = countUniqueVves(filtered);
+    });
+    return counts;
+  }, [searchFilteredData, applyFiltersExcept, dossierByVve]);
   var wozFacetCounts = useMemo(() => {
     var base = applyFiltersExcept(searchFilteredData, 'woz');
     var counts = {
@@ -6707,6 +6842,7 @@ var App = () => {
     ['Gem. label', selectedGemLabel, setSelectedGemLabel, null],
     ['Gespikkeld', selectedGespikkeld, setSelectedGespikkeld, gespikkeldCategories],
     ['Corporatie', selectedCorpPct, setSelectedCorpPct, corpPctCategories],
+    ['Dossier', selectedDossierstatus, setSelectedDossierstatus, dossierstatusCategories],
     ['Traject', selectedAdviestraject, setSelectedAdviestraject, null],
     ['Bureau', selectedBureau, setSelectedBureau, null],
     ['Begeleider', selectedProcesbegeleider, setSelectedProcesbegeleider, null],
@@ -6755,6 +6891,7 @@ var App = () => {
     setSelectedMonument(new Set());
     setSelectedBeschermd(new Set());
     setSelectedErfpacht(new Set());
+    setSelectedDossierstatus(new Set());
     setSelectedTijdvak(new Set());
     setSelectedWarmte(new Set());
     setSelectedGemengd(new Set());
@@ -6886,7 +7023,7 @@ var App = () => {
     return function() { window.removeEventListener('message', handler); };
   }, []);
 
-  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedErfpacht.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedHerkomst.size > 0 || selectedCluster.size > 0 || selectedTypologie.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
+  var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedErfpacht.size > 0 || selectedDossierstatus.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedHerkomst.size > 0 || selectedCluster.size > 0 || selectedTypologie.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
 
   // Multi-user enrichment state
   var _useState95 = useState(() => localStorage.getItem('vve_dashboard_username') || ''),
@@ -7107,9 +7244,9 @@ var App = () => {
       }
 
       // Bouw samengevoegde data: bestandsdata als basis, localStorage overschrijft
-      var fileData = typeof VVE_DOSSIER_DATA !== 'undefined' ? {
-        ...VVE_DOSSIER_DATA
-      } : {};
+      var fileData = {
+        ...DOSSIER_BESTAND
+      };
       delete fileData._meta;
       var localData = loadEnrichmentData();
       var merged = {
@@ -7396,6 +7533,7 @@ var App = () => {
   // Update enrichment count when changed
   var handleEnrichmentChange = useCallback(() => {
     setEnrichmentCount(Object.keys(loadEnrichmentData()).length);
+    setDossierVersie(v => v + 1);
   }, []);
 
   // Bouw bestandsnaam op basis van actieve filters
@@ -7461,11 +7599,11 @@ var App = () => {
     setShowCsvMenu(false);
     if (includeAddresses) {
       // Export alle adressen
-      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'label_verlopen', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'gebruiksdoel', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
+      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'label_verlopen', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'gebruiksdoel', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
       var rows = alleenMetVve(fullyFilteredData).map(item => {
         var warmte = getWarmteProg(item);
         var enr = getVveEnrichment(item.vve_identificatie);
-        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
+        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
         // nickname
         `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', labelVerlopen(item) ? 'ja' : '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(item.basiseenheidtype || '').replace(/"/g, '""')}"`, `"${(item.gebruiksdoel || '').replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
       });
@@ -7481,7 +7619,7 @@ var App = () => {
       URL.revokeObjectURL(url);
     } else {
       // Export alleen VvE's (geaggregeerd)
-      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'cluster', 'cluster_url', 'typologie', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht'];
+      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'cluster', 'cluster_url', 'typologie', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht'];
       var _rows = groupedByVve.map(group => {
         var vve = group.vve;
         var addresses = group.addresses;
@@ -7493,7 +7631,7 @@ var App = () => {
         var avgEnergy = getAverageEnergyLabel(addresses);
         var warmte = getWarmteProg(vve);
         var enr = getVveEnrichment(vve.vve_identificatie);
-        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', `"${clusterNamen(vve.vve_identificatie)}"`, clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '', `"${vve.typologie || ''}"`, warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
+        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), `"${clusterNamen(vve.vve_identificatie)}"`, clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '', `"${vve.typologie || ''}"`, warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
         // nickname
         '', '', '', '', '', '', '', '',
         // adviestraject, 1_intake, bureau, procesbegeleider, 2_MWA, 3_verdieping, 4_uitvoering, notities
@@ -7557,6 +7695,10 @@ var App = () => {
         header: 'Dossiermap URL',
         key: 'dossiermap_url',
         width: 40
+      }, {
+        header: 'Dossierstatus',
+        key: 'dossierstatus',
+        width: 16
       }, {
         header: 'Cluster',
         key: 'cluster',
@@ -7772,6 +7914,7 @@ var App = () => {
           beschermd: getBeschermdGezicht(vve.vve_identificatie) || '',
           dossiermap: getMapnaam(vve.vve_identificatie),
           dossiermap_url: dossierUrl(vve.vve_identificatie) || '',
+          dossierstatus: dossierStatusLabel(dossierStatusVan(getVveEnrichment(vve.vve_identificatie))),
           cluster: clusterNamen(vve.vve_identificatie),
           cluster_url: clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '',
           typologie: vve.typologie || ''
@@ -7897,6 +8040,10 @@ var App = () => {
         header: 'Dossiermap URL',
         key: 'dossiermap_url',
         width: 40
+      }, {
+        header: 'Dossierstatus',
+        key: 'dossierstatus',
+        width: 16
       }, {
         header: 'Cluster',
         key: 'cluster',
@@ -8088,6 +8235,7 @@ var App = () => {
           warmtevoorziening: (getWarmteProg(item) || {}).warmte || '',
           dossiermap: getMapnaam(item.vve_identificatie),
           dossiermap_url: dossierUrl(item.vve_identificatie) || '',
+          dossierstatus: dossierStatusLabel(dossierStatusVan(getVveEnrichment(item.vve_identificatie))),
           cluster: clusterNamen(item.vve_identificatie),
           cluster_url: clusterUrl(clustersVan(item.vve_identificatie)[0]) || '',
           typologie: item.typologie || ''
@@ -9052,7 +9200,24 @@ var App = () => {
     strokeLinejoin: "round",
     strokeWidth: 2,
     d: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-  })), "Exporteer verrijkingsdata"), enrichmentCount > 0 && /*#__PURE__*/React.createElement("button", {
+  })), "Exporteer verrijkingsdata"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      exportDossierInc();
+      setShowUserMenu(false);
+    },
+    title: "Alle dossiergegevens, met de dossierstatus, als vve_dossier_data.inc. Zet het bestand naast het dashboard, dan ziet iedereen het.",
+    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4 text-pa-gray-400",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+  })), "Dossierdata downloaden (.inc)"), enrichmentCount > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (confirm(`Weet je zeker dat je alle ${enrichmentCount} verrijkte VvE records wilt wissen?`)) {
         saveEnrichmentData({});
@@ -9999,6 +10164,24 @@ var App = () => {
     count: showVveCounts ? corpPctFacetCounts.vves[cat.key] || 0 : corpPctFacetCounts.addresses[cat.key] || 0,
     active: selectedCorpPct.has(cat.key),
     onClick: () => toggleSelection(setSelectedCorpPct, cat.key)
+  }))), /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Dossierstatus",
+    activeCount: selectedDossierstatus.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle",
+    count: showVveCounts ? sumFacet(dossierstatusFacetCounts).vves : sumFacet(dossierstatusFacetCounts).addresses,
+    active: selectedDossierstatus.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedDossierstatus(new Set());
+      setDisplayCount(50);
+    }
+  }), dossierstatusCategories.map(cat => /*#__PURE__*/React.createElement(FacetOption, {
+    key: cat.key,
+    label: cat.label,
+    count: showVveCounts ? dossierstatusFacetCounts.vves[cat.key] || 0 : dossierstatusFacetCounts.addresses[cat.key] || 0,
+    active: selectedDossierstatus.has(cat.key),
+    onClick: () => toggleSelection(setSelectedDossierstatus, cat.key)
   }))), dossierVisible && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FacetSection, {
     title: "Adviestraject",
     activeCount: selectedAdviestraject.size
@@ -10583,6 +10766,24 @@ var App = () => {
     count: showVveCounts ? corpPctFacetCounts.vves[category.key] || 0 : corpPctFacetCounts.addresses[category.key] || 0,
     active: selectedCorpPct.has(category.key),
     onClick: () => toggleSelection(setSelectedCorpPct, category.key)
+  }))), /*#__PURE__*/React.createElement(FacetSection, {
+    title: "Dossierstatus",
+    activeCount: selectedDossierstatus.size
+  }, /*#__PURE__*/React.createElement(FacetOption, {
+    label: "Alle",
+    count: showVveCounts ? sumFacet(dossierstatusFacetCounts).vves : sumFacet(dossierstatusFacetCounts).addresses,
+    active: selectedDossierstatus.size === 0,
+    isAllOption: true,
+    onClick: () => {
+      setSelectedDossierstatus(new Set());
+      setDisplayCount(50);
+    }
+  }), dossierstatusCategories.map(category => /*#__PURE__*/React.createElement(FacetOption, {
+    key: category.key,
+    label: category.label,
+    count: showVveCounts ? dossierstatusFacetCounts.vves[category.key] || 0 : dossierstatusFacetCounts.addresses[category.key] || 0,
+    active: selectedDossierstatus.has(category.key),
+    onClick: () => toggleSelection(setSelectedDossierstatus, category.key)
   }))), dossierVisible && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(FacetSection, {
     title: "Adviestraject",
     activeCount: selectedAdviestraject.size
