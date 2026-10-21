@@ -266,7 +266,7 @@ var VERSE_EP = {};
         const setVveEnrichment = (vveId, enrichment) => {
             // Vergelijk nieuwe waarden met huidige en log gewijzigde velden
             const oldData = loadEnrichmentData()[vveId] || {};
-            const fieldsToLog = ['nickname','adviestraject','bureau','intake','procesbegeleider','mwa','verdieping','uitvoering','notities','beheerder','kvkNummer','dossierStatus','dossierStatusOp',
+            const fieldsToLog = ['nickname','adviestraject','bureau','intake','procesbegeleider','mwa','verdieping','uitvoering','notities','beheerder','kvkNummer','dossierStatus','dossierStatusOp','huidigeLocatie',
                 'bestuurNaam','bestuurEmail','bestuurTelefoon','duurzaamheidNaam','duurzaamheidEmail','duurzaamheidTelefoon'];
             const user = _getCurrentUser();
             const ts = Date.now();
@@ -826,7 +826,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 58;
+var APP_BUILD = 59;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -1415,6 +1415,12 @@ var dossierStatusVan = (enr) => {
   return (s === 'over_te_zetten' || s === 'overgezet') ? s : 'onbekend';
 };
 var dossierStatusLabel = (k) => (DOSSIERSTATUS.find(x => x[0] === k) || DOSSIERSTATUS[0])[1];
+// Waar de bestanden nu nog staan. Zolang ze niet zijn overgezet opent het
+// mapje in de lijst deze plek in plaats van de gekoppelde dossiermap.
+var huidigeLocatieVan = (enr) => {
+  var u = enr && typeof enr.huidigeLocatie === 'string' ? enr.huidigeLocatie.trim() : '';
+  return /^https:\/\//i.test(u) ? u : '';
+};
 
 // Wat tijdens deze sessie los bij het Kadaster is opgehaald. Blijft in het
 // geheugen van dit tabblad: het dashboard schrijft geen bestanden, dus na een
@@ -2671,9 +2677,11 @@ var VveGroupCard = ({
       d: "M3.5 7.5a1.5 1.5 0 0 1 1.5-1.5h3.6l1.6 1.8h8.3a1.5 1.5 0 0 1 1.5 1.5v8.2a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"
     }));
     var dStatus = dossierStatusVan(enrichment);
+    var elders = dStatus !== 'overgezet' ? huidigeLocatieVan(enrichment) : '';
+    if (elders) url = elders;
     return /*#__PURE__*/React.createElement("div", {
-      className: "xl-cell xl-cell-map vd-map-" + dStatus,
-      title: naam + '\nDossier: ' + dossierStatusLabel(dStatus).toLowerCase() + (url ? '\nKlik om de dossiermap te openen' : '\nKlik om de mapnaam te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
+      className: "xl-cell xl-cell-map vd-map-" + dStatus + (elders ? " vd-map-elders" : ""),
+      title: naam + '\nDossier: ' + dossierStatusLabel(dStatus).toLowerCase() + (elders ? '\nKlik om de huidige locatie te openen (nog niet overgezet)' : url ? '\nKlik om de dossiermap te openen' : '\nKlik om de mapnaam te kopi\u00EBren\n(map openen niet beschikbaar: geen dossierlocatie in team_config.js)'),
       onClick: e => url ? e.stopPropagation() : kopieerMapnaam(e, naam)
     }, url ? /*#__PURE__*/React.createElement("a", {
       href: url,
@@ -4310,6 +4318,52 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
       className: "text-xs text-pa-gray-500 mt-0.5"
     }, "Gezet op ", new Date(enrichment.dossierStatusOp).toLocaleDateString('nl-NL'))));
   })(), (() => {
+    var loc = (enrichment && enrichment.huidigeLocatie) || '';
+    var geldig = huidigeLocatieVan(enrichment);
+    var bewaar = e => {
+      var waarde = e.target.value.trim();
+      if (waarde === loc) return;
+      if (waarde && !/^https:\/\//i.test(waarde)) {
+        e.target.setCustomValidity('Plak een link die met https:// begint');
+        e.target.reportValidity();
+        return;
+      }
+      e.target.setCustomValidity('');
+      var nieuw = { ...(getVveEnrichment(item.vve_identificatie) || {}), huidigeLocatie: waarde };
+      if (waarde && dossierStatusVan(nieuw) === 'onbekend') {
+        nieuw.dossierStatus = 'over_te_zetten';
+        nieuw.dossierStatusOp = new Date().toISOString().slice(0, 10);
+      }
+      setVveEnrichment(item.vve_identificatie, nieuw);
+      setEnrichment(nieuw);
+      if (onEnrichmentChange) onEnrichmentChange();
+    };
+    return /*#__PURE__*/React.createElement("tr", {
+      className: "border-t border-pa-gray-100"
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5 text-pa-gray-500 align-top"
+    }, "Huidige locatie"), /*#__PURE__*/React.createElement("td", {
+      className: "py-1.5"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex items-center gap-1.5"
+    }, /*#__PURE__*/React.createElement("input", {
+      key: item.vve_identificatie + '|' + loc,
+      type: "url",
+      defaultValue: loc,
+      placeholder: "Plak de link naar waar de bestanden nu staan",
+      className: "vd-locatie-veld",
+      onBlur: bewaar,
+      onInput: e => e.target.setCustomValidity(''),
+      onKeyDown: e => { if (e.key === 'Enter') e.target.blur(); }
+    }), geldig && /*#__PURE__*/React.createElement("a", {
+      href: geldig,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      className: "text-pa-blue-500 hover:underline text-xs whitespace-nowrap"
+    }, "Openen \u2197")), geldig && /*#__PURE__*/React.createElement("div", {
+      className: "text-xs text-pa-gray-500 mt-0.5"
+    }, dossierStatusVan(enrichment) === 'overgezet' ? "Overgezet: het mapje in de lijst opent de dossiermap." : "Het mapje in de lijst opent deze plek tot de status Overgezet is.")));
+  })(), (() => {
     var clusters = clustersVan(item.vve_identificatie);
     if (!clusters.length) return null;
     return /*#__PURE__*/React.createElement("tr", {
@@ -4826,6 +4880,7 @@ var EditDossierModal = ({
       nickname: initialData?.nickname || '',
       kvkNummer: initialData?.kvkNummer || '',
       dossierStatus: dossierStatusVan(initialData),
+      huidigeLocatie: initialData?.huidigeLocatie || '',
       adviestraject: initialData?.adviestraject || '',
       intake: initialData?.intake || '',
       bureau: initialData?.bureau || '',
@@ -4944,7 +4999,19 @@ var EditDossierModal = ({
   }, DOSSIERSTATUS.map(x => /*#__PURE__*/React.createElement("option", {
     key: x[0],
     value: x[0]
-  }, x[1])))), [{
+  }, x[1])))), /*#__PURE__*/React.createElement("div", {
+    className: "col-span-2"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "block text-xs text-pa-gray-500 mb-1"
+  }, "Huidige locatie (link)"), /*#__PURE__*/React.createElement("input", {
+    type: "url",
+    pattern: "https://.*",
+    title: "Een link die met https:// begint",
+    placeholder: "Waar de bestanden nu staan",
+    value: formData.huidigeLocatie,
+    onChange: e => handleChange('huidigeLocatie', e.target.value),
+    className: "w-full px-2 py-1.5 border border-pa-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+  })), [{
     field: 'adviestraject',
     label: 'Adviestraject',
     opties: ADVIESTRAJECT_OPTIES
@@ -7599,11 +7666,11 @@ var App = () => {
     setShowCsvMenu(false);
     if (includeAddresses) {
       // Export alle adressen
-      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'label_verlopen', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'gebruiksdoel', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
+      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'huidige_locatie', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'label_verlopen', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'gebruiksdoel', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
       var rows = alleenMetVve(fullyFilteredData).map(item => {
         var warmte = getWarmteProg(item);
         var enr = getVveEnrichment(item.vve_identificatie);
-        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
+        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), huidigeLocatieVan(enr), `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
         // nickname
         `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', labelVerlopen(item) ? 'ja' : '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(item.basiseenheidtype || '').replace(/"/g, '""')}"`, `"${(item.gebruiksdoel || '').replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
       });
@@ -7619,7 +7686,7 @@ var App = () => {
       URL.revokeObjectURL(url);
     } else {
       // Export alleen VvE's (geaggregeerd)
-      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'cluster', 'cluster_url', 'typologie', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht'];
+      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'huidige_locatie', 'cluster', 'cluster_url', 'typologie', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht'];
       var _rows = groupedByVve.map(group => {
         var vve = group.vve;
         var addresses = group.addresses;
@@ -7631,7 +7698,7 @@ var App = () => {
         var avgEnergy = getAverageEnergyLabel(addresses);
         var warmte = getWarmteProg(vve);
         var enr = getVveEnrichment(vve.vve_identificatie);
-        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), `"${clusterNamen(vve.vve_identificatie)}"`, clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '', `"${vve.typologie || ''}"`, warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
+        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), huidigeLocatieVan(enr), `"${clusterNamen(vve.vve_identificatie)}"`, clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '', `"${vve.typologie || ''}"`, warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
         // nickname
         '', '', '', '', '', '', '', '',
         // adviestraject, 1_intake, bureau, procesbegeleider, 2_MWA, 3_verdieping, 4_uitvoering, notities
@@ -7699,6 +7766,10 @@ var App = () => {
         header: 'Dossierstatus',
         key: 'dossierstatus',
         width: 16
+      }, {
+        header: 'Huidige locatie',
+        key: 'huidige_locatie',
+        width: 40
       }, {
         header: 'Cluster',
         key: 'cluster',
@@ -7915,6 +7986,7 @@ var App = () => {
           dossiermap: getMapnaam(vve.vve_identificatie),
           dossiermap_url: dossierUrl(vve.vve_identificatie) || '',
           dossierstatus: dossierStatusLabel(dossierStatusVan(getVveEnrichment(vve.vve_identificatie))),
+          huidige_locatie: huidigeLocatieVan(getVveEnrichment(vve.vve_identificatie)),
           cluster: clusterNamen(vve.vve_identificatie),
           cluster_url: clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '',
           typologie: vve.typologie || ''
@@ -8044,6 +8116,10 @@ var App = () => {
         header: 'Dossierstatus',
         key: 'dossierstatus',
         width: 16
+      }, {
+        header: 'Huidige locatie',
+        key: 'huidige_locatie',
+        width: 40
       }, {
         header: 'Cluster',
         key: 'cluster',
@@ -8236,6 +8312,7 @@ var App = () => {
           dossiermap: getMapnaam(item.vve_identificatie),
           dossiermap_url: dossierUrl(item.vve_identificatie) || '',
           dossierstatus: dossierStatusLabel(dossierStatusVan(getVveEnrichment(item.vve_identificatie))),
+          huidige_locatie: huidigeLocatieVan(getVveEnrichment(item.vve_identificatie)),
           cluster: clusterNamen(item.vve_identificatie),
           cluster_url: clusterUrl(clustersVan(item.vve_identificatie)[0]) || '',
           typologie: item.typologie || ''

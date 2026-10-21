@@ -422,3 +422,9 @@ html.vd-nieuw .vd-chip-wis {
 .vd-dstatus-knop.is-aan.vd-dstatus-onbekend { background: #e6eae8; color: #333f39; font-weight: 600; }
 .vd-dstatus-knop.is-aan.vd-dstatus-over_te_zetten { background: #fbe3b8; color: #7a4800; font-weight: 600; }
 .vd-dstatus-knop.is-aan.vd-dstatus-overgezet { background: #2e7d4f; color: #fff; font-weight: 600; }
+/* Mapje dat naar de huidige (oude) locatie wijst: klein pijltje rechtsboven */
+.xl-cell-map.vd-map-elders .xl-map-knop { position: relative; }
+.xl-cell-map.vd-map-elders .xl-map-knop::after { content: '\2197'; position: absolute; top: -3px; right: -4px; font-size: 10px; font-weight: 700; color: #b86e00; line-height: 1; }
+.vd-locatie-veld { flex: 1; min-width: 0; padding: 2px 6px; border: 1px solid #d5dcd8; border-radius: 4px; font-size: 12px; background: #fff; }
+.vd-locatie-veld:focus { outline: 2px solid #2e7d4f; outline-offset: -1px; }
+.vd-locatie-veld:invalid:not(:placeholder-shown) { border-color: #c0392b; }
