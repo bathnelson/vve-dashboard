@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 62;
+var APP_BUILD = 63;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -1421,6 +1421,8 @@ var typeVan = (a) => a ? (a.basiseenheidtype || a.gebruiksdoel || '') : '';
 // Dossierstatus: staan de bestanden van deze VvE al in de gekoppelde map?
 // Zonder waarde is een VvE onbekend; 'onbekend' kan ook expliciet gezet zijn,
 // zodat het terugzetten wint van een oudere waarde in het gedeelde bestand.
+var OP_WINDOWS = /win/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '');
+
 var DOSSIERSTATUS = [
   ['onbekend', 'Onbekend', '0'],
   ['over_te_zetten', 'Over te zetten', '1'],
@@ -7271,7 +7273,9 @@ var App = () => {
   }, []);
 
   // Synchroniseer dossierdata naar config/dossier.inc in de gekoppelde map
-  var fsApiAvailable = () => 'showDirectoryPicker' in window && !fsApiBlocked;
+  // Op de Windows-werkplekken mag een map koppelen niet; daar delen we via
+  // 'Dossierdata downloaden (.inc)' en dus geen knoppen voor de mapkoppeling.
+  var fsApiAvailable = () => !OP_WINDOWS && 'showDirectoryPicker' in window && !fsApiBlocked;
   var _handleFsApiError = e => {
     // SecurityError of NotAllowedError: IT-beleid blokkeert de map-picker
     if (e.name === 'SecurityError' || e.name === 'NotAllowedError') {
@@ -9184,7 +9188,7 @@ var App = () => {
     d: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
   })), "Gebruikersnaam wijzigen"), /*#__PURE__*/React.createElement("div", {
     className: "border-t border-pa-gray-100"
-  }), /*#__PURE__*/React.createElement("button", {
+  }), !OP_WINDOWS && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       syncDossierToFile();
       setShowUserMenu(false);
@@ -9370,7 +9374,7 @@ var App = () => {
     accept: ".xlsx",
     onChange: handleImportXlsx,
     className: "hidden"
-  })), dossierVisible && (() => {
+  })), dossierVisible && !OP_WINDOWS && (() => {
     var isSaving = enrichmentSaveStatus === 'saving';
     var isOk = enrichmentSaveStatus === 'ok';
     var isError = enrichmentSaveStatus === 'error';
