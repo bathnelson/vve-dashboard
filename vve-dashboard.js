@@ -826,7 +826,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 59;
+var APP_BUILD = 60;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -5544,7 +5544,18 @@ var ToggleSwitch = ({
 
 // Dossier keuzelijsten — globaal zodat EditDossierModal er ook bij kan
 var ADVIESTRAJECT_OPTIES = ['Isolatie', 'Gasvrij', 'Integraal aardgasvrij', 'Pre-advies'];
-var BUREAU_OPTIES = [];
+// De lijst met adviesbureaus staat in team_config (.js of .inc), niet in deze code.
+// Zonder lijst: de bureaus die al in de dossiergegevens voorkomen.
+if (typeof BUREAU_OPTIES === 'undefined') {
+  window.BUREAU_OPTIES = (() => {
+    var gezien = {};
+    [DOSSIER_BESTAND, loadEnrichmentData()].forEach(bron => Object.keys(bron).forEach(id => {
+      var b = bron[id] && bron[id].bureau;
+      if (b && typeof b === 'string') gezien[b.trim()] = true;
+    }));
+    return Object.keys(gezien).filter(Boolean).sort((x, y) => x.localeCompare(y, 'nl'));
+  })();
+}
 var FASE_OPTIES = ['gestart', 'afgerond', 'gestopt'];
 var INTAKE_OPTIES = ['wachtlijst', 'gestart', 'afgerond', 'gestopt'];
 if (typeof PROCESBEGELEIDER_OPTIES === 'undefined') { window.PROCESBEGELEIDER_OPTIES = ['Overig']; }
