@@ -39,6 +39,13 @@ var VERSE_EP = {};
             window.TEAM_MEMBERS = ['Gemeente Haarlem', 'Extern adviseur'];
         }
 
+        // Wie 'Consolideer bestanden' ziet: BEHEERDERS uit team_config, anders alleen 'admin'
+        const isBeheerder = (naam) => {
+            const lijst = (typeof BEHEERDERS !== 'undefined' && Array.isArray(BEHEERDERS)) ? BEHEERDERS : ['admin'];
+            const n = String(naam || '').trim().toLowerCase();
+            return !!n && lijst.some(b => String(b).trim().toLowerCase() === n);
+        };
+
         // CRM File Handle (voor File System Access API)
         let crmFileHandle = null;
         let crmData = { vves: {}, meta: { lastModified: null, lastModifiedBy: null } };
@@ -826,7 +833,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 60;
+var APP_BUILD = 61;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -9324,7 +9331,7 @@ var App = () => {
     strokeLinejoin: "round",
     strokeWidth: 2,
     d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-  })), "Wis alle data"), dossierDirLinked && (currentUser === 'hans' || currentUser === 'Hans' || currentUser === 'admin') && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  })), "Wis alle data"), dossierDirLinked && isBeheerder(currentUser) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "border-t border-pa-gray-100"
   }), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
