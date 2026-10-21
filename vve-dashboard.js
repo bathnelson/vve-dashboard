@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 65;
+var APP_BUILD = 66;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -4994,9 +4994,12 @@ var EditDossierModal = ({
     formData = _useState16[0],
     setFormData = _useState16[1];
   var handleChange = (field, value) => {
+    // Een bureau kiezen vult het bijbehorende adviestraject in (BUREAU_TRAJECT in config/team.inc)
+    var traject = field === 'bureau' ? trajectVoorBureau(value) : '';
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
+      ...(traject ? { adviestraject: traject } : {})
     }));
   };
   var handleSubmit = e => {
@@ -5113,13 +5116,13 @@ var EditDossierModal = ({
     },
     className: "w-full px-2 py-1.5 border border-pa-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
   })), [{
-    field: 'adviestraject',
-    label: 'Adviestraject',
-    opties: ADVIESTRAJECT_OPTIES
-  }, {
     field: 'bureau',
     label: 'Bureau',
     opties: BUREAU_OPTIES
+  }, {
+    field: 'adviestraject',
+    label: 'Adviestraject',
+    opties: ADVIESTRAJECT_OPTIES
   }, {
     field: 'procesbegeleider',
     label: 'Procesbegeleider',
@@ -5262,7 +5265,9 @@ var EditDossierModal = ({
     rows: 3,
     className: "w-full px-3 py-2 border border-pa-gray-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
   })), /*#__PURE__*/React.createElement("div", {
-    className: "flex justify-end gap-2 pt-2"
+    // Blijft onderin het venster staan, ook als het formulier scrolt
+    className: "flex justify-end gap-2 border-t border-pa-gray-200",
+    style: { position: 'sticky', bottom: 0, background: '#fff', margin: '0 -16px -16px', padding: '10px 16px', zIndex: 1 }
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: onClose,
@@ -5645,6 +5650,13 @@ var ToggleSwitch = ({
 
 // Dossier keuzelijsten — globaal zodat EditDossierModal er ook bij kan
 var ADVIESTRAJECT_OPTIES = ['Isolatie', 'Gasvrij', 'Integraal aardgasvrij', 'Pre-advies'];
+var trajectVoorBureau = bureau => {
+  if (!bureau || typeof BUREAU_TRAJECT === 'undefined' || !BUREAU_TRAJECT) return '';
+  var b = String(bureau).trim().toLowerCase();
+  var sleutel = Object.keys(BUREAU_TRAJECT).find(k => k.trim().toLowerCase() === b);
+  var t = sleutel ? BUREAU_TRAJECT[sleutel] : '';
+  return ADVIESTRAJECT_OPTIES.indexOf(t) >= 0 ? t : '';
+};
 // De lijst met adviesbureaus staat in team_config (.js of .inc), niet in deze code.
 // Zonder lijst: de bureaus die al in de dossiergegevens voorkomen.
 if (typeof BUREAU_OPTIES === 'undefined') {
