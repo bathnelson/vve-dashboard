@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 63;
+var APP_BUILD = 64;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -901,6 +901,81 @@ var dossierUrl = vveId => {
     var pad = new URL(site).pathname.replace(/\/+$/, '') + '/' + bib + (sub ? '/' + sub : '') + '/' + naam;
     return site + '/' + bib + '/Forms/AllItems.aspx?id=' + encodeURIComponent(pad);
   } catch (err) { return ''; }
+};
+// ── Overzetscript: bestanden van de huidige locatie naar de dossiermap ──
+// Het dashboard vult het sjabloon met de eigen gegevens; zo verlaten ze de
+// werkplek niet. Het script zoekt zelf uit waar de bibliotheken op de pc
+// gesynchroniseerd zijn (register van OneDrive).
+var OVERZET_SJABLOON = "<#\n  dossiers_overzetten.ps1 - gemaakt door het VvE-dashboard op __DATUM__ (__DOOR__)\n\n  Kopieert per VvE met dossierstatus 'Over te zetten' de bestanden van de\n  huidige locatie naar de gestandaardiseerde dossiermap.\n\n  Proefrun (kopieert niets, laat zien wat er zou gebeuren):\n      powershell -ExecutionPolicy Bypass -File .\\dossiers_overzetten.ps1\n  Echt kopieren:\n      powershell -ExecutionPolicy Bypass -File .\\dossiers_overzetten.ps1 -Uitvoeren\n\n  - Kopieert alleen. Verplaatst, overschrijft of verwijdert nooit iets:\n    een bestand dat op de nieuwe plek al bestaat, blijft staan.\n  - Werkt via de OneDrive-synchronisatie. De oude plekken en de\n    dossierbibliotheek moeten in Verkenner gesynchroniseerd zijn.\n  - Schrijft een logbestand (overzetten_<datum>.csv) naast dit script.\n    Lees dat in het dashboard in met 'Overzetlog inlezen'; dan worden de\n    gelukte VvE's op 'Overgezet' gezet.\n#>\nparam([switch]$Uitvoeren)\n\n# Vindt het script een bibliotheek niet, voeg hem hier zelf toe:\n#   'https://<tenant>.sharepoint.com/sites/<site>/<bibliotheek>' = 'C:\\Users\\...\\<site> - <bibliotheek>'\n$EigenKoppelingen = @{\n}\n\n$vves = @'\n__VVES_JSON__\n'@ | ConvertFrom-Json\n\n# -- gesynchroniseerde bibliotheken, uit het register van OneDrive ----------\n$wortels = @()\n$sleutel = 'HKCU:\\Software\\SyncEngines\\Providers\\OneDrive'\nif (Test-Path $sleutel) {\n    Get-ChildItem $sleutel | ForEach-Object {\n        $e = Get-ItemProperty $_.PSPath\n        if ($e.UrlNamespace -and $e.MountPoint) {\n            $wortels += [pscustomobject]@{ Url = ([uri]::UnescapeDataString($e.UrlNamespace).TrimEnd('/') + '/'); Map = $e.MountPoint }\n        }\n    }\n}\nforeach ($k in $EigenKoppelingen.Keys) {\n    $wortels += [pscustomobject]@{ Url = ($k.TrimEnd('/') + '/'); Map = $EigenKoppelingen[$k] }\n}\n$wortels = @($wortels | Sort-Object { $_.Url.Length } -Descending)\n\n# SharePoint-link -> volledige url van de map of het bestand\nfunction Get-PadUitLink([string]$link) {\n    if (-not $link) { return $null }\n    try { $u = [uri]$link } catch { return $null }\n    $basis = $u.Scheme + '://' + $u.Host\n    if ($u.Query -match '(?:^\\?|&)id=([^&]+)') { return $basis + [uri]::UnescapeDataString($Matches[1]) }\n    $p = [uri]::UnescapeDataString($u.AbsolutePath)\n    if ($p -match '^/:[a-z]:/r(/.+)$') { return $basis + $Matches[1] }\n    if ($p -match '^/:[a-z]:/') { return $null }\n    if ($p -match '^(.+)/Forms/[^/]+\\.aspx$') { return $basis + $Matches[1] }\n    if ($p -match '^/(sites|teams)/') { return $basis + $p }\n    return $null\n}\n\n# volledige url -> map op deze pc\nfunction Get-LokaalPad([string]$url) {\n    if (-not $url) { return $null }\n    $u = $url.TrimEnd('/') + '/'\n    foreach ($w in $wortels) {\n        if ($u.StartsWith($w.Url, [StringComparison]::OrdinalIgnoreCase)) {\n            $rest = $u.Substring($w.Url.Length).TrimEnd('/').Replace('/', '\\')\n            if ($rest) { return (Join-Path $w.Map $rest) } else { return $w.Map }\n        }\n    }\n    return $null\n}\n\n$overslaan = @('desktop.ini', 'thumbs.db', '.ds_store')\n$log = @()\nWrite-Host ''\nif ($Uitvoeren) { Write-Host 'Kopieren...' -ForegroundColor Cyan } else { Write-Host 'PROEFRUN - er wordt niets gekopieerd. Start met -Uitvoeren om echt te kopieren.' -ForegroundColor Yellow }\nWrite-Host ('{0} VvE''s, {1} gesynchroniseerde bibliotheken gevonden.' -f @($vves).Count, $wortels.Count)\nWrite-Host ''\n\nforeach ($v in $vves) {\n    $r = [ordered]@{ vve_id = $v.id; naam = $v.naam; status = ''; bestanden = 0; mb = 0; gekopieerd = 0; bestond_al = 0; fouten = 0; van = ''; naar = '' }\n    $bronUrl = Get-PadUitLink $v.bron\n    $doelUrl = Get-PadUitLink $v.doel\n    $bron = Get-LokaalPad $bronUrl\n    $doel = Get-LokaalPad $doelUrl\n    $r.van = if ($bron) { $bron } else { $v.bron }\n    $r.naar = if ($doel) { $doel } else { $v.doel }\n\n    if (-not $bronUrl) { $r.status = 'link van de huidige locatie is niet te lezen (deellink?); plak de link uit de adresbalk' }\n    elseif (-not $bron) { $r.status = 'huidige locatie is niet gesynchroniseerd op deze pc' }\n    elseif (-not $doelUrl -or -not $doel) { $r.status = 'dossierbibliotheek is niet gesynchroniseerd op deze pc' }\n    elseif (-not (Test-Path -LiteralPath $bron)) { $r.status = 'huidige locatie niet gevonden op deze pc' }\n    elseif (-not (Test-Path -LiteralPath $doel -PathType Container)) { $r.status = 'dossiermap bestaat nog niet (eerst mappen_aanmaken.ps1)' }\n    else {\n        $item = Get-Item -LiteralPath $bron\n        if ($item.PSIsContainer) {\n            $bestanden = @(Get-ChildItem -LiteralPath $bron -Recurse -File)\n            $wortel = $item.FullName\n        } else {\n            $bestanden = @($item)\n            $wortel = $item.DirectoryName\n        }\n        foreach ($f in $bestanden) {\n            if ($overslaan -contains $f.Name.ToLower()) { continue }\n            $rel = $f.FullName.Substring($wortel.Length).TrimStart('\\')\n            $naar = Join-Path $doel $rel\n            $r.bestanden++\n            $r.mb += $f.Length / 1MB\n            if (Test-Path -LiteralPath $naar) { $r.bestond_al++; continue }\n            if ($Uitvoeren) {\n                try {\n                    $map = Split-Path $naar -Parent\n                    if (-not (Test-Path -LiteralPath $map)) { New-Item -ItemType Directory -Path $map -Force | Out-Null }\n                    Copy-Item -LiteralPath $f.FullName -Destination $naar -ErrorAction Stop\n                    $r.gekopieerd++\n                } catch {\n                    $r.fouten++\n                    Write-Host ('   fout bij {0}: {1}' -f $rel, $_.Exception.Message) -ForegroundColor Red\n                }\n            }\n        }\n        if ($r.bestanden -eq 0) { $r.status = 'huidige locatie is leeg' }\n        elseif (-not $Uitvoeren) { $r.status = 'klaar om te kopieren' }\n        elseif ($r.fouten -gt 0) { $r.status = 'deels gekopieerd' }\n        else { $r.status = 'gekopieerd' }\n    }\n    $r.mb = [math]::Round($r.mb, 1)\n    $kleur = if ($r.status -in @('gekopieerd', 'klaar om te kopieren')) { 'Green' } elseif ($r.status -eq 'deels gekopieerd') { 'Yellow' } else { 'Red' }\n    Write-Host ('{0,-45} {1}' -f ($(if ($v.naam.Length -gt 44) { $v.naam.Substring(0, 44) } else { $v.naam })), $r.status) -ForegroundColor $kleur\n    if ($r.bestanden -gt 0) { Write-Host ('   {0} bestanden, {1} MB; {2} bestonden al, {3} gekopieerd' -f $r.bestanden, $r.mb, $r.bestond_al, $r.gekopieerd) }\n    $log += [pscustomobject]$r\n}\n\n$soort = if ($Uitvoeren) { '' } else { '_proef' }\n$logPad = Join-Path $PSScriptRoot ('overzetten_{0}{1}.csv' -f (Get-Date -Format 'yyyy-MM-dd_HHmm'), $soort)\n$log | Export-Csv -LiteralPath $logPad -NoTypeInformation -Delimiter ';' -Encoding UTF8\nWrite-Host ''\n$ok = @($log | Where-Object { $_.status -in @('gekopieerd', 'klaar om te kopieren') }).Count\nWrite-Host ('Klaar: {0} van {1} VvE''s in orde. Log: {2}' -f $ok, $log.Count, $logPad) -ForegroundColor Cyan\nif ($Uitvoeren) { Write-Host 'Lees het log in het dashboard in met Overzetlog inlezen om deze VvE''s op Overgezet te zetten.' }\n";
+var overzetKandidaten = () => {
+  var lokaal = loadEnrichmentData();
+  var ids = Object.keys(Object.assign({}, DOSSIER_BESTAND, lokaal)).filter(id => id !== '_meta');
+  var namen = {};
+  if (typeof VVE_DATA !== 'undefined') VVE_DATA.forEach(d => { if (!namen[d.vve_identificatie]) namen[d.vve_identificatie] = d.statutairenaam || ''; });
+  var klaar = [], zonderMap = [];
+  ids.forEach(id => {
+    var enr = getVveEnrichment(id);
+    if (dossierStatusVan(enr) !== 'over_te_zetten' || !huidigeLocatieVan(enr)) return;
+    var doel = dossierUrl(id);
+    var rij = { id: id, naam: namen[id] || getMapnaam(id) || id, bron: huidigeLocatieVan(enr), doel: doel };
+    (doel ? klaar : zonderMap).push(rij);
+  });
+  klaar.sort((a, b) => a.naam.localeCompare(b.naam, 'nl'));
+  return { klaar: klaar, zonderMap: zonderMap };
+};
+var maakOverzetScript = () => {
+  var k = overzetKandidaten();
+  if (!k.klaar.length) {
+    alert('Er is geen VvE met status \u2018Over te zetten\u2019, een huidige locatie en een dossiermap.' + (k.zonderMap.length ? '\n\n' + k.zonderMap.length + ' VvE(\u2019s) hebben wel een locatie maar geen dossiermap (mapnaam of DOSSIER_BASIS in config/team.inc ontbreekt).' : ''));
+    return;
+  }
+  var tekst = OVERZET_SJABLOON
+    .replace('__DATUM__', new Date().toLocaleString('nl-NL'))
+    .replace('__DOOR__', (typeof _getCurrentUser === 'function' && _getCurrentUser()) || 'onbekend')
+    .replace('__VVES_JSON__', JSON.stringify(k.klaar, null, 1));
+  var blob = new Blob(['\ufeff' + tekst.replace(/\r?\n/g, '\r\n')], { type: 'text/plain' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'dossiers_overzetten.ps1';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  alert('dossiers_overzetten.ps1 gemaakt voor ' + k.klaar.length + ' VvE(\u2019s).'
+    + (k.zonderMap.length ? '\n' + k.zonderMap.length + ' overgeslagen: geen dossiermap.' : '')
+    + '\n\nZet het in tools/ en start eerst de proefrun:\npowershell -ExecutionPolicy Bypass -File .\\dossiers_overzetten.ps1\n\nDaarna met -Uitvoeren om echt te kopi\u00EBren.');
+};
+// CSV van Export-Csv (puntkomma, alles tussen aanhalingstekens)
+var leesCsv = tekst => {
+  var rijen = [], rij = [], veld = '', inQ = false;
+  tekst = tekst.replace(/^\ufeff/, '');
+  for (var i = 0; i < tekst.length; i++) {
+    var c = tekst[i];
+    if (inQ) {
+      if (c === '"') { if (tekst[i + 1] === '"') { veld += '"'; i++; } else inQ = false; } else veld += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ';') { rij.push(veld); veld = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && tekst[i + 1] === '\n') i++; rij.push(veld); veld = ''; if (rij.length > 1 || rij[0]) rijen.push(rij); rij = []; }
+    else veld += c;
+  }
+  if (veld || rij.length) { rij.push(veld); rijen.push(rij); }
+  var kop = rijen.shift() || [];
+  return rijen.map(r => Object.fromEntries(kop.map((h, j) => [h, r[j] || ''])));
+};
+var leesOverzetLog = (bestand, klaar) => {
+  var lezer = new FileReader();
+  lezer.onload = () => {
+    var rijen = leesCsv(String(lezer.result));
+    if (!rijen.length || !('vve_id' in rijen[0]) || !('status' in rijen[0])) { alert('Dit is geen log van dossiers_overzetten.ps1.'); return; }
+    if (rijen.some(r => r.status === 'klaar om te kopieren')) { alert('Dit is het log van een proefrun; daarin is nog niets gekopieerd.'); return; }
+    var gelukt = rijen.filter(r => r.status === 'gekopieerd' && r.fouten === '0' && dossierStatusVan(getVveEnrichment(r.vve_id)) !== 'overgezet');
+    var rest = rijen.filter(r => r.status !== 'gekopieerd' || r.fouten !== '0');
+    if (!gelukt.length) { alert('Geen nieuwe VvE\u2019s om op Overgezet te zetten.' + (rest.length ? '\n' + rest.length + ' niet (helemaal) gelukt; zie het log.' : '')); return; }
+    if (!confirm(gelukt.length + ' VvE(\u2019s) op \u2018Overgezet\u2019 zetten?' + (rest.length ? '\n' + rest.length + ' andere zijn niet (helemaal) gelukt en blijven staan.' : ''))) return;
+    var vandaag = new Date().toISOString().slice(0, 10);
+    gelukt.forEach(r => setVveEnrichment(r.vve_id, { ...(getVveEnrichment(r.vve_id) || {}), dossierStatus: 'overgezet', dossierStatusOp: vandaag }));
+    if (klaar) klaar();
+    alert(gelukt.length + ' VvE(\u2019s) staan op Overgezet. Vergeet niet Dossierdata downloaden (.inc) om het te delen.');
+  };
+  lezer.readAsText(bestand, 'utf-8');
 };
 // Hoofdsplitsing: de VvE bestaat uit een paar grote rechten die elk weer
 // onderverdeeld zijn; de onderverenigingen staan niet in de data. Benadering:
@@ -9325,7 +9400,41 @@ var App = () => {
     strokeLinejoin: "round",
     strokeWidth: 2,
     d: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-  })), "Dossierdata downloaden (.inc)"), enrichmentCount > 0 && /*#__PURE__*/React.createElement("button", {
+  })), "Dossierdata downloaden (.inc)"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      maakOverzetScript();
+      setShowUserMenu(false);
+    },
+    title: "Maakt dossiers_overzetten.ps1 voor de VvE\u2019s die op Over te zetten staan en een huidige locatie hebben. Het script kopieert de bestanden naar de dossiermap.",
+    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4 text-pa-gray-400",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+  })), "Overzetscript maken (.ps1)"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      var inv = document.createElement('input'); inv.type = 'file'; inv.accept = '.csv'; inv.onchange = () => { if (inv.files[0]) leesOverzetLog(inv.files[0], handleEnrichmentChange); }; inv.click();
+      setShowUserMenu(false);
+    },
+    title: "Leest het log van dossiers_overzetten.ps1 en zet de gelukte VvE\u2019s op Overgezet.",
+    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("svg", {
+    className: "w-4 h-4 text-pa-gray-400",
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+  })), "Overzetlog inlezen (.csv)"), enrichmentCount > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (confirm(`Weet je zeker dat je alle ${enrichmentCount} verrijkte VvE records wilt wissen?`)) {
         saveEnrichmentData({});
