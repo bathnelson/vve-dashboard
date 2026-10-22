@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 69;
+var APP_BUILD = 70;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -6003,7 +6003,7 @@ var App = () => {
     _useStateGemLabel2 = _slicedToArray(_useStateGemLabel, 2),
     selectedGemLabel = _useStateGemLabel2[0],
     setSelectedGemLabel = _useStateGemLabel2[1];
-  var _useStateWozJaar = useState('2025'),
+  var _useStateWozJaar = useState('2024'),
     activeWozJaar = _useStateWozJaar[0],
     setActiveWozJaar = _useStateWozJaar[1];
   var _useState59 = useState(new Set()),
