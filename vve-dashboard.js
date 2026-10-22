@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 70;
+var APP_BUILD = 71;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -6018,7 +6018,9 @@ var App = () => {
   var _useStateNieuw = useState(false),
     selectedNieuw = _useStateNieuw[0],
     setSelectedNieuw = _useStateNieuw[1];
-  var newVves = typeof NEW_VVES !== 'undefined' ? NEW_VVES : new Set();
+  // Vast object: een nieuwe lege Set per render maakte alle filters en
+  // facettellingen bij elke klik opnieuw (ook bij het openen van een menu).
+  var newVves = useMemo(() => typeof NEW_VVES !== 'undefined' ? NEW_VVES : new Set(), []);
 
   // Dossier filter states (alleen actief met ?dossierdata)
   var _useState63 = useState(new Set()),
@@ -9363,8 +9365,15 @@ var App = () => {
       d: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
     })), "kvk_handmatig.inc (", n, ")") : null;
   })(), (() => {
-    var zonKvk = data.reduce((s, item) => { if (!s.has(item.vve_identificatie)) { s.add(item.vve_identificatie); } return s; }, new Set());
-    var count = [...zonKvk].filter(id => { var item = data.find(d => d.vve_identificatie === id); return item && getKvkKey(item) === 'zonder_kvk'; }).length;
+    // Eén keer door de data: per VvE telt de eerste rij (was een zoekactie
+    // per VvE door alle rijen, en dat maakte het exportmenu traag).
+    var gezien = new Set(), count = 0;
+    data.forEach(item => {
+      var id = item.vve_identificatie;
+      if (gezien.has(id)) return;
+      gezien.add(id);
+      if (getKvkKey(item) === 'zonder_kvk') count++;
+    });
     return count > 0 ? /*#__PURE__*/React.createElement("button", {
       onClick: () => exportMissendeKvk(),
       className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
