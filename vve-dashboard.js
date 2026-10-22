@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 68;
+var APP_BUILD = 70;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -6003,7 +6003,7 @@ var App = () => {
     _useStateGemLabel2 = _slicedToArray(_useStateGemLabel, 2),
     selectedGemLabel = _useStateGemLabel2[0],
     setSelectedGemLabel = _useStateGemLabel2[1];
-  var _useStateWozJaar = useState('2025'),
+  var _useStateWozJaar = useState('2024'),
     activeWozJaar = _useStateWozJaar[0],
     setActiveWozJaar = _useStateWozJaar[1];
   var _useState59 = useState(new Set()),
@@ -7285,7 +7285,6 @@ var App = () => {
     }
     setCombiMaat(m => m.n === n && m.breed === breed ? m : { n: n, breed: breed });
   };
-  useEffect(meetCombis);
   useEffect(() => {
     var rij = combiRijRef.current;
     if (!rij || typeof ResizeObserver === 'undefined') return;
@@ -7471,6 +7470,12 @@ var App = () => {
   }, []);
 
   var hasActiveFilters = selectedGrootte.size > 0 || selectedBouwjaar.size > 0 || selectedBuurt.size > 0 || selectedMonument.size > 0 || selectedBeschermd.size > 0 || selectedErfpacht.size > 0 || selectedDossierstatus.size > 0 || selectedTijdvak.size > 0 || selectedWarmte.size > 0 || selectedGemengd.size > 0 || selectedHoofdsplitsing.size > 0 || selectedHerkomst.size > 0 || selectedCluster.size > 0 || selectedTypologie.size > 0 || selectedEenheidtype.size > 0 || selectedKvk.size > 0 || selectedWoz.size > 0 || selectedGespikkeld.size > 0 || selectedCorpPct.size > 0 || selectedAdviestraject.size > 0 || selectedBureau.size > 0 || selectedIntake.size > 0 || selectedMwa.size > 0 || selectedVerdieping.size > 0 || selectedUitvoering.size > 0 || selectedProcesbegeleider.size > 0 || selectedNieuw || selectedGemLabel.size > 0;
+  // Alleen opnieuw meten als de knoppen veranderen: elke render meten dwingt
+  // de browser de hele lijst opnieuw op te maken en maakt elke klik traag.
+  // Breedteveranderingen vangt de ResizeObserver bij meetCombis.
+  var combiSleutel = combinaties.map(c => c.naam).join('\n');
+  var combiBewaarZichtbaar = (hasActiveFilters || !!(search && search.trim())) && !combinaties.some(isCombiActief);
+  useEffect(meetCombis, [combiSleutel, combiBewaarZichtbaar]);
 
   // Multi-user enrichment state
   var _useState95 = useState(() => localStorage.getItem('vve_dashboard_username') || ''),
