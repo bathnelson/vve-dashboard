@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 66;
+var APP_BUILD = 67;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -1034,6 +1034,56 @@ var clusterUrl = function (cluster) {
     var pad = new URL(site).pathname.replace(/\/+$/, '') + '/' + bib + (sub ? '/' + sub : '') + '/' + naam;
     return site + '/' + bib + '/Forms/AllItems.aspx?id=' + encodeURIComponent(pad);
   } catch (err) { return ''; }
+};
+// ── Opgeslagen filtercombinaties (config/filters.inc + localStorage) ──
+// Een filtercombinatie is een naam met de filters die erbij aanstaan, bv.
+// { naam: 'Monumenten MT', filters: { monument: ['rijksmonument'], warmte: ['MT'] } }.
+// Wat je zelf bewaart staat in localStorage; config/filters.inc (VVE_FILTERS)
+// deelt combinaties met het team. Een eigen combinatie met dezelfde naam gaat
+// voor op die uit het bestand; een verwijderde combinatie uit het bestand
+// onthouden we als verborgen, want het bestand zelf schrijft het dashboard niet.
+var FILTERS_OPSLAG = 'vve_filtercombinaties';
+var FILTERS_BESTAND = (typeof VVE_FILTERS !== 'undefined' && Array.isArray(VVE_FILTERS)) ? VVE_FILTERS.filter(c => c && c.naam) : [];
+var leesFilterOpslag = () => {
+  try {
+    var o = JSON.parse(localStorage.getItem(FILTERS_OPSLAG) || '{}') || {};
+    return { eigen: Array.isArray(o.eigen) ? o.eigen : [], verborgen: Array.isArray(o.verborgen) ? o.verborgen : [] };
+  } catch (e) { return { eigen: [], verborgen: [] }; }
+};
+var schrijfFilterOpslag = o => {
+  try { localStorage.setItem(FILTERS_OPSLAG, JSON.stringify(o)); } catch (e) {}
+};
+// De knoppen in de kop: eerst die uit het bestand, in de volgorde van het
+// bestand, daarna de eigen. _bestand markeert wat ongewijzigd uit het bestand komt.
+var filterCombinaties = o => {
+  var eigenPerNaam = {};
+  o.eigen.forEach(c => { eigenPerNaam[c.naam] = c; });
+  var uitBestand = FILTERS_BESTAND
+    .filter(c => o.verborgen.indexOf(c.naam) < 0)
+    .map(c => eigenPerNaam[c.naam] || Object.assign({}, c, { _bestand: true }));
+  var namenBestand = new Set(FILTERS_BESTAND.map(c => c.naam));
+  return uitBestand.concat(o.eigen.filter(c => !namenBestand.has(c.naam)));
+};
+// config/filters.inc in scriptvorm, zodat de loader hem met een <script>-tag inleest.
+var exporteerFiltersInc = combinaties => {
+  var schoon = combinaties.map(c => {
+    var r = { naam: c.naam, filters: c.filters || {} };
+    if (c.zoek) r.zoek = c.zoek;
+    if (c.wozJaar) r.wozJaar = c.wozJaar;
+    return r;
+  });
+  var tekst = '// config/filters.inc - opgeslagen filtercombinaties, als knoppen in de kop van het dashboard\n'
+    + '// Gemaakt met het dashboard op ' + new Date().toLocaleString('nl-NL') + '.\n'
+    + '// Zet dit bestand in de map config/ naast vve_dashboard.html. Niet naar GitHub.\n\n'
+    + 'const VVE_FILTERS = ' + JSON.stringify(schoon, null, 2) + ';\n';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([tekst], { type: 'text/plain;charset=utf-8' }));
+  a.download = 'filters.inc';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  return schoon.length;
 };
 var alleenMetVve = function (rijen) {
   return rijen.filter(function (r) { return !!r.vve_identificatie && !r._handmatig; });
@@ -7013,34 +7063,35 @@ var App = () => {
     var c = (cats || []).find(x => x.key === key);
     return c ? c.label : String(key);
   };
+  // Per groep: kopje, selectie, setter, categorieën, sleutel in een opgeslagen filtercombinatie.
   var vdGroepen = [
-    ['KvK', selectedKvk, setSelectedKvk, kvkCategories],
-    ['Grootte', selectedGrootte, setSelectedGrootte, grootteCategories],
-    ['Gemengd', selectedGemengd, setSelectedGemengd, gemengdCategories],
-    ['Splitsing', selectedHoofdsplitsing, setSelectedHoofdsplitsing, hoofdsplitsingCategories],
-    ['Herkomst', selectedHerkomst, setSelectedHerkomst, herkomstCategories],
-    ['Cluster', selectedCluster, setSelectedCluster, clusterCategories],
-    ['Typologie', selectedTypologie, setSelectedTypologie, null],
-    ['Eenheid', selectedEenheidtype, setSelectedEenheidtype, eenheidtypeCategories],
-    ['Bouwjaar', selectedBouwjaar, setSelectedBouwjaar, bouwjaarCategories],
-    ['Buurt', selectedBuurt, setSelectedBuurt, null],
-    ['Tijdvak', selectedTijdvak, setSelectedTijdvak, tijdvakCategories],
-    ['Warmte', selectedWarmte, setSelectedWarmte, warmteCategories],
-    ['Monument', selectedMonument, setSelectedMonument, monumentCategories],
-    ['Gezicht', selectedBeschermd, setSelectedBeschermd, beschermdCategories],
-    ['Grond', selectedErfpacht, setSelectedErfpacht, erfpachtCategories],
-    ['WOZ', selectedWoz, setSelectedWoz, wozCategories],
-    ['Gem. label', selectedGemLabel, setSelectedGemLabel, null],
-    ['Gespikkeld', selectedGespikkeld, setSelectedGespikkeld, gespikkeldCategories],
-    ['Corporatie', selectedCorpPct, setSelectedCorpPct, corpPctCategories],
-    ['Dossier', selectedDossierstatus, setSelectedDossierstatus, dossierstatusCategories],
-    ['Traject', selectedAdviestraject, setSelectedAdviestraject, null],
-    ['Bureau', selectedBureau, setSelectedBureau, null],
-    ['Begeleider', selectedProcesbegeleider, setSelectedProcesbegeleider, null],
-    ['Intake', selectedIntake, setSelectedIntake, null],
-    ['MWA', selectedMwa, setSelectedMwa, null],
-    ['Verdieping', selectedVerdieping, setSelectedVerdieping, null],
-    ['Uitvoering', selectedUitvoering, setSelectedUitvoering, null]
+    ['KvK', selectedKvk, setSelectedKvk, kvkCategories, 'kvk'],
+    ['Grootte', selectedGrootte, setSelectedGrootte, grootteCategories, 'grootte'],
+    ['Gemengd', selectedGemengd, setSelectedGemengd, gemengdCategories, 'gemengd'],
+    ['Splitsing', selectedHoofdsplitsing, setSelectedHoofdsplitsing, hoofdsplitsingCategories, 'splitsing'],
+    ['Herkomst', selectedHerkomst, setSelectedHerkomst, herkomstCategories, 'herkomst'],
+    ['Cluster', selectedCluster, setSelectedCluster, clusterCategories, 'cluster'],
+    ['Typologie', selectedTypologie, setSelectedTypologie, null, 'typologie'],
+    ['Eenheid', selectedEenheidtype, setSelectedEenheidtype, eenheidtypeCategories, 'eenheid'],
+    ['Bouwjaar', selectedBouwjaar, setSelectedBouwjaar, bouwjaarCategories, 'bouwjaar'],
+    ['Buurt', selectedBuurt, setSelectedBuurt, null, 'buurt'],
+    ['Tijdvak', selectedTijdvak, setSelectedTijdvak, tijdvakCategories, 'tijdvak'],
+    ['Warmte', selectedWarmte, setSelectedWarmte, warmteCategories, 'warmte'],
+    ['Monument', selectedMonument, setSelectedMonument, monumentCategories, 'monument'],
+    ['Gezicht', selectedBeschermd, setSelectedBeschermd, beschermdCategories, 'gezicht'],
+    ['Grond', selectedErfpacht, setSelectedErfpacht, erfpachtCategories, 'grond'],
+    ['WOZ', selectedWoz, setSelectedWoz, wozCategories, 'woz'],
+    ['Gem. label', selectedGemLabel, setSelectedGemLabel, null, 'gemLabel'],
+    ['Gespikkeld', selectedGespikkeld, setSelectedGespikkeld, gespikkeldCategories, 'gespikkeld'],
+    ['Corporatie', selectedCorpPct, setSelectedCorpPct, corpPctCategories, 'corporatie'],
+    ['Dossier', selectedDossierstatus, setSelectedDossierstatus, dossierstatusCategories, 'dossier'],
+    ['Traject', selectedAdviestraject, setSelectedAdviestraject, null, 'traject'],
+    ['Bureau', selectedBureau, setSelectedBureau, null, 'bureau'],
+    ['Begeleider', selectedProcesbegeleider, setSelectedProcesbegeleider, null, 'begeleider'],
+    ['Intake', selectedIntake, setSelectedIntake, null, 'intake'],
+    ['MWA', selectedMwa, setSelectedMwa, null, 'mwa'],
+    ['Verdieping', selectedVerdieping, setSelectedVerdieping, null, 'verdieping'],
+    ['Uitvoering', selectedUitvoering, setSelectedUitvoering, null, 'uitvoering']
   ];
   var vdActief = [];
   if (search && search.trim()) {
@@ -7100,6 +7151,78 @@ var App = () => {
     setDisplayCount(50);
   };
 
+  // ── Opgeslagen filtercombinaties als knoppen in de kop ────────────────
+  var _filterOpslagState = useState(leesFilterOpslag),
+    filterOpslag = _filterOpslagState[0],
+    setFilterOpslag = _filterOpslagState[1];
+  var _filterMenuState = useState(false),
+    showFilterMenu = _filterMenuState[0],
+    setShowFilterMenu = _filterMenuState[1];
+  var zetFilterOpslag = o => { schrijfFilterOpslag(o); setFilterOpslag(o); };
+  var combinaties = filterCombinaties(filterOpslag);
+  var huidigeFilters = () => {
+    var f = {};
+    vdGroepen.forEach(g => { if (g[1] && g[1].size) f[g[4]] = [...g[1]]; });
+    if (selectedNieuw) f.nieuw = true;
+    return f;
+  };
+  // Staat precies deze combinatie aan? Dan licht de knop op.
+  var isCombiActief = c => {
+    var f = c.filters || {};
+    if ((c.zoek || '') !== (search || '').trim()) return false;
+    if (!!f.nieuw !== !!selectedNieuw) return false;
+    return vdGroepen.every(g => {
+      var w = Array.isArray(f[g[4]]) ? f[g[4]] : [];
+      return w.length === g[1].size && w.every(v => g[1].has(v));
+    });
+  };
+  // Alles wordt vervangen, ook de dossierfilters, zodat je precies krijgt wat bewaard is.
+  var pasCombiToe = c => {
+    var f = c.filters || {};
+    vdGroepen.forEach(g => g[2](new Set(Array.isArray(f[g[4]]) ? f[g[4]] : [])));
+    setSelectedNieuw(!!f.nieuw);
+    if (c.wozJaar) setActiveWozJaar(String(c.wozJaar));
+    setSearch(c.zoek || '');
+    setParsedEmail(null);
+    setDisplayCount(50);
+  };
+  var wisAlles = () => {
+    vdGroepen.forEach(g => g[2](new Set()));
+    setSelectedNieuw(false);
+    setSearch('');
+    setDisplayCount(50);
+  };
+  var combiUitleg = c => {
+    var f = c.filters || {};
+    var delen = [];
+    if (c.zoek) delen.push('Zoek: “' + c.zoek + '”');
+    vdGroepen.forEach(g => {
+      var w = Array.isArray(f[g[4]]) ? f[g[4]] : [];
+      if (w.length) delen.push(g[0] + ': ' + w.map(k => vdLabelVan(g[3], k)).join(', '));
+    });
+    if (f.nieuw) delen.push('Nieuw in dataset');
+    return c.naam + '\n' + (delen.length ? delen.join('\n') : '(geen filters)')
+      + (c._bestand ? '\n\nUit config/filters.inc' : '');
+  };
+  var bewaarCombi = () => {
+    var naam = window.prompt('Naam voor deze filtercombinatie:');
+    naam = (naam || '').trim();
+    if (!naam) return;
+    if (combinaties.some(c => c.naam === naam) && !window.confirm('Er is al een filtercombinatie “' + naam + '”. Overschrijven?')) return;
+    var c = { naam: naam, filters: huidigeFilters() };
+    if (search && search.trim()) c.zoek = search.trim();
+    if (c.filters.woz) c.wozJaar = activeWozJaar;
+    var eigen = filterOpslag.eigen.filter(x => x.naam !== naam).concat([c]);
+    zetFilterOpslag({ eigen: eigen, verborgen: filterOpslag.verborgen.filter(n => n !== naam) });
+  };
+  var verwijderCombi = c => {
+    if (!window.confirm('Filtercombinatie “' + c.naam + '” verwijderen?')) return;
+    var uitBestand = FILTERS_BESTAND.some(x => x.naam === c.naam);
+    zetFilterOpslag({
+      eigen: filterOpslag.eigen.filter(x => x.naam !== c.naam),
+      verborgen: uitBestand && filterOpslag.verborgen.indexOf(c.naam) < 0 ? filterOpslag.verborgen.concat([c.naam]) : filterOpslag.verborgen
+    });
+  };
   // Handle item selection
   var handleSelectItem = useCallback(item => {
     setSelectedItem(item);
@@ -8746,7 +8869,64 @@ var App = () => {
     d: "M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6"
   }), /*#__PURE__*/React.createElement("path", {
     d: "M12 17h.01"
-  })), "Handleiding"), /*#__PURE__*/React.createElement("div", {
+  })), "Handleiding"), (combinaties.length > 0 || hasActiveFilters || !!(search && search.trim())) && /*#__PURE__*/React.createElement("div", {
+    className: "hidden lg:flex vd-combis",
+    role: "group",
+    "aria-label": "Opgeslagen filters"
+  }, combinaties.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "vd-combi-lijst"
+  }, combinaties.map(c => {
+    var actief = isCombiActief(c);
+    return /*#__PURE__*/React.createElement("button", {
+      key: c.naam,
+      type: "button",
+      className: "vd-combi" + (actief ? " is-actief" : ""),
+      "aria-pressed": actief,
+      onClick: () => actief ? wisAlles() : pasCombiToe(c),
+      title: combiUitleg(c) + (actief ? '\n\nKlik om de filters te wissen' : '')
+    }, c.naam);
+  })), (hasActiveFilters || !!(search && search.trim())) && !combinaties.some(isCombiActief) && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "vd-combi vd-combi-nieuw",
+    onClick: bewaarCombi,
+    title: "De filters die nu aanstaan bewaren als knop"
+  }, "+ Filters bewaren"), combinaties.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "relative",
+    style: { flexShrink: 0 }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "vd-combi vd-combi-menu",
+    onClick: () => setShowFilterMenu(!showFilterMenu),
+    title: "Opgeslagen filters beheren",
+    "aria-label": "Opgeslagen filters beheren",
+    "aria-expanded": showFilterMenu
+  }, "⋯"), showFilterMenu && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-10",
+    onClick: () => setShowFilterMenu(false)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "absolute left-0 top-full mt-1 pa-card py-1 z-20 min-w-[260px] vd-combi-paneel"
+  }, combinaties.map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.naam,
+    className: "vd-combi-rij",
+    title: combiUitleg(c)
+  }, /*#__PURE__*/React.createElement("span", { className: "vd-combi-naam" }, c.naam),
+    c._bestand && /*#__PURE__*/React.createElement("span", { className: "vd-combi-bron" }, "team"),
+    /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "vd-combi-weg",
+      onClick: () => verwijderCombi(c),
+      title: c._bestand ? 'Verbergen (staat in config/filters.inc; bij een nieuwe export valt hij weg)' : 'Verwijderen',
+      "aria-label": c.naam + ' verwijderen'
+    }, "×"))), /*#__PURE__*/React.createElement("div", {
+    className: "vd-combi-scheiding"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50",
+    onClick: () => { exporteerFiltersInc(combinaties); setShowFilterMenu(false); }
+  }, /*#__PURE__*/React.createElement("span", { className: "font-mono text-[10px]" }, "filters.inc"), " downloaden"), /*#__PURE__*/React.createElement("div", {
+    className: "px-3 pb-2 text-[10px] text-pa-gray-500",
+    style: { lineHeight: 1.4 }
+  }, "Zet het bestand in config/ naast vve_dashboard.html, dan ziet het hele team deze knoppen."))))), /*#__PURE__*/React.createElement("div", {
     className: "hidden lg:flex items-center gap-2",
     style: {
       marginLeft: 'auto',
@@ -9892,6 +10072,10 @@ var App = () => {
         )
       ),
       /*#__PURE__*/React.createElement(P, null, "Klik op Wis filters (verschijnt zodra een filter actief is) om alles in één keer te resetten."),
+
+      /*#__PURE__*/React.createElement(H3, null, "Filters bewaren"),
+      /*#__PURE__*/React.createElement(P, null, "Staan er filters aan, dan verschijnt in de groene kop + Filters bewaren. Geef de combinatie een naam en hij staat voortaan als knop naast Handleiding. Een klik zet precies die filters (en zoekterm) aan; nog een klik wist ze weer. De knop van de combinatie die aanstaat is wit."),
+      /*#__PURE__*/React.createElement(P, null, "Via \u22EF verwijder je een combinatie of download je ze allemaal als filters.inc. Zet dat bestand in config/ naast vve_dashboard.html, dan ziet het hele team dezelfde knoppen (gemarkeerd met team). Eigen combinaties staan alleen in deze browser."),
 
       /*#__PURE__*/React.createElement(H3, null, "Warmte en tijdvak"),
       /*#__PURE__*/React.createElement(P, null, "Deze twee filters komen uit het warmteprogramma van de gemeente en zijn gekoppeld op pandniveau — niet op buurt. Twee VvE's in dezelfde straat kunnen dus verschillende waarden hebben."),

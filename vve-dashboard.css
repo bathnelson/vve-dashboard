@@ -428,3 +428,36 @@ html.vd-nieuw .vd-chip-wis {
 .vd-locatie-veld { flex: 1; min-width: 0; padding: 2px 6px; border: 1px solid #d5dcd8; border-radius: 4px; font-size: 12px; background: #fff; }
 .vd-locatie-veld:focus { outline: 2px solid #2e7d4f; outline-offset: -1px; }
 .vd-locatie-veld:invalid:not(:placeholder-shown) { border-color: #c0392b; }
+
+/* Opgeslagen filtercombinaties: knoppen in de groene kop, naast Start en
+   Handleiding. Te veel knoppen? Dan scrolt de rij, het menu blijft staan. */
+.vd-combis { align-items: center; gap: 4px; min-width: 0; flex: 0 1 auto; }
+.vd-combi-lijst {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.vd-combi-lijst::-webkit-scrollbar { display: none; }
+.vd-combi {
+  flex-shrink: 0; padding: 3px 9px; border: 1px solid transparent; border-radius: 2px;
+  background: rgba(255,255,255,0.14); color: #fff;
+  font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1.4; white-space: nowrap; cursor: pointer;
+}
+.vd-combi:hover { background: rgba(255,255,255,0.26); }
+.vd-combi:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.vd-combi.is-actief { background: #fff; color: var(--vd-accent-donker); }
+.vd-combi-nieuw { background: transparent; border: 1px dashed rgba(255,255,255,0.55); font-weight: 400; }
+.vd-combi-menu { padding: 3px 7px; letter-spacing: 1px; }
+.vd-combi-paneel { color: #24292f; font-weight: 400; }
+.vd-combi-rij { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; font-size: 12px; }
+.vd-combi-rij:hover { background: #f5f7f6; }
+.vd-combi-naam { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vd-combi-bron {
+  font-size: 10px; color: var(--vd-accent-donker); background: var(--vd-accent-licht);
+  border-radius: 8px; padding: 0 6px;
+}
+.vd-combi-weg {
+  width: 20px; height: 20px; border: 0; border-radius: 50%; background: none;
+  color: #6b7280; font-size: 15px; line-height: 1; cursor: pointer;
+}
+.vd-combi-weg:hover { background: #fde2e1; color: #b42318; }
+.vd-combi-scheiding { border-top: 1px solid #e5e7eb; margin: 4px 0; }
