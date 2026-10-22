@@ -429,28 +429,35 @@ html.vd-nieuw .vd-chip-wis {
 .vd-locatie-veld:focus { outline: 2px solid #2e7d4f; outline-offset: -1px; }
 .vd-locatie-veld:invalid:not(:placeholder-shown) { border-color: #c0392b; }
 
-/* Opgeslagen filtercombinaties: knoppen in de groene kop, naast Start en
-   Handleiding. Te veel knoppen? Dan scrolt de rij, het menu blijft staan. */
-.vd-combis { align-items: center; gap: 4px; min-width: 0; flex: 0 1 auto; }
+/* Opgeslagen filtercombinaties: knoppen in de witte balk, tussen Details en
+   Acties enerzijds en Export anderzijds. Wat niet past verdwijnt achter +N. */
+.vd-combis { align-items: center; gap: 4px; min-width: 0; flex: 1 1 0; }
 .vd-combi-lijst {
-  display: flex; align-items: center; gap: 4px; min-width: 0;
-  overflow-x: auto; scrollbar-width: none;
+  position: relative; display: flex; align-items: center; gap: 4px;
+  min-width: 0; flex: 0 1 auto; overflow: hidden;
 }
-.vd-combi-lijst::-webkit-scrollbar { display: none; }
 .vd-combi {
-  flex-shrink: 0; padding: 3px 9px; border: 1px solid transparent; border-radius: 2px;
-  background: rgba(255,255,255,0.14); color: #fff;
-  font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1.4; white-space: nowrap; cursor: pointer;
+  flex-shrink: 0; padding: 3px 9px; border: 1px solid #d0d0d0; border-radius: 12px;
+  background: #fff; color: #404040;
+  font-family: inherit; font-size: 11px; line-height: 1.4; white-space: nowrap; cursor: pointer;
 }
-.vd-combi:hover { background: rgba(255,255,255,0.26); }
-.vd-combi:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
-.vd-combi.is-actief { background: #fff; color: var(--vd-accent-donker); }
-.vd-combi-nieuw { background: transparent; border: 1px dashed rgba(255,255,255,0.55); font-weight: 400; }
-.vd-combi-menu { padding: 3px 7px; letter-spacing: 1px; }
+.vd-combi:hover { border-color: var(--vd-accent); color: var(--vd-accent-donker); }
+.vd-combi:focus-visible { outline: 2px solid var(--vd-accent); outline-offset: 1px; }
+.vd-combi.is-actief { background: var(--vd-accent); border-color: var(--vd-accent); color: #fff; font-weight: 600; }
+.vd-combi.is-weg { visibility: hidden; }
+.vd-combi-nieuw { border-style: dashed; color: #606060; }
+.vd-combi-menu { padding: 3px 8px; }
+.vd-combi-menu.is-meer { font-weight: 600; color: var(--vd-accent-donker); }
 .vd-combi-paneel { color: #24292f; font-weight: 400; }
-.vd-combi-rij { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; font-size: 12px; }
+.vd-combi-paneelkop { padding: 4px 12px 2px; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; }
+.vd-combi-rij { display: flex; align-items: center; gap: 6px; padding: 0 6px 0 0; font-size: 12px; }
 .vd-combi-rij:hover { background: #f5f7f6; }
-.vd-combi-naam { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vd-combi-rij.is-actief .vd-combi-naam { font-weight: 600; color: var(--vd-accent-donker); }
+.vd-combi-naam {
+  flex: 1; min-width: 0; padding: 5px 0 5px 12px; border: 0; background: none; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .vd-combi-bron {
   font-size: 10px; color: var(--vd-accent-donker); background: var(--vd-accent-licht);
   border-radius: 8px; padding: 0 6px;
@@ -461,3 +468,28 @@ html.vd-nieuw .vd-chip-wis {
 }
 .vd-combi-weg:hover { background: #fde2e1; color: #b42318; }
 .vd-combi-scheiding { border-top: 1px solid #e5e7eb; margin: 4px 0; }
+
+/* Acties voor de geselecteerde VvE: één knop in de witte balk en hetzelfde
+   menu onder de rechtermuisknop op een rij. */
+.vd-toolknop {
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0; white-space: nowrap;
+  padding: 3px 8px; border: 1px solid #d0d0d0; background: #fff;
+  font-family: inherit; font-size: 11px; color: #606060; cursor: pointer;
+}
+.vd-toolknop:hover, .vd-toolknop.is-aan { background: #e8f4ee; color: var(--vd-accent); }
+.vd-actiemenu {
+  position: fixed; z-index: 61; width: 212px; padding: 4px 0;
+  background: #fff; border: 1px solid #d1d5db; box-shadow: 0 6px 18px rgba(0,0,0,.14);
+  color: #24292f; font-size: 12px;
+}
+.vd-actiemenu-kop {
+  padding: 4px 12px 6px; margin-bottom: 4px; border-bottom: 1px solid #eef0ef;
+  font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vd-actiemenu-item {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  padding: 6px 12px; border: 0; background: none; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+}
+.vd-actiemenu-item:hover, .vd-actiemenu-item:focus-visible { background: #f1f5f3; outline: none; }
+.vd-actiemenu-lab { font-size: 10px; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0 6px; }

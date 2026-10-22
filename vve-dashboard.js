@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 67;
+var APP_BUILD = 68;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -1084,6 +1084,45 @@ var exporteerFiltersInc = combinaties => {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   return schoon.length;
+};
+// ── Acties op een VvE ─────────────────────────────────────────────────
+// Dezelfde acties staan onder Acties in de witte balk en in het menu onder de
+// rechtermuisknop op een rij. Het detailpaneel voert ze uit (het weet welke VvE
+// geselecteerd is); het rechtermuisknopmenu vraagt erom met het event 'vve-actie'.
+var VVE_ACTIES = [
+  { key: 'bewerken', label: 'Bewerken', als: 'dossier' },
+  { key: 'crm', label: 'CRM openen', als: 'crm' },
+  { key: 'kopieer', label: 'Samenvatting kopiëren' },
+  { key: 'startdoc', label: 'Startdocument' },
+  { key: 'herbouw', label: 'Herbouwwaarde', lab: true }
+];
+var vveActiesVoor = (dossier, crm) => VVE_ACTIES.filter(a => !a.als || (a.als === 'dossier' ? dossier : crm));
+// Klein menu op een vaste plek op het scherm (x, y), boven alles uit.
+var VveActieMenu = ({ x, y, kop, acties, onKies, onSluit }) => {
+  useEffect(() => {
+    var esc = e => { if (e.key === 'Escape') onSluit(); };
+    window.addEventListener('keydown', esc);
+    window.addEventListener('resize', onSluit);
+    return () => { window.removeEventListener('keydown', esc); window.removeEventListener('resize', onSluit); };
+  }, [onSluit]);
+  var links = Math.max(4, Math.min(x, window.innerWidth - 216));
+  var boven = Math.max(4, Math.min(y, window.innerHeight - (acties.length * 30 + (kop ? 30 : 0) + 12)));
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0",
+    style: { zIndex: 60 },
+    onClick: onSluit,
+    onContextMenu: e => { e.preventDefault(); onSluit(); }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "vd-actiemenu",
+    role: "menu",
+    style: { left: links, top: boven }
+  }, kop && /*#__PURE__*/React.createElement("div", { className: "vd-actiemenu-kop" }, kop), acties.map(a => /*#__PURE__*/React.createElement("button", {
+    key: a.key,
+    type: "button",
+    role: "menuitem",
+    className: "vd-actiemenu-item",
+    onClick: () => { onSluit(); onKies(a.key); }
+  }, a.label, a.lab && /*#__PURE__*/React.createElement("span", { className: "vd-actiemenu-lab" }, "Lab"))))), document.body);
 };
 var alleenMetVve = function (rijen) {
   return rijen.filter(function (r) { return !!r.vve_identificatie && !r._handmatig; });
@@ -2632,7 +2671,8 @@ var VveGroupCard = ({
   colTemplate,
   dossierVisible,
   gespikkeldLookup,
-  activeWozJaar
+  activeWozJaar,
+  onRowMenu
 }) => {
   var cardRef = useRef(null);
   var crmRecord = crmConnected ? getCrmForVve(vve.vve_identificatie) : null;
@@ -2662,6 +2702,14 @@ var VveGroupCard = ({
     var isDesktop = window.innerWidth >= 1024;
     if (firstAddress && isDesktop) onSelectItem(firstAddress);
   };
+  // Rechtermuisknop: VvE selecteren en de acties tonen. Het menu van de browser
+  // heeft hier niets te bieden. Op een smal scherm blijft het zoals het was.
+  var handleRowMenu = e => {
+    if (!onRowMenu || !firstAddress || window.innerWidth < 1024) return;
+    e.preventDefault();
+    onSelectItem(firstAddress);
+    onRowMenu(e.clientX, e.clientY, vve.statutairenaam || vve.vve_identificatie);
+  };
   var noKvk = !getKvkSource(vve, enrichment);
   return /*#__PURE__*/React.createElement("div", {
     ref: cardRef
@@ -2670,7 +2718,8 @@ var VveGroupCard = ({
     style: {
       gridTemplateColumns: colTemplate
     },
-    onClick: handleRowClick
+    onClick: handleRowClick,
+    onContextMenu: handleRowMenu
   }, /*#__PURE__*/React.createElement("div", {
     className: "xl-rownum"
   }, rowIndex), /*#__PURE__*/React.createElement("div", {
@@ -3675,6 +3724,19 @@ var DetailPanel = ({
     .catch(function(){});
   }, [item?.vve_identificatie]);
   var liggingInfo = useMemo(() => getLiggingInfo(item), [item]);
+  var _actieMenuState = useState(null),
+    actieMenuRect = _actieMenuState[0],
+    setActieMenuRect = _actieMenuState[1];
+  var sluitActieMenu = useCallback(() => setActieMenuRect(null), []);
+  // Het rechtermuisknopmenu op een rij vraagt via 'vve-actie' om een actie.
+  // Alleen het paneel met de knoppen in de witte balk luistert, anders gaat
+  // een venster twee keer open.
+  useEffect(() => {
+    if (!showToolbarPortal) return;
+    var luister = e => { var doe = actieUitvoeren && actieUitvoeren[e.detail]; if (doe) doe(); };
+    window.addEventListener('vve-actie', luister);
+    return () => window.removeEventListener('vve-actie', luister);
+  });
 
   if (!item) return null;
   var grootte = getGrootteLabel(item.aantal_woon_adr_in_vve);
@@ -4111,7 +4173,40 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
   })), "Herbouwwaarde")), document.body)];
 
 
+  var actieUitvoeren = {
+    bewerken: () => setShowEditModal(true),
+    crm: () => setShowCrmModal(true),
+    kopieer: () => setShowSummaryModal(true),
+    startdoc: openStartdocument,
+    herbouw: () => setShowHerbouwModal(true)
+  };
   var toolbarTarget = showToolbarPortal && typeof document !== 'undefined' ? document.getElementById('vve-toolbar-actions') : null;
+  // In de witte balk staan de acties achter één knop, zodat er ruimte blijft
+  // voor de opgeslagen filters. Op een rij werkt ook de rechtermuisknop.
+  var actieKnop = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "vd-toolknop" + (actieMenuRect ? " is-aan" : ""),
+    onClick: e => { var r = e.currentTarget.getBoundingClientRect(); setActieMenuRect(actieMenuRect ? null : r); },
+    title: "Acties voor deze VvE (ook met de rechtermuisknop op een rij)",
+    "aria-haspopup": "menu",
+    "aria-expanded": !!actieMenuRect
+  }, "Acties", /*#__PURE__*/React.createElement("svg", {
+    style: { width: 9, height: 9 },
+    fill: "none",
+    stroke: "currentColor",
+    viewBox: "0 0 24 24"
+  }, /*#__PURE__*/React.createElement("path", {
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: 2,
+    d: "M19 9l-7 7-7-7"
+  }))), actieMenuRect && /*#__PURE__*/React.createElement(VveActieMenu, {
+    x: actieMenuRect.left,
+    y: actieMenuRect.bottom + 2,
+    acties: vveActiesVoor(dossierVisible, crmConnected),
+    onKies: key => actieUitvoeren[key](),
+    onSluit: sluitActieMenu
+  }));
   return /*#__PURE__*/React.createElement("div", {
     className: "bg-white"
   }, /*#__PURE__*/React.createElement("div", {
@@ -4142,7 +4237,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     strokeLinejoin: "round",
     strokeWidth: 2,
     d: "M6 18L18 6M6 6l12 12"
-  }))))), toolbarTarget && ReactDOM.createPortal(/*#__PURE__*/React.createElement(React.Fragment, null, actionButtons), toolbarTarget), /*#__PURE__*/React.createElement("div", {
+  }))))), toolbarTarget && ReactDOM.createPortal(actieKnop, toolbarTarget), /*#__PURE__*/React.createElement("div", {
     className: "px-3 py-2 border-b border-pa-gray-200"
   }, /*#__PURE__*/React.createElement("h2", {
     className: "font-medium text-pa-gray-800"
@@ -6938,7 +7033,8 @@ var App = () => {
   var dossierFacetCounts = useMemo(() => {
     var fields = {
       adviestraject: ADVIESTRAJECT_OPTIES,
-      bureau: BUREAU_OPTIES,
+      // '' is 'Geen': VvE's zonder bureau
+      bureau: BUREAU_OPTIES.concat(['']),
       intake: INTAKE_OPTIES,
       mwa: FASE_OPTIES,
       verdieping: FASE_OPTIES,
@@ -7086,7 +7182,7 @@ var App = () => {
     ['Corporatie', selectedCorpPct, setSelectedCorpPct, corpPctCategories, 'corporatie'],
     ['Dossier', selectedDossierstatus, setSelectedDossierstatus, dossierstatusCategories, 'dossier'],
     ['Traject', selectedAdviestraject, setSelectedAdviestraject, null, 'traject'],
-    ['Bureau', selectedBureau, setSelectedBureau, null, 'bureau'],
+    ['Bureau', selectedBureau, setSelectedBureau, [{ key: '', label: 'Geen' }], 'bureau'],
     ['Begeleider', selectedProcesbegeleider, setSelectedProcesbegeleider, null, 'begeleider'],
     ['Intake', selectedIntake, setSelectedIntake, null, 'intake'],
     ['MWA', selectedMwa, setSelectedMwa, null, 'mwa'],
@@ -7151,7 +7247,14 @@ var App = () => {
     setDisplayCount(50);
   };
 
-  // ── Opgeslagen filtercombinaties als knoppen in de kop ────────────────
+  // Rechtermuisknopmenu op een VvE-rij
+  var _rijMenuState = useState(null),
+    rijMenu = _rijMenuState[0],
+    setRijMenu = _rijMenuState[1];
+  var openRijMenu = useCallback((x, y, naam) => setRijMenu({ x: x, y: y, naam: naam }), []);
+  var sluitRijMenu = useCallback(() => setRijMenu(null), []);
+
+  // ── Opgeslagen filtercombinaties als knoppen in de witte balk ─────────
   var _filterOpslagState = useState(leesFilterOpslag),
     filterOpslag = _filterOpslagState[0],
     setFilterOpslag = _filterOpslagState[1];
@@ -7160,6 +7263,36 @@ var App = () => {
     setShowFilterMenu = _filterMenuState[1];
   var zetFilterOpslag = o => { schrijfFilterOpslag(o); setFilterOpslag(o); };
   var combinaties = filterCombinaties(filterOpslag);
+  // Hoeveel knoppen passen er in de balk? De rest staat onder +N in het menu.
+  // De lijst krijgt de breedte van de knoppen die passen, zodat +N er direct
+  // achter staat. We meten de hele rij, want de lijst zelf krimpt mee.
+  var combiRijRef = useRef(null);
+  var _combiPastState = useState({ n: Infinity, breed: null }),
+    combiMaat = _combiPastState[0],
+    setCombiMaat = _combiPastState[1];
+  var combiPast = combiMaat.n;
+  var meetCombis = () => {
+    var rij = combiRijRef.current;
+    var lijst = rij && rij.firstChild;
+    if (!lijst || !rij.clientWidth) return;
+    var rest = 0;
+    for (var k of rij.children) if (k !== lijst) rest += k.offsetWidth + 4;
+    var ruimte = rij.clientWidth - rest, n = 0, breed = 0;
+    for (var b of lijst.children) {
+      if (b.offsetLeft + b.offsetWidth > ruimte) break;
+      n++;
+      breed = b.offsetLeft + b.offsetWidth;
+    }
+    setCombiMaat(m => m.n === n && m.breed === breed ? m : { n: n, breed: breed });
+  };
+  useEffect(meetCombis);
+  useEffect(() => {
+    var rij = combiRijRef.current;
+    if (!rij || typeof ResizeObserver === 'undefined') return;
+    var ro = new ResizeObserver(() => meetCombis());
+    ro.observe(rij);
+    return () => ro.disconnect();
+  }, []);
   var huidigeFilters = () => {
     var f = {};
     vdGroepen.forEach(g => { if (g[1] && g[1].size) f[g[4]] = [...g[1]]; });
@@ -8869,64 +9002,7 @@ var App = () => {
     d: "M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6"
   }), /*#__PURE__*/React.createElement("path", {
     d: "M12 17h.01"
-  })), "Handleiding"), (combinaties.length > 0 || hasActiveFilters || !!(search && search.trim())) && /*#__PURE__*/React.createElement("div", {
-    className: "hidden lg:flex vd-combis",
-    role: "group",
-    "aria-label": "Opgeslagen filters"
-  }, combinaties.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "vd-combi-lijst"
-  }, combinaties.map(c => {
-    var actief = isCombiActief(c);
-    return /*#__PURE__*/React.createElement("button", {
-      key: c.naam,
-      type: "button",
-      className: "vd-combi" + (actief ? " is-actief" : ""),
-      "aria-pressed": actief,
-      onClick: () => actief ? wisAlles() : pasCombiToe(c),
-      title: combiUitleg(c) + (actief ? '\n\nKlik om de filters te wissen' : '')
-    }, c.naam);
-  })), (hasActiveFilters || !!(search && search.trim())) && !combinaties.some(isCombiActief) && /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "vd-combi vd-combi-nieuw",
-    onClick: bewaarCombi,
-    title: "De filters die nu aanstaan bewaren als knop"
-  }, "+ Filters bewaren"), combinaties.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "relative",
-    style: { flexShrink: 0 }
-  }, /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "vd-combi vd-combi-menu",
-    onClick: () => setShowFilterMenu(!showFilterMenu),
-    title: "Opgeslagen filters beheren",
-    "aria-label": "Opgeslagen filters beheren",
-    "aria-expanded": showFilterMenu
-  }, "⋯"), showFilterMenu && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-10",
-    onClick: () => setShowFilterMenu(false)
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute left-0 top-full mt-1 pa-card py-1 z-20 min-w-[260px] vd-combi-paneel"
-  }, combinaties.map(c => /*#__PURE__*/React.createElement("div", {
-    key: c.naam,
-    className: "vd-combi-rij",
-    title: combiUitleg(c)
-  }, /*#__PURE__*/React.createElement("span", { className: "vd-combi-naam" }, c.naam),
-    c._bestand && /*#__PURE__*/React.createElement("span", { className: "vd-combi-bron" }, "team"),
-    /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      className: "vd-combi-weg",
-      onClick: () => verwijderCombi(c),
-      title: c._bestand ? 'Verbergen (staat in config/filters.inc; bij een nieuwe export valt hij weg)' : 'Verwijderen',
-      "aria-label": c.naam + ' verwijderen'
-    }, "×"))), /*#__PURE__*/React.createElement("div", {
-    className: "vd-combi-scheiding"
-  }), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50",
-    onClick: () => { exporteerFiltersInc(combinaties); setShowFilterMenu(false); }
-  }, /*#__PURE__*/React.createElement("span", { className: "font-mono text-[10px]" }, "filters.inc"), " downloaden"), /*#__PURE__*/React.createElement("div", {
-    className: "px-3 pb-2 text-[10px] text-pa-gray-500",
-    style: { lineHeight: 1.4 }
-  }, "Zet het bestand in config/ naast vve_dashboard.html, dan ziet het hele team deze knoppen."))))), /*#__PURE__*/React.createElement("div", {
+  })), "Handleiding"), /*#__PURE__*/React.createElement("div", {
     className: "hidden lg:flex items-center gap-2",
     style: {
       marginLeft: 'auto',
@@ -9019,10 +9095,7 @@ var App = () => {
       display: 'flex',
       alignItems: 'center',
       gap: 4,
-      position: 'absolute',
-      left: '50%',
-      top: '50%',
-      transform: 'translate(-50%, -50%)'
+      flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement("button", {
     className: "hidden lg:flex",
@@ -9056,6 +9129,72 @@ var App = () => {
     strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2,
     d: "M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
   })), "Details")), /*#__PURE__*/React.createElement("div", {
+    className: "hidden lg:flex vd-combis",
+    role: "group",
+    "aria-label": "Opgeslagen filters",
+    ref: combiRijRef
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "vd-combi-lijst",
+    style: { width: combiMaat.breed == null ? undefined : combiMaat.breed }
+  }, combinaties.map((c, i) => {
+    var actief = isCombiActief(c);
+    return /*#__PURE__*/React.createElement("button", {
+      key: c.naam,
+      type: "button",
+      className: "vd-combi" + (actief ? " is-actief" : "") + (i >= combiPast ? " is-weg" : ""),
+      "aria-pressed": actief,
+      tabIndex: i >= combiPast ? -1 : 0,
+      onClick: () => actief ? wisAlles() : pasCombiToe(c),
+      title: combiUitleg(c) + (actief ? '\n\nKlik om de filters te wissen' : '')
+    }, c.naam);
+  })), (hasActiveFilters || !!(search && search.trim())) && !combinaties.some(isCombiActief) && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "vd-combi vd-combi-nieuw",
+    onClick: bewaarCombi,
+    title: "De filters die nu aanstaan bewaren als knop"
+  }, "+ Filters bewaren"), combinaties.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "relative",
+    style: { flexShrink: 0 }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "vd-combi vd-combi-menu" + (combinaties.length > combiPast ? " is-meer" : ""),
+    onClick: () => setShowFilterMenu(!showFilterMenu),
+    title: combinaties.length > combiPast ? (combinaties.length - combiPast) + ' opgeslagen filters passen niet in de balk' : "Opgeslagen filters beheren",
+    "aria-label": "Opgeslagen filters beheren",
+    "aria-expanded": showFilterMenu
+  }, combinaties.length > combiPast ? '+' + (combinaties.length - combiPast) : "⋯"), showFilterMenu && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-10",
+    onClick: () => setShowFilterMenu(false)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "absolute left-0 top-full mt-1 pa-card py-1 z-20 min-w-[260px] vd-combi-paneel"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "vd-combi-paneelkop"
+  }, "Opgeslagen filters"), combinaties.map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.naam,
+    className: "vd-combi-rij" + (isCombiActief(c) ? " is-actief" : ""),
+    title: combiUitleg(c)
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "vd-combi-naam",
+    onClick: () => { isCombiActief(c) ? wisAlles() : pasCombiToe(c); setShowFilterMenu(false); }
+  }, c.naam),
+    c._bestand && /*#__PURE__*/React.createElement("span", { className: "vd-combi-bron" }, "team"),
+    /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      className: "vd-combi-weg",
+      onClick: () => verwijderCombi(c),
+      title: c._bestand ? 'Verbergen (staat in config/filters.inc; bij een nieuwe export valt hij weg)' : 'Verwijderen',
+      "aria-label": c.naam + ' verwijderen'
+    }, "×"))), /*#__PURE__*/React.createElement("div", {
+    className: "vd-combi-scheiding"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50",
+    onClick: () => { exporteerFiltersInc(combinaties); setShowFilterMenu(false); }
+  }, /*#__PURE__*/React.createElement("span", { className: "font-mono text-[10px]" }, "filters.inc"), " downloaden"), /*#__PURE__*/React.createElement("div", {
+    className: "px-3 pb-2 text-[10px] text-pa-gray-500",
+    style: { lineHeight: 1.4 }
+  }, "Zet het bestand in config/ naast vve_dashboard.html, dan ziet het hele team deze knoppen."))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -10074,8 +10213,8 @@ var App = () => {
       /*#__PURE__*/React.createElement(P, null, "Klik op Wis filters (verschijnt zodra een filter actief is) om alles in één keer te resetten."),
 
       /*#__PURE__*/React.createElement(H3, null, "Filters bewaren"),
-      /*#__PURE__*/React.createElement(P, null, "Staan er filters aan, dan verschijnt in de groene kop + Filters bewaren. Geef de combinatie een naam en hij staat voortaan als knop naast Handleiding. Een klik zet precies die filters (en zoekterm) aan; nog een klik wist ze weer. De knop van de combinatie die aanstaat is wit."),
-      /*#__PURE__*/React.createElement(P, null, "Via \u22EF verwijder je een combinatie of download je ze allemaal als filters.inc. Zet dat bestand in config/ naast vve_dashboard.html, dan ziet het hele team dezelfde knoppen (gemarkeerd met team). Eigen combinaties staan alleen in deze browser."),
+      /*#__PURE__*/React.createElement(P, null, "Staan er filters aan, dan verschijnt in de witte balk + Filters bewaren. Geef de combinatie een naam en hij staat voortaan als knop in die balk. Een klik zet precies die filters (en zoekterm) aan; nog een klik wist ze weer. De knop van de combinatie die aanstaat is wit."),
+      /*#__PURE__*/React.createElement(P, null, "Passen niet alle knoppen in de balk, dan staat de rest onder +N. Via dat menu (of \u22EF) kies of verwijder je een combinatie of download je ze allemaal als filters.inc. Zet dat bestand in config/ naast vve_dashboard.html, dan ziet het hele team dezelfde knoppen (gemarkeerd met team). Eigen combinaties staan alleen in deze browser."),
 
       /*#__PURE__*/React.createElement(H3, null, "Warmte en tijdvak"),
       /*#__PURE__*/React.createElement(P, null, "Deze twee filters komen uit het warmteprogramma van de gemeente en zijn gekoppeld op pandniveau — niet op buurt. Twee VvE's in dezelfde straat kunnen dus verschillende waarden hebben."),
@@ -10108,6 +10247,8 @@ var App = () => {
         )
       ),
       /*#__PURE__*/React.createElement(Tip, null, /*#__PURE__*/React.createElement(Kbd, null, "Esc"), " sluit het paneel altijd direct, ongeacht de huidige stand."),
+      /*#__PURE__*/React.createElement(H3, null, "Acties"),
+      /*#__PURE__*/React.createElement(P, null, "Bewerken, CRM, samenvatting kopi\u00EBren, Startdocument en Herbouwwaarde staan onder de knop Acties in de witte balk. Sneller: klik met de rechtermuisknop op een VvE in de lijst. Die VvE wordt dan geselecteerd en je kiest de actie direct."),
       /*#__PURE__*/React.createElement(H3, null, "Tabs in het detailpaneel"),
       /*#__PURE__*/React.createElement(Table, null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement(Th, null, "Tab"), /*#__PURE__*/React.createElement(Th, null, "Inhoud"))),
         /*#__PURE__*/React.createElement("tbody", null,
@@ -10633,9 +10774,9 @@ var App = () => {
       setSelectedBureau(new Set());
       setDisplayCount(50);
     }
-  }), BUREAU_OPTIES.map(opt => /*#__PURE__*/React.createElement(FacetOption, {
-    key: opt,
-    label: opt,
+  }), BUREAU_OPTIES.concat(['']).map(opt => /*#__PURE__*/React.createElement(FacetOption, {
+    key: opt || '_geen',
+    label: opt || 'Geen',
     count: showVveCounts ? dossierFacetCounts.bureau?.vves?.[opt] || 0 : dossierFacetCounts.bureau?.addresses?.[opt] || 0,
     active: selectedBureau.has(opt),
     onClick: () => toggleSelection(setSelectedBureau, opt)
@@ -11235,9 +11376,9 @@ var App = () => {
       setSelectedBureau(new Set());
       setDisplayCount(50);
     }
-  }), BUREAU_OPTIES.map(opt => /*#__PURE__*/React.createElement(FacetOption, {
-    key: opt,
-    label: opt,
+  }), BUREAU_OPTIES.concat(['']).map(opt => /*#__PURE__*/React.createElement(FacetOption, {
+    key: opt || '_geen',
+    label: opt || 'Geen',
     count: showVveCounts ? dossierFacetCounts.bureau?.vves?.[opt] || 0 : dossierFacetCounts.bureau?.addresses?.[opt] || 0,
     active: selectedBureau.has(opt),
     onClick: () => toggleSelection(setSelectedBureau, opt)
@@ -11759,8 +11900,17 @@ var App = () => {
     colTemplate: xlColTemplate,
     dossierVisible: dossierVisible,
     gespikkeldLookup: gespikkeldLookup,
-    activeWozJaar: activeWozJaar
-  })), /*#__PURE__*/React.createElement("div", {
+    activeWozJaar: activeWozJaar,
+    onRowMenu: openRijMenu
+  })), rijMenu && /*#__PURE__*/React.createElement(VveActieMenu, {
+    x: rijMenu.x,
+    y: rijMenu.y,
+    kop: rijMenu.naam,
+    acties: vveActiesVoor(dossierVisible, crmEnabled && crmConnected),
+    // Even wachten: het detailpaneel moet de net geselecteerde VvE al hebben.
+    onKies: key => setTimeout(() => window.dispatchEvent(new CustomEvent('vve-actie', { detail: key })), 0),
+    onSluit: sluitRijMenu
+  }), /*#__PURE__*/React.createElement("div", {
     ref: sentinelRef,
     style: {
       height: 1
