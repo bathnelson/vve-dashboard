@@ -842,7 +842,7 @@ var _React = React,
   useDeferredValue = _React.useDeferredValue;
 
 // === Build & Versioning ===
-var APP_BUILD = 70;
+var APP_BUILD = 71;
 
 // Een KvK-nummer opent bij een klik de bestelpagina van dat nummer op kvk.nl.
 function kvkBestelUrl(nr) {
@@ -1200,8 +1200,8 @@ var HELPERS_URL = (typeof HELPERS_BASIS !== 'undefined' ? HELPERS_BASIS : 'https
 HELPERS_URL = typeof HELPERS_URL === 'string' ? HELPERS_URL.replace(/\/+$/, '') : '';
 // Link naar de startpagina, alleen als STARTPAGINA_URL in config/team.inc staat.
 var STARTPAGINA_LINK = (typeof STARTPAGINA_URL === 'string' && STARTPAGINA_URL) ? STARTPAGINA_URL : '';
-var APP_BUILD_DATE = '2026-09-03';
-var APP_EXPIRY_DAYS = 58;
+var APP_BUILD_DATE = '2026-11-01';
+var APP_EXPIRY_DAYS = 61;
 var _S = 'hrlm-vve';
 var _K = d => {
   var h = 0;
