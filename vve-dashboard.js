@@ -6348,6 +6348,25 @@ var App = () => {
     min: 100,
     max: 100
   }];
+  // Voor de VvE-export: gespikkeld, aandeel en corporatie uit data/gespikkeld.inc.
+  // VvE's die daar niet in staan blijven leeg: niet bekend, wat niet hetzelfde is als 0%.
+  var corporatieExport = vveId => {
+    var entry = gespikkeldLookup[vveId];
+    if (!entry) return {
+      gespikkeld: '',
+      pct: '',
+      naam: ''
+    };
+    var namen = [];
+    (entry.blok || []).forEach(b => {
+      if (b.corporatie && namen.indexOf(b.corporatie) === -1) namen.push(b.corporatie);
+    });
+    return {
+      gespikkeld: entry.gespikkeld ? 'ja' : entry.pct_corporatie >= 100 ? 'nee (volledig corporatie)' : 'nee',
+      pct: typeof entry.pct_corporatie === 'number' ? entry.pct_corporatie : '',
+      naam: namen.join(', ')
+    };
+  };
   var getCorpPctKey = vveId => {
     var entry = gespikkeldLookup[vveId];
     var pct = entry ? entry.pct_corporatie : 0;
@@ -8073,7 +8092,7 @@ var App = () => {
       URL.revokeObjectURL(url);
     } else {
       // Export alleen VvE's (geaggregeerd)
-      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'huidige_locatie', 'cluster', 'cluster_url', 'typologie', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht'];
+      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'huidige_locatie', 'cluster', 'cluster_url', 'typologie', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'gespikkeld', 'aandeel_corporatie_pct', 'corporatie'];
       var _rows = groupedByVve.map(group => {
         var vve = group.vve;
         var addresses = group.addresses;
@@ -8085,11 +8104,12 @@ var App = () => {
         var avgEnergy = getAverageEnergyLabel(addresses);
         var warmte = getWarmteProg(vve);
         var enr = getVveEnrichment(vve.vve_identificatie);
+        var corp = corporatieExport(vve.vve_identificatie);
         return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), huidigeLocatieVan(enr), `"${clusterNamen(vve.vve_identificatie)}"`, clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '', `"${vve.typologie || ''}"`, warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
         // nickname
         '', '', '', '', '', '', '', '',
         // adviestraject, 1_intake, bureau, procesbegeleider, 2_MWA, 3_verdieping, 4_uitvoering, notities
-        addresses.length, `"${(vve.straatnaam || '').replace(/"/g, '""')}"`, lowestNum, highestNum, vve.postcode || '', `"${(vve.buurt || '').replace(/"/g, '""')}"`, `"${(vve.wijk || '').replace(/"/g, '""')}"`, `"${(vve.stadsdeel || '').replace(/"/g, '""')}"`, vve.bouwjaar_gerelateerd_pand || '', avgWoz, avgEnergy, `"${(vve.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(vve.vve_identificatie) || ''];
+        addresses.length, `"${(vve.straatnaam || '').replace(/"/g, '""')}"`, lowestNum, highestNum, vve.postcode || '', `"${(vve.buurt || '').replace(/"/g, '""')}"`, `"${(vve.wijk || '').replace(/"/g, '""')}"`, `"${(vve.stadsdeel || '').replace(/"/g, '""')}"`, vve.bouwjaar_gerelateerd_pand || '', avgWoz, avgEnergy, `"${(vve.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(vve.vve_identificatie) || '', corp.gespikkeld, corp.pct === '' ? '' : String(corp.pct).replace('.', ','), `"${corp.naam}"`];
       });
       var _csvContent = [_headers.join(';'), ..._rows.map(r => r.join(';'))].join('\n');
       var _blob = new Blob(['\ufeff' + _csvContent], {
@@ -8277,7 +8297,18 @@ var App = () => {
         header: 'Beschermd stadsgezicht',
         key: 'beschermd',
         width: 24
-
+      }, {
+        header: 'Gespikkeld',
+        key: 'gespikkeld',
+        width: 24
+      }, {
+        header: 'Aandeel corporatie',
+        key: 'pct_corporatie',
+        width: 18
+      }, {
+        header: 'Corporatie',
+        key: 'corporatie',
+        width: 22
       }];
 
       // Stijl headerrij
@@ -8339,6 +8370,7 @@ var App = () => {
         var avgEnergy = getAverageEnergyLabel(addresses);
         var warmte = getWarmteProg(vve);
         var enr = _enrKeys.length > 0 ? _allEnr[vve.vve_identificatie] || null : null;
+        var corp = corporatieExport(vve.vve_identificatie);
         var row = ws.addRow({
           id: vve.id || '',
           vve_id: vve.vve_identificatie || '',
@@ -8376,8 +8408,13 @@ var App = () => {
           huidige_locatie: huidigeLocatieVan(getVveEnrichment(vve.vve_identificatie)),
           cluster: clusterNamen(vve.vve_identificatie),
           cluster_url: clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '',
-          typologie: vve.typologie || ''
+          typologie: vve.typologie || '',
+          gespikkeld: corp.gespikkeld,
+          // Als fractie, zodat Excel er met het procentformaat 21,2% van maakt
+          pct_corporatie: corp.pct === '' ? null : corp.pct / 100,
+          corporatie: corp.naam
         });
+        if (corp.pct !== '') row.getCell('pct_corporatie').numFmt = '0.0%';
         var _naamLen = (vve.statutairenaam || '').length;
         row.height = _naamLen > 45 ? 28 : 15;
         var rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF5F3FF'; // wit / licht paars
