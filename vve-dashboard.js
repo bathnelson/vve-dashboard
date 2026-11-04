@@ -1095,7 +1095,7 @@ var exporteerFiltersInc = combinaties => {
 (function () {
   if (typeof document === 'undefined' || window.VveIntake) return;
   var s = document.createElement('script');
-  s.src = (window.APP_BASE || '.') + '/vve-intake.js';
+  s.src = (window.APP_BASE || '.') + '/vve-intake.js?v=' + (window.APP_V || Math.floor(Date.now() / 600000)); // nieuwste versie, niet uit de browsercache
   s.onerror = function () { console.info('vve-intake.js niet geladen — intakeformulier niet beschikbaar.'); };
   document.head.appendChild(s);
 })();
