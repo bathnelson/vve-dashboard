@@ -238,6 +238,8 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
 .vi-inlees button:hover{background:var(--zacht)}\
 .vi-uitleg{position:absolute;right:22px;top:76px;width:390px;max-height:70vh;overflow:auto;background:#fff;color:var(--tekst);border:1px solid var(--rand);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.22);padding:14px 16px;z-index:5}\
 .vi-uitleg h4{margin:0 0 8px;font-size:14px}\
+.vi-uitleg p.vi-wat{color:var(--tekst);font-size:12px;line-height:1.5;margin:0 0 12px}\
+.vi-vraagteken{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid rgba(255,255,255,.7);font-size:10px;font-weight:700;margin-left:3px;vertical-align:1px}\
 .vi-uitleg table{width:100%;border-collapse:collapse;font-size:12px}\
 .vi-uitleg td{padding:4px 4px;border-bottom:1px solid #f0f2f4;vertical-align:top}\
 .vi-uitleg td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}\
@@ -301,7 +303,7 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
       '<div class="vi-paneel" role="dialog" aria-modal="true" aria-label="Intakeformulier">'
       + '<div class="vi-kop" style="position:relative">'
       + '<div class="vi-titel"><div class="vi-boven">Intakeformulier</div><h2>' + esc(opt.naam || opt.vveId) + '</h2><div class="vi-sub"></div></div>'
-      + '<div class="vi-score" title="Kansrijkheid: alleen voor intern gebruik, staat niet in het startdocument. Klik voor de opbouw."><div class="vi-ring"><b>–</b></div><span><strong>Kansrijkheid</strong><em style="font-style:normal">0% ingevuld</em></span></div>'
+      + '<div class="vi-score" title="Kansrijkheid 0-100: inschatting van de kans dat de VvE na het advies doorpakt met uitvoering. Alleen intern, staat niet in het startdocument. Klik voor uitleg en opbouw."><div class="vi-ring"><b>–</b></div><span><strong>Kansrijkheid <span class="vi-vraagteken">?</span></strong><em style="font-style:normal">0% ingevuld</em></span></div>'
       + '</div>'
       + '<div class="vi-voortgang"><i></i></div>'
       + '<div class="vi-romp"><nav class="vi-nav"></nav><div class="vi-inhoud"></div></div>'
@@ -375,7 +377,11 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
         return '<tr><td>' + esc(o.label) + '<div class="vi-balk"><i style="width:' + pct + '%"></i></div></td>'
           + '<td class="n">' + (o.punten === null ? '<span style="color:#a19f9d">–</span>' : (o.punten - o.min) + ' / ' + (o.max - o.min)) + '</td></tr>';
       }).join('');
-      uitleg.innerHTML = '<h4>Opbouw kansrijkheid</h4><table>' + rijen + '</table>'
+      uitleg.innerHTML = '<h4>Wat betekent dit getal?</h4>'
+        + '<p class="vi-wat">De kansrijkheid (0 tot 100) is een inschatting van hoe groot de kans is dat deze VvE na het advies doorpakt met uitvoering. '
+        + 'Hoe hoger, hoe kansrijker. Elke vraag met een K levert punten op; de score is het aandeel van de maximaal haalbare punten over de beantwoorde K-vragen. '
+        + 'Een 66 betekent dus: op de ingevulde punten scoort de VvE 66% van het maximum. Het getal verschijnt vanaf 25% ingevuld en wordt betrouwbaarder naarmate meer is ingevuld.</p>'
+        + '<h4>Opbouw</h4><table>' + rijen + '</table>'
         + '<p>Een streepje betekent onbeantwoord of onbekend: die vraag telt niet mee. De punten zijn een eerste inschatting en worden later geijkt op afgeronde trajecten. De score staat niet in het startdocument.</p>';
     };
 
@@ -846,7 +852,8 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
     var akkoord = typeof c.akkoordHtml === 'function' ? c.akkoordHtml({ naam: opt.naam, datum: vandaag, antwoorden: a, esc: esc, stijl: S }) : (c.akkoordHtml || '');
 
     var door = a.procesbegeleider || opt.gebruiker || '';
-    var bureau = a.adviesbureau && a.adviesbureau !== 'Nog niet bekend' ? a.adviesbureau : '';
+    // het bureau komt uit het dossier in het dashboard, niet uit de intake
+    var bureau = (a._dashboard && a._dashboard.bureau) || '';
     var meta = [['Vereniging van Eigenaren', opt.naam || ''], ['Datum', vandaag]];
     if (door) meta.push(['Intakegesprek gevoerd door', door + ' (' + S.afzender + ')']);
     if (bureau) meta.push(['Adviesbureau', bureau]);

@@ -4124,7 +4124,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
       naam: item.statutairenaam,
       bestandsnaam: getMapnaam(item.vve_identificatie) || item.statutairenaam,
       feiten: feiten,
-      dashboard: { gemengd: gemengd, nietWoon: nietWoon, doelen: Object.keys(doelen) },
+      dashboard: { gemengd: gemengd, nietWoon: nietWoon, doelen: Object.keys(doelen), bureau: (enrichment && enrichment.bureau) || '' },
       opgeslagen: opgeslagen,
       gebruiker: _getCurrentUser(),
       onOpslaan: obj => {
