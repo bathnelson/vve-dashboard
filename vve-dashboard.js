@@ -1099,6 +1099,14 @@ var exporteerFiltersInc = combinaties => {
   s.onerror = function () { console.info('vve-intake.js niet geladen — intakeformulier niet beschikbaar.'); };
   document.head.appendChild(s);
 })();
+// Het exportvenster (Export-knop) staat ook in een eigen bestand.
+(function () {
+  if (typeof document === 'undefined' || window.VveExport) return;
+  var s = document.createElement('script');
+  s.src = (window.APP_BASE || '.') + '/vve-export.js';
+  s.onerror = function () { console.info('vve-export.js niet geladen — exporteren niet beschikbaar.'); };
+  document.head.appendChild(s);
+})();
 var VVE_ACTIES = [
   { key: 'bewerken', label: 'Bewerken', als: 'dossier' },
   { key: 'crm', label: 'CRM openen', als: 'crm' },
@@ -8189,745 +8197,177 @@ var App = () => {
     return parts.length > 0 ? parts.join('-') : 'alle-vves';
   };
 
-  // CSV Export functie
-  var exportToCsv = useCallback(includeAddresses => {
-    setShowCsvMenu(false);
-    if (includeAddresses) {
-      // Export alle adressen
-      var headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'huidige_locatie', 'cluster', 'cluster_url', 'typologie', 'kvknummer', 'aantal_woningen', 'nickname', 'straatnaam', 'huisnummer', 'huisletter', 'huisnummertoevoeging', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'oppervlakte', 'woz2024', 'woz2025', 'energielabel', 'label_verlopen', 'monumentale_status', 'beschermd_stadsgezicht', 'basiseenheidtype', 'gebruiksdoel', 'verblijfsobject_id', 'gerelateerd_pand_id', 'warmte_tijdvak', 'warmtevoorziening'];
-      var rows = alleenMetVve(fullyFilteredData).map(item => {
-        var warmte = getWarmteProg(item);
-        var enr = getVveEnrichment(item.vve_identificatie);
-        return [item.id || '', item.vve_identificatie || '', `"${(item.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(item.vve_identificatie)}"`, dossierUrl(item.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), huidigeLocatieVan(enr), `"${clusterNamen(item.vve_identificatie)}"`, clusterUrl(clustersVan(item.vve_identificatie)[0]) || '', `"${item.typologie || ''}"`, item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '', item.aantal_woon_adr_in_vve || '', '',
-        // nickname
-        `"${(item.straatnaam || '').replace(/"/g, '""')}"`, item.huisnummer || '', item.huisletter || '', item.huisnummertoevoeging || '', item.postcode || '', `"${(item.buurt || '').replace(/"/g, '""')}"`, `"${(item.wijk || '').replace(/"/g, '""')}"`, `"${(item.stadsdeel || '').replace(/"/g, '""')}"`, item.bouwjaar_gerelateerd_pand || '', item.oppervlakte || '', item.woz2024 || '', item.woz2025 || '', item.energielabel || '', labelVerlopen(item) ? 'ja' : '', `"${(item.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(item.vve_identificatie) || '', `"${(item.basiseenheidtype || '').replace(/"/g, '""')}"`, `"${(item.gebruiksdoel || '').replace(/"/g, '""')}"`, item.verblijfsobject_id || '', item.gerelateerd_pand_id || '', warmte?.tijdvak || '', (getWarmteProg(item) || {}).warmte || ''];
+  // ── Exporteren (vve-export.js) ──────────────────────────────────────
+  // De Export-knop opent een venster waarin je de export samenstelt en
+  // aangeeft voor wie of wat hij is. Hier staan de kolommen: wat ze heten
+  // en hoe de waarde uit een rij komt. Een rij is per VvE of per adres:
+  //   { item, adressen, enr, intake }   (item = de VvE of het adres)
+  // Kolommen zonder niveau gelden voor allebei. De sleutel is ook de
+  // kolomnaam in een CSV (zoals de oude CSV-exports en wat de monitoringtool
+  // als referentie leest); de kop is de kolomnaam in Excel (zoals de oude
+  // Excel-export, zodat Importeer Excel de gele kolommen blijft herkennen).
+  var laadExcelJS = async () => {
+    if (!window.ExcelJS) {
+      await new Promise((resolve, reject) => {
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('ExcelJS laden mislukt'));
+        document.head.appendChild(s);
       });
-      var csvContent = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
-      var blob = new Blob(['\ufeff' + csvContent], {
-        type: 'text/csv;charset=utf-8;'
-      });
-      var url = URL.createObjectURL(blob);
-      var link = document.createElement('a');
-      link.href = url;
-      link.download = `dashboard-adressen-${buildExportSlug()}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } else {
-      // Export alleen VvE's (geaggregeerd)
-      var _headers = ['id', 'vve_identificatie', 'statutairenaam', 'dossiermap', 'dossiermap_url', 'dossierstatus', 'huidige_locatie', 'cluster', 'cluster_url', 'typologie', 'warmte_tijdvak', 'warmtevoorziening', 'kvknummer', 'aantal_woningen', 'nickname', 'adviestraject', '1_intake', 'bureau', 'procesbegeleider', '2_MWA', '3_verdieping', '4_uitvoering', 'notities', 'aantal_adressen', 'straatnaam', 'huisnummer_laag', 'huisnummer_hoog', 'postcode', 'buurt', 'wijk', 'stadsdeel', 'bouwjaar', 'gem_woz', 'gem_energielabel', 'monumentale_status', 'beschermd_stadsgezicht', 'gespikkeld', 'aandeel_corporatie_pct', 'corporatie'];
-      var _rows = groupedByVve.map(group => {
-        var vve = group.vve;
-        var addresses = group.addresses;
-        var sortedByNum = [...addresses].sort((a, b) => (parseInt(a.huisnummer) || 0) - (parseInt(b.huisnummer) || 0));
-        var lowestNum = sortedByNum[0]?.huisnummer || '';
-        var highestNum = sortedByNum[sortedByNum.length - 1]?.huisnummer || '';
-        var wozValues = addresses.map(a => getActiveWoz(a)).filter(Boolean);
-        var avgWoz = wozValues.length > 0 ? Math.round(wozValues.reduce((a, b) => a + b, 0) / wozValues.length) : '';
-        var avgEnergy = getAverageEnergyLabel(addresses);
-        var warmte = getWarmteProg(vve);
-        var enr = getVveEnrichment(vve.vve_identificatie);
-        var corp = corporatieExport(vve.vve_identificatie);
-        return [vve.id || '', vve.vve_identificatie || '', `"${(vve.statutairenaam || '').replace(/"/g, '""')}"`, `"${getMapnaam(vve.vve_identificatie)}"`, dossierUrl(vve.vve_identificatie) || '', dossierStatusLabel(dossierStatusVan(enr)), huidigeLocatieVan(enr), `"${clusterNamen(vve.vve_identificatie)}"`, clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '', `"${vve.typologie || ''}"`, warmte?.tijdvak || '', (getWarmteProg(vve) || {}).warmte || '', vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '', vve.aantal_woon_adr_in_vve || '', '',
-        // nickname
-        '', '', '', '', '', '', '', '',
-        // adviestraject, 1_intake, bureau, procesbegeleider, 2_MWA, 3_verdieping, 4_uitvoering, notities
-        addresses.length, `"${(vve.straatnaam || '').replace(/"/g, '""')}"`, lowestNum, highestNum, vve.postcode || '', `"${(vve.buurt || '').replace(/"/g, '""')}"`, `"${(vve.wijk || '').replace(/"/g, '""')}"`, `"${(vve.stadsdeel || '').replace(/"/g, '""')}"`, vve.bouwjaar_gerelateerd_pand || '', avgWoz, avgEnergy, `"${(vve.monumentale_status || '').replace(/"/g, '""')}"`, getBeschermdGezicht(vve.vve_identificatie) || '', corp.gespikkeld, corp.pct === '' ? '' : String(corp.pct).replace('.', ','), `"${corp.naam}"`];
-      });
-      var _csvContent = [_headers.join(';'), ..._rows.map(r => r.join(';'))].join('\n');
-      var _blob = new Blob(['\ufeff' + _csvContent], {
-        type: 'text/csv;charset=utf-8;'
-      });
-      var _url = URL.createObjectURL(_blob);
-      var _link = document.createElement('a');
-      _link.href = _url;
-      _link.download = `dashboard-data-${buildExportSlug()}.csv`;
-      _link.click();
-      URL.revokeObjectURL(_url);
     }
-  }, [fullyFilteredData, groupedByVve]);
-  var exportToXlsx = async () => {
-    setShowCsvMenu(false);
-    setXlsxLoading(true);
-    try {
-      // Lazy load ExcelJS
-      if (!window.ExcelJS) {
-        await new Promise((resolve, reject) => {
-          var s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
-          s.onload = resolve;
-          s.onerror = () => reject(new Error('ExcelJS laden mislukt'));
-          document.head.appendChild(s);
-        });
-      }
-      var slug = buildExportSlug();
-      var wb = new ExcelJS.Workbook();
-      wb.creator = 'VvE Dashboard Haarlem';
-      wb.created = new Date();
-      var ws = wb.addWorksheet('VvE data', {
-        views: [{
-          state: 'frozen',
-          xSplit: 0,
-          ySplit: 1,
-          activeCell: 'A2'
-        }]
-      });
-      ws.columns = [{
-        header: 'ID',
-        key: 'id',
-        width: 10
-      }, {
-        header: 'VvE-identificatie',
-        key: 'vve_id',
-        width: 38
-      }, {
-        header: 'VvE naam',
-        key: 'naam',
-        width: 45
-      }, {
-        header: 'Dossiermap',
-        key: 'dossiermap',
-        width: 34
-      }, {
-        header: 'Dossiermap URL',
-        key: 'dossiermap_url',
-        width: 40
-      }, {
-        header: 'Dossierstatus',
-        key: 'dossierstatus',
-        width: 16
-      }, {
-        header: 'Huidige locatie',
-        key: 'huidige_locatie',
-        width: 40
-      }, {
-        header: 'Cluster',
-        key: 'cluster',
-        width: 26
-      }, {
-        header: 'Cluster URL',
-        key: 'cluster_url',
-        width: 40
-      }, {
-        header: 'Typologie',
-        key: 'typologie',
-        width: 22
-      }, {
-        header: 'Tijdvak',
-        key: 'warmteplan',
-        width: 16
-      }, {
-        header: 'Warmte',
-        key: 'warmtevoorziening',
-        width: 22
-      }, {
-        header: 'KvK nummer',
-        key: 'kvk',
-        width: 14
-      }, {
-        header: 'Woningen',
-        key: 'woningen',
-        width: 11
-      }, {
-        header: 'Nickname',
-        key: 'nickname',
-        width: 20
-      }, {
-        header: 'Adviestraject',
-        key: 'adviestraject',
-        width: 16
-      }, {
-        header: '1. Intake',
-        key: 'intake',
-        width: 13
-      }, {
-        header: 'Bureau',
-        key: 'bureau',
-        width: 16
-      }, {
-        header: 'Procesbegeleider',
-        key: 'procesbegeleider',
-        width: 18
-      }, {
-        header: '2. MWA',
-        key: 'mwa',
-        width: 13
-      }, {
-        header: '3. Verdieping',
-        key: 'verdieping',
-        width: 14
-      }, {
-        header: '4. Uitvoering',
-        key: 'uitvoering',
-        width: 14
-      }, {
-        header: 'Notities',
-        key: 'notities',
-        width: 32
-      }, {
-        header: 'Beheerder',
-        key: 'beheerder',
-        width: 22
-      }, {
-        header: 'Adressen',
-        key: 'adressen',
-        width: 11
-      }, {
-        header: 'Straatnaam',
-        key: 'straat',
-        width: 24
-      }, {
-        header: 'Nr laag',
-        key: 'nr_laag',
-        width: 9
-      }, {
-        header: 'Nr hoog',
-        key: 'nr_hoog',
-        width: 9
-      }, {
-        header: 'Postcode',
-        key: 'postcode',
-        width: 10
-      }, {
-        header: 'Buurt',
-        key: 'buurt',
-        width: 24
-      }, {
-        header: 'Wijk',
-        key: 'wijk',
-        width: 20
-      }, {
-        header: 'Stadsdeel',
-        key: 'stadsdeel',
-        width: 14
-      }, {
-        header: 'Bouwjaar',
-        key: 'bouwjaar',
-        width: 10
-      }, {
-        header: 'Gem. WOZ',
-        key: 'woz',
-        width: 13
-      }, {
-        header: 'Gem. label',
-        key: 'label',
-        width: 11
-      }, {
-        header: 'Monument',
-        key: 'monument',
-        width: 22
-      }, {
-        header: 'Beschermd stadsgezicht',
-        key: 'beschermd',
-        width: 24
-      }, {
-        header: 'Gespikkeld',
-        key: 'gespikkeld',
-        width: 24
-      }, {
-        header: 'Aandeel corporatie',
-        key: 'pct_corporatie',
-        width: 18
-      }, {
-        header: 'Corporatie',
-        key: 'corporatie',
-        width: 22
-      }];
-
-      // Stijl headerrij
-      var headerRow = ws.getRow(1);
-      headerRow.height = 20;
-      headerRow.eachCell(cell => {
-        cell.font = {
-          bold: true,
-          color: {
-            argb: 'FFFFFFFF'
-          },
-          size: 10,
-          name: 'Calibri'
-        };
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: {
-            argb: 'FF742774'
-          }
-        };
-        cell.alignment = {
-          vertical: 'middle',
-          horizontal: 'center',
-          wrapText: false
-        };
-        cell.border = {
-          bottom: {
-            style: 'medium',
-            color: {
-              argb: 'FF5C1F5C'
-            }
-          }
-        };
-      });
-
-      // Autofilter over alle kolommen
-      // Tot en met de laatste kolom, hoeveel dat er ook zijn; een vaste
-      // letter liep achter zodra er een kolom bijkwam.
-      ws.autoFilter = {
-        from: { row: 1, column: 1 },
-        to: { row: 1, column: ws.columns.length }
-      };
-
-      // Invoerkolommen (1-based): nickname t/m beheerder
-      var inputCols = new Set([8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
-
-      // Verrijkte data eenmalig laden voor de hele export
-      var _allEnr = loadEnrichmentData();
-      var _enrKeys = Object.keys(_allEnr);
-      var _maxNaamLen = 16; // wordt bijgehouden voor autofit naam-kolom
-      groupedByVve.forEach((group, idx) => {
-        var vve = group.vve;
-        _maxNaamLen = Math.max(_maxNaamLen, (vve.statutairenaam || '').length);
-        var addresses = group.addresses;
-        var sorted = [...addresses].sort((a, b) => (parseInt(a.huisnummer) || 0) - (parseInt(b.huisnummer) || 0));
-        var wozVals = addresses.map(a => getActiveWoz(a)).filter(Boolean);
-        var avgWoz = wozVals.length > 0 ? Math.round(wozVals.reduce((a, b) => a + b, 0) / wozVals.length) : null;
-        var avgEnergy = getAverageEnergyLabel(addresses);
-        var warmte = getWarmteProg(vve);
-        var enr = _enrKeys.length > 0 ? _allEnr[vve.vve_identificatie] || null : null;
-        var corp = corporatieExport(vve.vve_identificatie);
-        var row = ws.addRow({
-          id: vve.id || '',
-          vve_id: vve.vve_identificatie || '',
-          naam: vve.statutairenaam || '',
-          warmteplan: warmte?.tijdvak || '',
-          warmtevoorziening: (getWarmteProg(vve) || {}).warmte || '',
-          kvk: vve.kvknummer || lookupKvkNummer(vve.vve_identificatie) || enr?.kvkNummer || '',
-          woningen: vve.aantal_woon_adr_in_vve || addresses.length,
-          nickname: enr?.nickname || '',
-          adviestraject: enr?.adviestraject || '',
-          intake: enr?.intake || '',
-          bureau: enr?.bureau || '',
-          procesbegeleider: enr?.procesbegeleider || '',
-          mwa: enr?.mwa || '',
-          verdieping: enr?.verdieping || '',
-          uitvoering: enr?.uitvoering || '',
-          notities: enr?.notities || '',
-          beheerder: enr?.beheerder || '',
-          adressen: addresses.length,
-          straat: vve.straatnaam || '',
-          nr_laag: sorted[0]?.huisnummer || '',
-          nr_hoog: sorted[sorted.length - 1]?.huisnummer || '',
-          postcode: vve.postcode || '',
-          buurt: vve.buurt || '',
-          wijk: vve.wijk || '',
-          stadsdeel: vve.stadsdeel || '',
-          bouwjaar: vve.bouwjaar_gerelateerd_pand || '',
-          woz: avgWoz,
-          label: avgEnergy !== '-' ? avgEnergy : '',
-          monument: vve.monumentale_status || '',
-          beschermd: getBeschermdGezicht(vve.vve_identificatie) || '',
-          dossiermap: getMapnaam(vve.vve_identificatie),
-          dossiermap_url: dossierUrl(vve.vve_identificatie) || '',
-          dossierstatus: dossierStatusLabel(dossierStatusVan(getVveEnrichment(vve.vve_identificatie))),
-          huidige_locatie: huidigeLocatieVan(getVveEnrichment(vve.vve_identificatie)),
-          cluster: clusterNamen(vve.vve_identificatie),
-          cluster_url: clusterUrl(clustersVan(vve.vve_identificatie)[0]) || '',
-          typologie: vve.typologie || '',
-          gespikkeld: corp.gespikkeld,
-          // Als fractie, zodat Excel er met het procentformaat 21,2% van maakt
-          pct_corporatie: corp.pct === '' ? null : corp.pct / 100,
-          corporatie: corp.naam
-        });
-        if (corp.pct !== '') row.getCell('pct_corporatie').numFmt = '0.0%';
-        var _naamLen = (vve.statutairenaam || '').length;
-        row.height = _naamLen > 45 ? 28 : 15;
-        var rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF5F3FF'; // wit / licht paars
-        var dotted = {
-          style: 'dotted',
-          color: {
-            argb: 'FFCCCCCC'
-          }
-        };
-        row.eachCell((cell, colNum) => {
-          cell.font = {
-            size: 10,
-            name: 'Calibri'
-          };
-          cell.alignment = colNum === 3 ? {
-            vertical: 'middle',
-            wrapText: true
-          } : {
-            vertical: 'middle'
-          };
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: {
-              argb: inputCols.has(colNum) ? 'FFFEF9C3' : rowBg
-            }
-          };
-          cell.border = {
-            top: dotted,
-            left: dotted,
-            bottom: dotted,
-            right: dotted
-          };
-        });
-        if (avgWoz) row.getCell('woz').numFmt = '€#,##0';
-        row.getCell('naam').alignment = {
-          vertical: 'middle',
-          wrapText: true
-        };
-        row.getCell('woningen').alignment = {
-          vertical: 'middle',
-          horizontal: 'center'
-        };
-        row.getCell('adressen').alignment = {
-          vertical: 'middle',
-          horizontal: 'center'
-        };
-        row.getCell('bouwjaar').alignment = {
-          vertical: 'middle',
-          horizontal: 'center'
-        };
-        row.getCell('label').alignment = {
-          vertical: 'middle',
-          horizontal: 'center'
-        };
-        maakMapLink(row);
-      });
-
-      // Autofit naam-kolom: breed genoeg voor max 2 regels (langste naam / 2), cap 50
-      ws.getColumn('naam').width = Math.max(20, Math.min(Math.ceil(_maxNaamLen / 2 * 1.2), 50));
-      var buffer = await wb.xlsx.writeBuffer();
-      var blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      });
-      var url = URL.createObjectURL(blob);
-      var link = document.createElement('a');
-      link.href = url;
-      link.download = `dashboard-data-${slug}.xlsx`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert('Excel exporteren mislukt: ' + e.message);
-    } finally {
-      setXlsxLoading(false);
-    }
+    return window.ExcelJS;
   };
-  var exportAddressesXlsx = async () => {
+  var exportKolommen = () => {
+    var K = (key, kop, groep, waarde, extra) => Object.assign({ key, kop, groep, waarde }, extra || {});
+    var id = r => r.item.vve_identificatie;
+    var gesorteerd = r => r._nrs || (r._nrs = [...r.adressen].sort((a, b) => (parseInt(a.huisnummer) || 0) - (parseInt(b.huisnummer) || 0)));
+    var corp = r => r._corp || (r._corp = corporatieExport(id(r)));
+    var warmte = r => getWarmteProg(r.item) || {};
+    var scoreVan = r => {
+      if (r._score !== undefined) return r._score;
+      var s = null;
+      if (r.intake && r.intake.antwoorden && window.VveIntake) s = window.VveIntake.score(r.intake.antwoorden);
+      if (!s && r.intake) s = { score: r.intake.score, volledigheid: r.intake.volledigheid };
+      return r._score = s;
+    };
+    var getal = v => v === '' || v == null || isNaN(v) ? '' : Number(v);
+    var kols = [
+      // Identificatie
+      K('id', 'ID', 'ident', r => r.item.id || '', { breed: 10 }),
+      K('vve_identificatie', 'VvE-identificatie', 'ident', r => id(r) || '', { breed: 38 }),
+      K('statutairenaam', 'VvE naam', 'ident', r => r.item.statutairenaam || '', { breed: 45, wrap: true }),
+      K('kvknummer', 'KvK nummer', 'ident', r => r.item.kvknummer || lookupKvkNummer(id(r)) || r.enr?.kvkNummer || '', { breed: 14 }),
+      K('nickname', 'Nickname', 'ident', r => r.enr?.nickname || '', { breed: 20, invoer: true }),
+      // Dossier en cluster
+      K('dossiermap', 'Dossiermap', 'dossier', r => getMapnaam(id(r)), { breed: 34, link: r => dossierUrl(id(r)) }),
+      K('dossiermap_url', 'Dossiermap URL', 'dossier', r => dossierUrl(id(r)) || '', { breed: 40 }),
+      K('dossierstatus', 'Dossierstatus', 'dossier', r => dossierStatusLabel(dossierStatusVan(r.enr)), { breed: 16 }),
+      K('huidige_locatie', 'Huidige locatie', 'dossier', r => huidigeLocatieVan(r.enr), { breed: 40 }),
+      K('cluster', 'Cluster', 'dossier', r => clusterNamen(id(r)), { breed: 26 }),
+      K('cluster_url', 'Cluster URL', 'dossier', r => clusterUrl(clustersVan(id(r))[0]) || '', { breed: 40 }),
+      // Adviestraject (gele invoerkolommen)
+      K('adviestraject', 'Adviestraject', 'traject', r => r.enr?.adviestraject || '', { breed: 16, invoer: true }),
+      K('1_intake', '1. Intake', 'traject', r => r.enr?.intake || '', { breed: 13, invoer: true }),
+      K('bureau', 'Bureau', 'traject', r => r.enr?.bureau || '', { breed: 16, invoer: true }),
+      K('procesbegeleider', 'Procesbegeleider', 'traject', r => r.enr?.procesbegeleider || '', { breed: 18, invoer: true }),
+      K('2_MWA', '2. MWA', 'traject', r => r.enr?.mwa || '', { breed: 13, invoer: true }),
+      K('3_verdieping', '3. Verdieping', 'traject', r => r.enr?.verdieping || '', { breed: 14, invoer: true }),
+      K('4_uitvoering', '4. Uitvoering', 'traject', r => r.enr?.uitvoering || '', { breed: 14, invoer: true }),
+      K('beheerder', 'Beheerder', 'traject', r => r.enr?.beheerder || '', { breed: 22, invoer: true }),
+      // Notities
+      K('notities', 'Notities', 'notities', r => r.enr?.notities || '', { breed: 32, invoer: true }),
+      // Contactpersonen
+      K('bestuur_naam', 'Bestuur naam', 'contact', r => r.enr?.bestuurNaam || '', { breed: 22 }),
+      K('bestuur_email', 'Bestuur e-mail', 'contact', r => r.enr?.bestuurEmail || '', { breed: 28 }),
+      K('bestuur_telefoon', 'Bestuur telefoon', 'contact', r => r.enr?.bestuurTelefoon || '', { breed: 16 }),
+      K('duurzaamheid_naam', 'Duurzaamheid naam', 'contact', r => r.enr?.duurzaamheidNaam || '', { breed: 22 }),
+      K('duurzaamheid_email', 'Duurzaamheid e-mail', 'contact', r => r.enr?.duurzaamheidEmail || '', { breed: 28 }),
+      K('duurzaamheid_telefoon', 'Duurzaamheid telefoon', 'contact', r => r.enr?.duurzaamheidTelefoon || '', { breed: 16 }),
+      // Adres en ligging
+      K('aantal_adressen', 'Adressen', 'adres', r => r.adressen.length, { niveau: 'vve', breed: 11, midden: true }),
+      K('straatnaam', 'Straatnaam', 'adres', r => r.item.straatnaam || '', { breed: 24 }),
+      K('huisnummer_laag', 'Nr laag', 'adres', r => gesorteerd(r)[0]?.huisnummer || '', { niveau: 'vve', breed: 9 }),
+      K('huisnummer_hoog', 'Nr hoog', 'adres', r => gesorteerd(r)[r.adressen.length - 1]?.huisnummer || '', { niveau: 'vve', breed: 9 }),
+      K('huisnummer', 'Huisnummer', 'adres', r => r.item.huisnummer || '', { niveau: 'adres', breed: 12, midden: true }),
+      K('huisletter', 'Huisletter', 'adres', r => r.item.huisletter || '', { niveau: 'adres', breed: 12 }),
+      K('huisnummertoevoeging', 'Toevoeging', 'adres', r => r.item.huisnummertoevoeging || '', { niveau: 'adres', breed: 14 }),
+      K('postcode', 'Postcode', 'adres', r => r.item.postcode || '', { breed: 10 }),
+      K('buurt', 'Buurt', 'adres', r => r.item.buurt || '', { breed: 24 }),
+      K('wijk', 'Wijk', 'adres', r => r.item.wijk || '', { breed: 20 }),
+      K('stadsdeel', 'Stadsdeel', 'adres', r => r.item.stadsdeel || '', { breed: 14 }),
+      // Gebouw
+      K('typologie', 'Typologie', 'gebouw', r => r.item.typologie || '', { breed: 22 }),
+      K('aantal_woningen', 'Woningen', 'gebouw', r => r.item.aantal_woon_adr_in_vve || (r.perAdres ? '' : r.adressen.length), { breed: 11, midden: true }),
+      K('bouwjaar', 'Bouwjaar', 'gebouw', r => r.item.bouwjaar_gerelateerd_pand || '', { breed: 10, midden: true }),
+      K('gem_woz', 'Gem. WOZ', 'gebouw', r => {
+        var w = r.adressen.map(a => getActiveWoz(a)).filter(Boolean);
+        return w.length ? Math.round(w.reduce((a, b) => a + b, 0) / w.length) : '';
+      }, { niveau: 'vve', breed: 13, fmt: '€#,##0' }),
+      K('gem_energielabel', 'Gem. label', 'gebouw', r => { var l = getAverageEnergyLabel(r.adressen); return l && l !== '-' ? l : ''; }, { niveau: 'vve', breed: 11, midden: true }),
+      K('oppervlakte', 'Opp. (m²)', 'gebouw', r => getal(r.item.oppervlakte), { niveau: 'adres', breed: 12, midden: true }),
+      K('woz2024', 'WOZ 2024', 'gebouw', r => getal(r.item.woz2024), { niveau: 'adres', breed: 13, fmt: '€#,##0' }),
+      K('woz2025', 'WOZ 2025', 'gebouw', r => getal(r.item.woz2025), { niveau: 'adres', breed: 13, fmt: '€#,##0' }),
+      K('energielabel', 'Energielabel', 'gebouw', r => r.item.energielabel || '', { niveau: 'adres', breed: 14, midden: true }),
+      K('label_verlopen', 'Label verlopen', 'gebouw', r => labelVerlopen(r.item) ? 'ja' : '', { niveau: 'adres', breed: 14 }),
+      K('monumentale_status', 'Monumentale status', 'gebouw', r => r.item.monumentale_status || '', { breed: 22 }),
+      K('beschermd_stadsgezicht', 'Beschermd stadsgezicht', 'gebouw', r => getBeschermdGezicht(id(r)) || '', { breed: 24 }),
+      K('basiseenheidtype', 'Basiseenheidtype', 'gebouw', r => r.item.basiseenheidtype || '', { niveau: 'adres', breed: 20 }),
+      K('gebruiksdoel', 'Gebruiksfunctie (BAG)', 'gebouw', r => r.item.gebruiksdoel || '', { niveau: 'adres', breed: 24 }),
+      // Warmteprogramma
+      K('warmte_tijdvak', 'Tijdvak', 'warmte', r => warmte(r).tijdvak || '', { breed: 16 }),
+      K('warmtevoorziening', 'Warmte', 'warmte', r => warmte(r).warmte || '', { breed: 22 }),
+      // Corporatiebezit
+      K('gespikkeld', 'Gespikkeld', 'corporatie', r => corp(r).gespikkeld, { breed: 24 }),
+      // Als fractie, zodat Excel er met het procentformaat 21,2% van maakt
+      K('aandeel_corporatie_pct', 'Aandeel corporatie', 'corporatie', r => corp(r).pct === '' ? '' : corp(r).pct / 100, { breed: 18, fmt: '0.0%' }),
+      K('corporatie', 'Corporatie', 'corporatie', r => corp(r).naam, { breed: 22 }),
+      // BAG-sleutels
+      K('pand_ids', 'Pand-id’s', 'bag', r => [...new Set(r.adressen.map(a => a.gerelateerd_pand_id).filter(Boolean))].join(', '), { niveau: 'vve', breed: 40 }),
+      K('verblijfsobject_id', 'Verblijfsobject ID', 'bag', r => r.item.verblijfsobject_id || '', { niveau: 'adres', breed: 20 }),
+      K('gerelateerd_pand_id', 'Pand ID', 'bag', r => r.item.gerelateerd_pand_id || '', { niveau: 'adres', breed: 20 })
+    ];
+    // Intake: één kolom per vraag uit config/intake_vragen.inc
+    // Een kop die al bestaat (zoals Beheerder) krijgt 'Intake: ' ervoor, zodat
+    // Importeer Excel nooit een intakeantwoord voor een dossierveld aanziet.
+    var velden = window.VveIntake && window.VveIntake.exportVelden ? window.VveIntake.exportVelden() : [];
+    var koppen = new Set(kols.map(k => k.kop.toLowerCase()));
+    velden.forEach(v => {
+      var kop = koppen.has(String(v.label).toLowerCase()) ? 'Intake: ' + v.label : v.label;
+      koppen.add(kop.toLowerCase());
+      kols.push(K('intake_' + v.id, kop, 'intake', r => r.intake && r.intake.antwoorden ? window.VveIntake.exportWaarde(v.id, r.intake.antwoorden) : '', { breed: v.type === 'tekst' ? 40 : 20, adv: v.adv, titel: v.sectie + ': ' + v.vraag }));
+    });
+    if (velden.length) kols.push(K('intake_opgeslagen', 'Intake opgeslagen op', 'intake', r => r.intake && r.intake.opgeslagen ? new Date(r.intake.opgeslagen).toLocaleDateString('nl-NL') : '', { breed: 16 }));
+    // Kansrijkheid: alleen voor intern gebruik
+    kols.push(K('kansrijkheid', 'Kansrijkheid (0-100)', 'score', r => { var s = scoreVan(r); return s && s.score != null ? s.score : ''; }, { breed: 14, midden: true }));
+    kols.push(K('intake_volledigheid', 'Volledigheid intake', 'score', r => { var s = scoreVan(r); return s && s.volledigheid != null && r.intake ? s.volledigheid / 100 : ''; }, { breed: 14, fmt: '0%' }));
+    return kols;
+  };
+  var openExport = () => {
     setShowCsvMenu(false);
-    setXlsxAdressenLoading(true);
-    try {
-      if (!window.ExcelJS) {
-        await new Promise((resolve, reject) => {
-          var s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
-          s.onload = resolve;
-          s.onerror = () => reject(new Error('ExcelJS laden mislukt'));
-          document.head.appendChild(s);
-        });
-      }
-      var slug = buildExportSlug();
-      var wb = new ExcelJS.Workbook();
-      wb.creator = 'VvE Dashboard Haarlem';
-      wb.created = new Date();
-      var ws = wb.addWorksheet('Adressen', {
-        views: [{
-          state: 'frozen',
-          xSplit: 0,
-          ySplit: 1,
-          activeCell: 'A2'
-        }]
-      });
-      ws.columns = [{
-        header: 'ID',
-        key: 'id',
-        width: 8
-      }, {
-        header: 'VvE-identificatie',
-        key: 'vve_id',
-        width: 38
-      }, {
-        header: 'VvE naam',
-        key: 'naam',
-        width: 40
-      }, {
-        header: 'Dossiermap',
-        key: 'dossiermap',
-        width: 34
-      }, {
-        header: 'Dossiermap URL',
-        key: 'dossiermap_url',
-        width: 40
-      }, {
-        header: 'Dossierstatus',
-        key: 'dossierstatus',
-        width: 16
-      }, {
-        header: 'Huidige locatie',
-        key: 'huidige_locatie',
-        width: 40
-      }, {
-        header: 'Cluster',
-        key: 'cluster',
-        width: 26
-      }, {
-        header: 'Cluster URL',
-        key: 'cluster_url',
-        width: 40
-      }, {
-        header: 'Typologie',
-        key: 'typologie',
-        width: 22
-      }, {
-        header: 'KvK nummer',
-        key: 'kvk',
-        width: 14
-      }, {
-        header: 'Woningen',
-        key: 'woningen',
-        width: 11
-      }, {
-        header: 'Nickname',
-        key: 'nickname',
-        width: 20
-      }, {
-        header: 'Straatnaam',
-        key: 'straat',
-        width: 24
-      }, {
-        header: 'Huisnummer',
-        key: 'huisnummer',
-        width: 12
-      }, {
-        header: 'Huisletter',
-        key: 'huisletter',
-        width: 12
-      }, {
-        header: 'Toevoeging',
-        key: 'toevoeging',
-        width: 14
-      }, {
-        header: 'Postcode',
-        key: 'postcode',
-        width: 10
-      }, {
-        header: 'Buurt',
-        key: 'buurt',
-        width: 24
-      }, {
-        header: 'Wijk',
-        key: 'wijk',
-        width: 20
-      }, {
-        header: 'Stadsdeel',
-        key: 'stadsdeel',
-        width: 14
-      }, {
-        header: 'Bouwjaar',
-        key: 'bouwjaar',
-        width: 10
-      }, {
-        header: 'Opp. (m²)',
-        key: 'opp',
-        width: 12
-      }, {
-        header: 'WOZ 2024',
-        key: 'woz2024',
-        width: 13
-      }, {
-        header: 'WOZ 2025',
-        key: 'woz',
-        width: 13
-      }, {
-        header: 'Energielabel',
-        key: 'label',
-        width: 14
-      }, {
-        header: 'Label verlopen',
-        key: 'labelVerlopen',
-        width: 14
-      }, {
-        header: 'Monumentale status',
-        key: 'monument',
-        width: 22
-      }, {
-        header: 'Beschermd stadsgezicht',
-        key: 'beschermd',
-        width: 24
-      }, {
-        header: 'Basiseenheidtype',
-        key: 'type',
-        width: 20
-      }, {
-        header: 'Gebruiksfunctie (BAG)',
-        key: 'gebruiksdoel',
-        width: 24
-      }, {
-        header: 'Verblijfsobject ID',
-        key: 'vbo_id',
-        width: 20
-      }, {
-        header: 'Pand ID',
-        key: 'pand_id',
-        width: 20
-      }, {
-        header: 'Tijdvak',
-        key: 'warmteplan',
-        width: 16
-      }, {
-        header: 'Warmte',
-        key: 'warmtevoorziening',
-        width: 22
-
-      }];
-
-      // Stijl headerrij
-      var headerRow = ws.getRow(1);
-      headerRow.height = 20;
-      headerRow.eachCell(cell => {
-        cell.font = {
-          bold: true,
-          color: {
-            argb: 'FFFFFFFF'
-          },
-          size: 10,
-          name: 'Calibri'
-        };
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: {
-            argb: 'FF742774'
-          }
-        };
-        cell.alignment = {
-          vertical: 'middle',
-          horizontal: 'center',
-          wrapText: false
-        };
-        cell.border = {
-          bottom: {
-            style: 'medium',
-            color: {
-              argb: 'FF5C1F5C'
-            }
-          }
-        };
-      });
-      // Tot en met de laatste kolom, hoeveel dat er ook zijn; een vaste
-      // letter liep achter zodra er een kolom bijkwam.
-      ws.autoFilter = {
-        from: { row: 1, column: 1 },
-        to: { row: 1, column: ws.columns.length }
-      };
-
-      // Invoerkolom (1-based): nickname
-      var adresInputCols = new Set([6]);
-      alleenMetVve(fullyFilteredData).forEach((item, idx) => {
-        var warmte = getWarmteProg(item);
-        var enr = getVveEnrichment(item.vve_identificatie);
-        var row = ws.addRow({
-          id: item.id || '',
-          vve_id: item.vve_identificatie || '',
-          naam: item.statutairenaam || '',
-          kvk: item.kvknummer || lookupKvkNummer(item.vve_identificatie) || enr?.kvkNummer || '',
-          woningen: item.aantal_woon_adr_in_vve || '',
-          nickname: '',
-          straat: item.straatnaam || '',
-          huisnummer: item.huisnummer || '',
-          huisletter: item.huisletter || '',
-          toevoeging: item.huisnummertoevoeging || '',
-          postcode: item.postcode || '',
-          buurt: item.buurt || '',
-          wijk: item.wijk || '',
-          stadsdeel: item.stadsdeel || '',
-          bouwjaar: item.bouwjaar_gerelateerd_pand || '',
-          opp: item.oppervlakte || '',
-          woz2024: item.woz2024 || null,
-          woz: item.woz2025 || null,
-          label: item.energielabel || '',
-          labelVerlopen: labelVerlopen(item) ? 'ja' : '',
-          monument: item.monumentale_status || '',
-          beschermd: getBeschermdGezicht(item.vve_identificatie) || '',
-          type: item.basiseenheidtype || '',
-          gebruiksdoel: item.gebruiksdoel || '',
-          vbo_id: item.verblijfsobject_id || '',
-          pand_id: item.gerelateerd_pand_id || '',
-          warmteplan: warmte?.tijdvak || '',
-          warmtevoorziening: (getWarmteProg(item) || {}).warmte || '',
-          dossiermap: getMapnaam(item.vve_identificatie),
-          dossiermap_url: dossierUrl(item.vve_identificatie) || '',
-          dossierstatus: dossierStatusLabel(dossierStatusVan(getVveEnrichment(item.vve_identificatie))),
-          huidige_locatie: huidigeLocatieVan(getVveEnrichment(item.vve_identificatie)),
-          cluster: clusterNamen(item.vve_identificatie),
-          cluster_url: clusterUrl(clustersVan(item.vve_identificatie)[0]) || '',
-          typologie: item.typologie || ''
-        });
-        row.height = 15;
-        var rowBg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF5F3FF';
-        var dotted = {
-          style: 'dotted',
-          color: {
-            argb: 'FFCCCCCC'
-          }
-        };
-        row.eachCell((cell, colNum) => {
-          cell.font = {
-            size: 10,
-            name: 'Calibri'
-          };
-          cell.alignment = {
-            vertical: 'middle'
-          };
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: {
-              argb: adresInputCols.has(colNum) ? 'FFFEF9C3' : rowBg
-            }
-          };
-          cell.border = {
-            top: dotted,
-            left: dotted,
-            bottom: dotted,
-            right: dotted
-          };
-        });
-        if (item.woz2024) row.getCell('woz2024').numFmt = '€#,##0';
-        if (item.woz2025) row.getCell('woz').numFmt = '€#,##0';
-        row.getCell('huisnummer').alignment = {
-          vertical: 'middle',
-          horizontal: 'center'
-        };
-        row.getCell('bouwjaar').alignment = {
-          vertical: 'middle',
-          horizontal: 'center'
-        };
-        row.getCell('opp').alignment = {
-          vertical: 'middle',
-          horizontal: 'center'
-        };
-        row.getCell('label').alignment = {
-          vertical: 'middle',
-          horizontal: 'center'
-        };
-        maakMapLink(row);
-      });
-      var buffer = await wb.xlsx.writeBuffer();
-      var blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      });
-      var url = URL.createObjectURL(blob);
-      var link = document.createElement('a');
-      link.href = url;
-      link.download = `dashboard-adressen-${slug}.xlsx`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert('Excel exporteren mislukt: ' + e.message);
-    } finally {
-      setXlsxAdressenLoading(false);
-    }
+    if (!window.VveExport) { alert('Het exportvenster is nog niet geladen. Probeer het over een paar seconden opnieuw.'); return; }
+    var allEnr = loadEnrichmentData();
+    var intakeVan = enr => {
+      if (!enr || !enr.intakeForm) return null;
+      try { return JSON.parse(enr.intakeForm); } catch (e) { return null; }
+    };
+    var adresRijen = alleenMetVve(fullyFilteredData);
+    var slug = buildExportSlug();
+    // Bestanden voor databeheer: vaste indeling, los van de selectie
+    var eigenIds = new Set(VVE_DATA.filter(d => d.kvknummer).map(d => d.vve_identificatie));
+    var heeftLookup = typeof KVK_LOOKUP !== 'undefined';
+    var nKvk = (heeftLookup ? Object.keys(KVK_LOOKUP).filter(i => !eigenIds.has(i)).length : 0) + Object.entries(allEnr).filter(([i, e]) => e?.kvkNummer && !eigenIds.has(i) && !(heeftLookup && KVK_LOOKUP[i])).length;
+    var nHandmatig = Object.entries(allEnr).filter(([i, e]) => e?.kvkNummer && !lookupKvkNummer(i)).length;
+    var zonder = new Set();
+    data.forEach(d => { if (!zonder.has(d.vve_identificatie) && getKvkKey(d) === 'zonder_kvk') zonder.add(d.vve_identificatie); });
+    var nVerdacht = new Set(VVE_DATA.filter(d => d._verdacht).map(d => d.vve_identificatie)).size;
+    var extra = [
+      nKvk > 0 && { label: 'KvK-nummers (lookup + handmatig)', uitleg: 'CSV met de KvK-nummers die niet in de BAG-data staan', aantal: nKvk, actie: () => exportKvkCsv() },
+      nHandmatig > 0 && { label: 'kvk_handmatig.inc', uitleg: 'Handmatig ingevoerde KvK-nummers in scriptvorm, voor config/', aantal: nHandmatig, actie: () => exportKvkHandmatigJs() > 0 },
+      zonder.size > 0 && { label: 'VvE’s zonder KvK', uitleg: 'CSV om KvK-nummers bij te zoeken', aantal: zonder.size, actie: () => exportMissendeKvk() },
+      enrichmentCount > 0 && { label: 'Verrijkte VvE’s', uitleg: 'CSV met contactgegevens en notities van alle VvE’s met dossiergegevens', aantal: enrichmentCount, actie: () => exportEnrichedCsv() },
+      nVerdacht > 0 && { label: 'Verdachte VvE’s', uitleg: 'CSV met VvE’s waarvan de gegevens niet kloppen', aantal: nVerdacht, actie: () => exportVerdachteVves() }
+    ].filter(Boolean);
+    window.VveExport.open({
+      kolommen: exportKolommen(),
+      rijen: {
+        vve: () => groupedByVve.map(g => {
+          var enr = allEnr[g.vve.vve_identificatie] || null;
+          return { item: g.vve, adressen: g.addresses, enr, intake: intakeVan(enr) };
+        }),
+        adres: () => adresRijen.map(a => {
+          var enr = allEnr[a.vve_identificatie] || null;
+          return { item: a, adressen: [a], enr, intake: intakeVan(enr), perAdres: true };
+        })
+      },
+      aantal: { vve: groupedByVve.length, adres: adresRijen.length },
+      slug,
+      selectie: slug === 'alle-vves' ? 'alle VvE’s, geen filters' : 'filters: ' + slug.replace(/-/g, ' '),
+      gebruiker: _getCurrentUser(),
+      intakeBeschikbaar: !!(window.VveIntake && window.VveIntake.beschikbaar && window.VveIntake.beschikbaar()),
+      laadExcel: laadExcelJS,
+      extra
+    });
   };
   var exportEnrichedCsv = useCallback(() => {
     setShowCsvMenu(false);
@@ -9365,12 +8805,10 @@ var App = () => {
       gap: 4,
       marginLeft: 'auto'
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      setShowCsvMenu(!showCsvMenu);
       setShowUserMenu(false);
+      openExport();
     },
     style: {
       display: 'flex',
@@ -9384,7 +8822,7 @@ var App = () => {
       color: '#404040',
       whiteSpace: 'nowrap'
     },
-    title: "Exporteer"
+    title: "Exporteren: stel de export samen en geef aan voor wie hij is"
   }, /*#__PURE__*/React.createElement("svg", {
     style: {
       width: 12,
@@ -9399,175 +8837,7 @@ var App = () => {
     strokeLinejoin: "round",
     strokeWidth: 2,
     d: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-  })), "Export ", /*#__PURE__*/React.createElement("svg", {
-    style: {
-      width: 9,
-      height: 9
-    },
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M19 9l-7 7-7-7"
-  }))), showCsvMenu && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-10",
-    onClick: () => setShowCsvMenu(false)
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute right-0 top-full mt-1 pa-card py-1 z-20 min-w-[240px]"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: exportToXlsx,
-    disabled: xlsxLoading,
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2"
-  }, xlsxLoading ? /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-green-600 shrink-0 animate-spin",
-    fill: "none",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("circle", {
-    className: "opacity-25",
-    cx: "12",
-    cy: "12",
-    r: "10",
-    stroke: "currentColor",
-    strokeWidth: "4"
-  }), /*#__PURE__*/React.createElement("path", {
-    className: "opacity-75",
-    fill: "currentColor",
-    d: "M4 12a8 8 0 018-8v8z"
-  })) : /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-green-600 shrink-0",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M9 17v-2m3 2v-4m3 4v-6M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "truncate text-pa-gray-600 font-mono text-[10px]"
-  }, xlsxLoading ? 'Excel genereren…' : `dashboard-data-${buildExportSlug()}.xlsx`)), /*#__PURE__*/React.createElement("button", {
-    onClick: exportAddressesXlsx,
-    disabled: xlsxAdressenLoading,
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2"
-  }, xlsxAdressenLoading ? /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-green-600 shrink-0 animate-spin",
-    fill: "none",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("circle", {
-    className: "opacity-25",
-    cx: "12",
-    cy: "12",
-    r: "10",
-    stroke: "currentColor",
-    strokeWidth: "4"
-  }), /*#__PURE__*/React.createElement("path", {
-    className: "opacity-75",
-    fill: "currentColor",
-    d: "M4 12a8 8 0 018-8v8z"
-  })) : /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-green-600 shrink-0",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-  }), /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "truncate text-pa-gray-600 font-mono text-[10px]"
-  }, xlsxAdressenLoading ? 'Excel genereren…' : `dashboard-adressen-${buildExportSlug()}.xlsx`)), (() => {
-    var _eigenIds = new Set(VVE_DATA.filter(d => d.kvknummer).map(d => d.vve_identificatie));
-    var _enr = loadEnrichmentData();
-    var nKvk = (typeof KVK_LOOKUP !== 'undefined' ? Object.keys(KVK_LOOKUP).filter(id => !_eigenIds.has(id)).length : 0) + Object.entries(_enr).filter(([id, e]) => e?.kvkNummer && !_eigenIds.has(id) && !(typeof KVK_LOOKUP !== 'undefined' && KVK_LOOKUP[id])).length;
-    return /*#__PURE__*/React.createElement("button", {
-      onClick: () => exportKvkCsv(),
-      className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-    }, /*#__PURE__*/React.createElement("svg", {
-      className: "w-4 h-4 text-pa-gray-400",
-      fill: "none",
-      stroke: "currentColor",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      strokeWidth: 2,
-      d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-    })), "KvK lookup + handmatig (", nKvk, ")");
-  })(), (() => {
-    var n = Object.entries(loadEnrichmentData()).filter(([id, e]) => e?.kvkNummer && !lookupKvkNummer(id)).length;
-    return n > 0 ? /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        var k = exportKvkHandmatigJs();
-        if (k > 0) setShowCsvMenu(false);
-      },
-      className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-    }, /*#__PURE__*/React.createElement("svg", {
-      className: "w-4 h-4 text-pa-gray-400",
-      fill: "none",
-      stroke: "currentColor",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      strokeWidth: 2,
-      d: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-    })), "kvk_handmatig.inc (", n, ")") : null;
-  })(), (() => {
-    var zonKvk = data.reduce((s, item) => { if (!s.has(item.vve_identificatie)) { s.add(item.vve_identificatie); } return s; }, new Set());
-    var count = [...zonKvk].filter(id => { var item = data.find(d => d.vve_identificatie === id); return item && getKvkKey(item) === 'zonder_kvk'; }).length;
-    return count > 0 ? /*#__PURE__*/React.createElement("button", {
-      onClick: () => exportMissendeKvk(),
-      className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-    }, /*#__PURE__*/React.createElement("svg", {
-      className: "w-4 h-4 text-pa-gray-400",
-      fill: "none",
-      stroke: "currentColor",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      strokeWidth: 2,
-      d: "M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-    })), "VvE's zonder KvK (", count, ")") : null;
-  })(), enrichmentCount > 0 && /*#__PURE__*/React.createElement("button", {
-    onClick: () => exportEnrichedCsv(),
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-  }, /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-pa-gray-400",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-  })), "Verrijkte VvE's (", enrichmentCount, ")"), VVE_DATA.some(d => d._verdacht) && /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      exportVerdachteVves();
-      setShowCsvMenu(false);
-    },
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-  }, /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-orange-400",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-  })), "Verdachte VvE's (22)")))), crmEnabled && /*#__PURE__*/React.createElement("div", {
+  })), "Export\u2026"), crmEnabled && /*#__PURE__*/React.createElement("div", {
     className: "relative"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
@@ -10458,7 +9728,8 @@ var App = () => {
       /*#__PURE__*/React.createElement(Tip, null, "Sneltoetsen werken niet als de cursor in een invoerveld staat."),
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-export' }, "Exporteren"),
-      /*#__PURE__*/React.createElement(P, null, "Via de Export-knop kun je de gefilterde selectie exporteren als Excel (VvE-niveau of adres-niveau)."),
+      /*#__PURE__*/React.createElement(P, null, "De Export-knop opent een venster waarin je de export samenstelt voor de huidige selectie. Kies eerst voor wie of wat de export is: Intern team, Adviesbureau, Voortgang en rapportage, Monitoringtool, Adreslijst of een eigen samenstelling. Dat zet niveau (per VvE of per adres), bestand (Excel of CSV) en onderdelen klaar; daarna kun je per onderdeel of per kolom nog aanpassen. Vul in voor wie precies en waarvoor: dat komt in de bestandsnaam en in het tabblad \u2018Over deze export\u2019, samen met datum, maker en selectie."),
+      /*#__PURE__*/React.createElement(P, null, "Onderdelen met het label intern (dossier, notities, kansrijkheid) horen niet bij een externe partij; het venster waarschuwt als ze in een export voor het adviesbureau zitten. De intern-export houdt de gele invoerkolommen, die je weer inleest met Importeer Excel. Onderaan links staan de vaste bestanden voor databeheer, zoals de KvK-lijsten. Het venster onthoudt je laatste keuze in deze browser."),
 
       /*#__PURE__*/React.createElement(H2, { id: 'h-labs' }, "Labs-menu"),
       /*#__PURE__*/React.createElement(P, null, "Het Labs-menu (rechtsboven) bevat experimentele functies, waaronder de Herbouwwaarde-inschatting op basis van BVO, bouwlagen, bouwjaar en staat van onderhoud."),
@@ -11633,188 +10904,7 @@ var App = () => {
     className: "text-pa-gray-300"
   }, "|"), /*#__PURE__*/React.createElement("span", null, totalAddressCount.toLocaleString(), " adressen"), /*#__PURE__*/React.createElement("span", {
     className: "text-pa-gray-300"
-  }, "|"), /*#__PURE__*/React.createElement("span", null, totalWoningenCount.toLocaleString(), " woningen"), /*#__PURE__*/React.createElement("div", {
-    className: "ml-auto relative"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowCsvMenu(!showCsvMenu),
-    className: "flex items-center gap-1 px-2 py-1 border border-pa-gray-300 text-pa-gray-600 hover:bg-pa-gray-50 text-xs",
-    title: "Exporteer zoekresultaten"
-  }, /*#__PURE__*/React.createElement("svg", {
-    className: "w-3.5 h-3.5",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-  })), "Export", /*#__PURE__*/React.createElement("svg", {
-    className: "w-3 h-3",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M19 9l-7 7-7-7"
-  }))), showCsvMenu && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "fixed inset-0 z-10",
-    onClick: () => setShowCsvMenu(false)
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "absolute right-0 top-full mt-1 pa-card py-1 z-20 min-w-[240px]"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: exportToXlsx,
-    disabled: xlsxLoading,
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2"
-  }, xlsxLoading ? /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-green-600 shrink-0 animate-spin",
-    fill: "none",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("circle", {
-    className: "opacity-25",
-    cx: "12",
-    cy: "12",
-    r: "10",
-    stroke: "currentColor",
-    strokeWidth: "4"
-  }), /*#__PURE__*/React.createElement("path", {
-    className: "opacity-75",
-    fill: "currentColor",
-    d: "M4 12a8 8 0 018-8v8z"
-  })) : /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-green-600 shrink-0",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M9 17v-2m3 2v-4m3 4v-6M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "truncate text-pa-gray-600 font-mono text-[10px]"
-  }, xlsxLoading ? 'Excel genereren…' : `dashboard-data-${buildExportSlug()}.xlsx`)), /*#__PURE__*/React.createElement("button", {
-    onClick: exportAddressesXlsx,
-    disabled: xlsxAdressenLoading,
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2"
-  }, xlsxAdressenLoading ? /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-green-600 shrink-0 animate-spin",
-    fill: "none",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("circle", {
-    className: "opacity-25",
-    cx: "12",
-    cy: "12",
-    r: "10",
-    stroke: "currentColor",
-    strokeWidth: "4"
-  }), /*#__PURE__*/React.createElement("path", {
-    className: "opacity-75",
-    fill: "currentColor",
-    d: "M4 12a8 8 0 018-8v8z"
-  })) : /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-green-600 shrink-0",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-  }), /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-  })), /*#__PURE__*/React.createElement("span", {
-    className: "truncate text-pa-gray-600 font-mono text-[10px]"
-  }, xlsxAdressenLoading ? 'Excel genereren…' : `dashboard-adressen-${buildExportSlug()}.xlsx`)), (() => {
-    var _eigenIds2 = new Set(VVE_DATA.filter(d => d.kvknummer).map(d => d.vve_identificatie));
-    var _enr2 = loadEnrichmentData();
-    var nKvk2 = (typeof KVK_LOOKUP !== 'undefined' ? Object.keys(KVK_LOOKUP).filter(id => !_eigenIds2.has(id)).length : 0) + Object.entries(_enr2).filter(([id, e]) => e?.kvkNummer && !_eigenIds2.has(id) && !(typeof KVK_LOOKUP !== 'undefined' && KVK_LOOKUP[id])).length;
-    return /*#__PURE__*/React.createElement("button", {
-      onClick: () => exportKvkCsv(),
-      className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-    }, /*#__PURE__*/React.createElement("svg", {
-      className: "w-4 h-4 text-pa-gray-400",
-      fill: "none",
-      stroke: "currentColor",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      strokeWidth: 2,
-      d: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-    })), "KvK lookup + handmatig (", nKvk2, ")");
-  })(), (() => {
-    var kvkCount = Object.entries(loadEnrichmentData()).filter(([id, e]) => e?.kvkNummer && !lookupKvkNummer(id)).length;
-    return kvkCount > 0 ? /*#__PURE__*/React.createElement("button", {
-      onClick: () => {
-        var n = exportKvkHandmatigJs();
-        if (n > 0) setShowCsvMenu(false);
-      },
-      className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-    }, /*#__PURE__*/React.createElement("svg", {
-      className: "w-4 h-4 text-pa-gray-400",
-      fill: "none",
-      stroke: "currentColor",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      strokeWidth: 2,
-      d: "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-    })), "kvk_handmatig.inc (", kvkCount, ")") : null;
-  })(), (() => {
-    var zonKvk2 = data.reduce((s, item) => { if (!s.has(item.vve_identificatie)) s.add(item.vve_identificatie); return s; }, new Set());
-    var count2 = [...zonKvk2].filter(id => { var item = data.find(d => d.vve_identificatie === id); return item && getKvkKey(item) === 'zonder_kvk'; }).length;
-    return count2 > 0 ? /*#__PURE__*/React.createElement("button", {
-      onClick: () => exportMissendeKvk(),
-      className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-    }, /*#__PURE__*/React.createElement("svg", {
-      className: "w-4 h-4 text-pa-gray-400",
-      fill: "none",
-      stroke: "currentColor",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      strokeLinecap: "round",
-      strokeLinejoin: "round",
-      strokeWidth: 2,
-      d: "M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-    })), "VvE's zonder KvK (", count2, ")") : null;
-  })(), enrichmentCount > 0 && /*#__PURE__*/React.createElement("button", {
-    onClick: () => exportEnrichedCsv(),
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-  }, /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-pa-gray-400",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-  })), "Verrijkte VvE's (", enrichmentCount, ")"), VVE_DATA.some(d => d._verdacht) && /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      exportVerdachteVves();
-      setShowCsvMenu(false);
-    },
-    className: "w-full text-left px-3 py-2 text-xs text-pa-gray-700 hover:bg-pa-gray-50 flex items-center gap-2 border-t border-pa-gray-100"
-  }, /*#__PURE__*/React.createElement("svg", {
-    className: "w-4 h-4 text-orange-400",
-    fill: "none",
-    stroke: "currentColor",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: 2,
-    d: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-  })), "Verdachte VvE's (22)")))), dossierVisible && /*#__PURE__*/React.createElement("button", {
+  }, "|"), /*#__PURE__*/React.createElement("span", null, totalWoningenCount.toLocaleString(), " woningen"), null, dossierVisible && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setShowUserMenu(!showUserMenu);
       setShowCsvMenu(false);
