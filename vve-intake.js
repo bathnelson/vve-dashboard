@@ -46,9 +46,13 @@
   var optTekst = function (o) { return typeof o === 'string' ? o : o.t; };
   var optPunten = function (o) { return typeof o === 'string' ? null : (typeof o.p === 'number' ? o.p : null); };
 
+  // Secties met verborgen: true staan (nog) niet in het formulier, de score en het startdocument.
+  var actieveSecties = function (c) { return (c.secties || []).filter(function (s) { return !s.verborgen; }); };
+  var verborgenTitels = function (c) { return (c.secties || []).filter(function (s) { return s.verborgen; }).map(function (s) { return s.titel; }); };
+
   var alleVragen = function (c) {
     var uit = [];
-    (c.secties || []).forEach(function (s) { (s.vragen || []).forEach(function (v) { uit.push({ sectie: s, vraag: v }); }); });
+    actieveSecties(c).forEach(function (s) { (s.vragen || []).forEach(function (v) { uit.push({ sectie: s, vraag: v }); }); });
     return uit;
   };
 
@@ -111,7 +115,9 @@
       if (p !== null) p = Math.max(br[0], Math.min(br[1], p));
       onderdelen.push({ id: v.id, label: v.kort || v.vraag, sectie: x.sectie.titel, min: br[0], max: br[1], punten: p });
     });
+    var weg = verborgenTitels(c);
     (c.afgeleid || []).forEach(function (d) {
+      if (d.sectie && weg.indexOf(d.sectie) >= 0) return;
       var p = null;
       try { p = d.fn(a); } catch (e) { p = null; }
       if (typeof p !== 'number' || !isFinite(p)) p = null;
@@ -333,7 +339,7 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
     // Wordt bewaard bij de antwoorden (_notities), staat niet in het startdocument.
     var notities = document.createElement('div');
     notities.className = 'vi-notities' + (a._notities ? '' : ' dicht');
-    notities.innerHTML = '<header title="Openen of inklappen (Alt+N)"><span>Notities buiten de flow</span><small></small><b aria-hidden="true">\u2013</b></header>'
+    notities.innerHTML = '<header title="Openen of inklappen (Alt+N)"><span>Extra notities</span><small></small><b aria-hidden="true">\u2013</b></header>'
       + '<textarea placeholder="Vragen of punten die tussendoor opkomen. Eén punt per regel; ze worden bewaard maar staan niet in het startdocument."></textarea>';
     achter.querySelector('.vi-paneel').appendChild(notities);
     var notTekst = notities.querySelector('textarea');
@@ -368,7 +374,7 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
     };
 
     // secties: eerst wat het dashboard al weet, dan de vragen
-    var secties = [{ id: '_feiten', titel: 'Uit het dashboard', feiten: true }].concat(c.secties || []);
+    var secties = [{ id: '_feiten', titel: 'Uit het dashboard', feiten: true }].concat(actieveSecties(c));
 
     var tekenUitleg = function (s) {
       if (!uitleg) return;
@@ -797,6 +803,8 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
       tl: 'width="38%" style="' + basis + 'font-size:10pt;font-weight:bold;color:' + tekst + ';background:' + vlak + ';border:0.75pt solid ' + lijn + ';padding:4pt 7pt;vertical-align:top;"',
       td: 'style="' + basis + 'font-size:10pt;color:' + tekst + ';border:0.75pt solid ' + lijn + ';padding:4pt 7pt;vertical-align:top;"',
       leeg: '<span style="color:#9a9a9a;">&ndash;</span>',
+      // open of onbekend: de VvE vult het later zelf aan in het startdocument
+      inTeVullen: '<span style="color:#8a8a8a;">\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026 <i>(nog in te vullen)</i></span>',
       uitleg: 'style="' + basis + 'font-size:10pt;background:' + vlak + ';border-left:3pt solid ' + kleur + ';padding:6pt 10pt;vertical-align:top;"'
     };
   };
@@ -821,7 +829,8 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
     var feitenRijen = (opt.feiten || []).filter(function (f) { return f[1] !== '' && f[1] != null; })
       .map(function (f) { return rij(esc(f[0]), f[2] ? f[1] : esc(f[1])); }).join('');
 
-    var sectiesHtml = (c.secties || []).filter(function (s) { return !s.nietInStartdocument; }).map(function (s) {
+    var nogOpen = 0;
+    var sectiesHtml = actieveSecties(c).filter(function (s) { return !s.nietInStartdocument; }).map(function (s) {
       var uit = '', rijen = '';
       var sluitTabel = function () { if (rijen) { uit += tabel(rijen); rijen = ''; } };
       (s.vragen || []).forEach(function (v) {
@@ -832,18 +841,24 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
           uit += uitlegBlok(v);
           return;
         }
-        if (v.type === 'contacten' && Array.isArray(a[v.id])) {
+        if (v.type === 'contacten') {
           sluitTabel();
+          // geen contactpersonen ingevuld: twee lege regels om aan te vullen
+          var lijstC = Array.isArray(a[v.id]) && a[v.id].length ? a[v.id] : [{}, {}];
           var kop = function (t) { return '<td ' + S.tl.replace('width="38%" ', '') + '>' + t + '</td>'; };
           uit += '<p ' + S.h3 + '>' + esc(v.kort || v.vraag) + '</p>'
             + tabel('<tr>' + kop('Naam') + kop('Rol') + kop('E-mail') + kop('Telefoon') + '</tr>'
-              + a[v.id].map(function (k) {
-                return '<tr>' + CONTACTVELDEN.map(function (f) { return '<td ' + S.td + '>' + (k[f] ? esc(k[f]) : S.leeg) + '</td>'; }).join('') + '</tr>';
+              + lijstC.map(function (k) {
+                return '<tr>' + CONTACTVELDEN.map(function (f) { return '<td ' + S.td + '>' + (k[f] ? esc(k[f]) : '&nbsp;') + '</td>'; }).join('') + '</tr>';
               }).join(''));
           return;
         }
-        var t = antwoordTekst(v, a[v.id]);
-        rijen += rij(esc(v.kort || v.vraag), t ? esc(t).replace(/\n/g, '<br>') : '');
+        var w = a[v.id];
+        var onbekend = leeg(w) || w === ONBEKEND || (Array.isArray(w) && w.length === 1 && w[0] === ONBEKEND);
+        // een lege toelichting is niets om aan te vullen
+        if (onbekend && (v.type === 'tekst' || v.nietAanvullen)) { rijen += rij(esc(v.kort || v.vraag), S.leeg); return; }
+        if (onbekend) { nogOpen++; rijen += rij(esc(v.kort || v.vraag), S.inTeVullen); return; }
+        rijen += rij(esc(v.kort || v.vraag), esc(antwoordTekst(v, w)).replace(/\n/g, '<br>'));
       });
       sluitTabel();
       return uit ? '<h2 ' + S.h2 + '>' + esc(s.titel) + '</h2>' + uit : '';
@@ -871,6 +886,8 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
       + '<h1 ' + S.h1 + '>Startdocument verduurzamingsadvies</h1>'
       + '<p style="font-family:' + S.font + ';font-size:13pt;color:' + S.grijs + ';margin:0 0 12pt;">' + esc(opt.naam || '') + '</p>'
       + tabel(meta.map(function (m) { return rij(esc(m[0]), esc(m[1])); }).join(''))
+      + (nogOpen ? '<table ' + S.tab + '><tr><td ' + S.uitleg + '><p ' + S.p.replace('margin:0 0 6pt', 'margin:0') + '><b>Nog aan te vullen door de VvE.</b> Wat tijdens het intakegesprek nog niet bekend was, staat in dit document als <i>(nog in te vullen)</i>. '
+        + 'Wilt u dat aanvullen voordat u het startdocument ondertekent en terugstuurt? Weet u iets niet, dan kunt u het open laten.</p></td></tr></table>' : '')
       + (feitenRijen ? '<h2 ' + S.h2 + '>Gegevens van het gebouw</h2>' + tabel(feitenRijen) : '')
       + sectiesHtml
       + akkoord
