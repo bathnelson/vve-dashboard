@@ -2187,6 +2187,9 @@ var StatistiekenView = ({
     }
   }, count));
 
+  // Woningen: woonadressen per VvE, opgeteld (zelfde telling als de statusbalk)
+  var totalWoningen = groups.reduce((sum, g) => sum + (g.vve.aantal_woon_adr_in_vve || 0), 0);
+
   // Buurt distribution
   var buurtMap = {};
   groups.forEach(({
@@ -2339,8 +2342,12 @@ var StatistiekenView = ({
     value: totalAddresses.toLocaleString(),
     color: '#1565c0'
   }, {
-    label: 'Gem. adressen/VvE',
-    value: groups.length ? (totalAddresses / groups.length).toFixed(1) : '—',
+    label: 'Woningen gefilterd',
+    value: totalWoningen.toLocaleString(),
+    color: '#2e7d32'
+  }, {
+    label: 'Gem. woningen/VvE',
+    value: groups.length ? (totalWoningen / groups.length).toFixed(1).replace('.', ',') : '—',
     color: '#6a1099'
   }, {
     label: 'Buurten',
@@ -2638,8 +2645,8 @@ var StatistiekenView = ({
       vvesWithLbl.length && {label:'Beste gem. energielabel', main:vveNm(vvesWithLbl[0].vve), sub:vvesWithLbl[0].addresses.length+' wooneenheden', badge:vvesWithLbl[0].label, item:vvesWithLbl[0].vve},
       woningen.length && {label:'Duurste appartement (WOZ 2025)', main:fmt(woningen[0].woz2025), sub:addrStr(woningen[0]), item:woningen[0]},
       woningen.length && {label:'Goedkoopste appartement (WOZ 2025)', main:fmt(woningen[woningen.length-1].woz2025), sub:addrStr(woningen[woningen.length-1]), item:woningen[woningen.length-1]},
-      groups.length && {label:'Grootste VvE', main:vveNm(groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve), sub:(groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve.aantal_woon_adr_in_vve||'?')+' adressen', item:groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve},
-      grootsteMetSlecht && {label:'Grootste VvE met slechtste label', main:vveNm(grootsteMetSlecht.vve), sub:(grootsteMetSlecht.vve.aantal_woon_adr_in_vve||'?')+' adressen', badge:grootsteMetSlecht.label, item:grootsteMetSlecht.vve},
+      groups.length && {label:'Grootste VvE', main:vveNm(groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve), sub:(groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve.aantal_woon_adr_in_vve||'?')+' woningen', item:groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve},
+      grootsteMetSlecht && {label:'Grootste VvE met slechtste label', main:vveNm(grootsteMetSlecht.vve), sub:(grootsteMetSlecht.vve.aantal_woon_adr_in_vve||'?')+' woningen', badge:grootsteMetSlecht.label, item:grootsteMetSlecht.vve},
       metBouwjaar.length && {label:'Oudste pand', main:addrStr(metBouwjaar[0]), sub:'Bouwjaar '+metBouwjaar[0].bouwjaar_gerelateerd_pand, item:metBouwjaar[0]},
       metBouwjaar.length && {label:'Nieuwste pand', main:addrStr(metBouwjaar[metBouwjaar.length-1]), sub:'Bouwjaar '+metBouwjaar[metBouwjaar.length-1].bouwjaar_gerelateerd_pand, item:metBouwjaar[metBouwjaar.length-1]},
       vvesMetWoz.length && {label:'Hoogste gem. WOZ per VvE', main:fmt(vvesMetWoz[0].avgWoz), sub:vveNm(vvesMetWoz[0].vve), item:vvesMetWoz[0].vve},
@@ -3367,8 +3374,8 @@ var ExtreemModal = function(_ref_ex) {
       besteLabel && E(Card, {label:'Beste gem. energielabel',main:vveName(besteLabel.vve),sub:besteLabel.addresses.length+' wooneenheden',badge:besteLabel.label,onClick:nav(besteLabel.vve)}),
       duurste && E(Card, {label:'Duurste appartement (WOZ 2025)',main:fmt(duurste.woz2025),sub:addrStr(duurste),onClick:nav(duurste)}),
       goedkoopste && E(Card, {label:'Goedkoopste appartement (WOZ 2025)',main:fmt(goedkoopste.woz2025),sub:addrStr(goedkoopste),onClick:nav(goedkoopste)}),
-      grootsteVve && E(Card, {label:'Grootste VvE',main:vveName(grootsteVve.vve),sub:grootsteVve.vve.aantal_woon_adr_in_vve+' adressen',onClick:nav(grootsteVve.vve)}),
-      grootsteMetSlecht && E(Card, {label:'Grootste VvE met slechtste label',main:vveName(grootsteMetSlecht.vve),sub:grootsteMetSlecht.vve.aantal_woon_adr_in_vve+' adressen',badge:grootsteMetSlecht.label,onClick:nav(grootsteMetSlecht.vve)}),
+      grootsteVve && E(Card, {label:'Grootste VvE',main:vveName(grootsteVve.vve),sub:grootsteVve.vve.aantal_woon_adr_in_vve+' woningen',onClick:nav(grootsteVve.vve)}),
+      grootsteMetSlecht && E(Card, {label:'Grootste VvE met slechtste label',main:vveName(grootsteMetSlecht.vve),sub:grootsteMetSlecht.vve.aantal_woon_adr_in_vve+' woningen',badge:grootsteMetSlecht.label,onClick:nav(grootsteMetSlecht.vve)}),
       oudstePand && E(Card, {label:'Oudste pand',main:String(oudstePand.bouwjaar_gerelateerd_pand),sub:addrStr(oudstePand),onClick:nav(oudstePand)}),
       nieuwstePand && E(Card, {label:'Nieuwste pand',main:String(nieuwstePand.bouwjaar_gerelateerd_pand),sub:addrStr(nieuwstePand),onClick:nav(nieuwstePand)}),
       hoogsteGemWoz && E(Card, {label:'Hoogste gem. WOZ per VvE',main:fmt(hoogsteGemWoz.avgWoz),sub:vveName(hoogsteGemWoz.vve),onClick:nav(hoogsteGemWoz.vve)}),
