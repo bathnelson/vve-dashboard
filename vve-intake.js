@@ -15,6 +15,11 @@
 //   VveIntake.open({ vveId, naam, feiten: [[label, waarde], ...],
 //                    opgeslagen: <object of null>, gebruiker, onOpslaan: fn(obj) })
 //   VveIntake.score(antwoorden) -> { score, volledigheid, onderdelen: [...] }
+//
+// Naast vragen kent de config 'uitleg'-blokken: tekst voor de gespreksleider om
+// toe te lichten (bijvoorbeeld hoe het traject verloopt). Met besproken: true
+// krijgt het blok een vinkje 'Besproken'; met inStartdocument: true komt de
+// tekst ook in het startdocument.
 
 (function () {
   'use strict';
@@ -124,6 +129,15 @@
     };
   };
 
+  // tekst: string of lijst van alinea's; punten: genummerde lijst; lijst: opsomming
+  var uitlegHtml = function (v, esc) {
+    var h = '';
+    [].concat(v.tekst || []).forEach(function (p) { h += '<p>' + esc(p) + '</p>'; });
+    if (v.punten) h += '<ol>' + v.punten.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ol>';
+    if (v.lijst) h += '<ul>' + v.lijst.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>';
+    return h;
+  };
+
   var antwoordTekst = function (v, w) {
     if (leeg(w)) return '';
     if (Array.isArray(w)) return w.join(', ');
@@ -170,6 +184,10 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
 .vi-voet .vi-status{flex:1;color:#605e5c;font-size:12px}\
 .vi-knop{font:600 13px "Segoe UI",system-ui,sans-serif;padding:6px 16px;border:1px solid #8a8886;background:#fff;color:#323130;cursor:pointer}\
 .vi-knop:hover{background:#f3f2f1}\
+.vi-knop.klein{font-weight:400;padding:6px 10px}\
+.vi-inlees{position:absolute;left:18px;bottom:52px;background:#fff;border:1px solid #c8c6c4;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column;z-index:4}\
+.vi-inlees button{font:inherit;text-align:left;padding:6px 12px;border:0;background:none;cursor:pointer}\
+.vi-inlees button:hover{background:#f3f2f1}\
 .vi-knop.hoofd{background:var(--vd-accent,#217346);border-color:var(--vd-accent,#217346);color:#fff}\
 .vi-knop.hoofd:hover{background:var(--vd-accent-donker,#1a5c38)}\
 .vi-uitleg{position:absolute;right:18px;top:58px;width:380px;max-height:70vh;overflow:auto;background:#fff;border:1px solid #c8c6c4;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:12px 14px;z-index:2}\
@@ -188,6 +206,12 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
 .vi-notities.dicht{width:auto}\
 .vi-notities.dicht textarea{display:none}\
 .vi-notities.dicht header{border-bottom:0}\
+.vi-uitlegblok{margin:12px 0 4px;padding:10px 14px;background:#f3f8fc;border-left:3px solid #2f5496}\
+.vi-uitlegblok .vi-vt{color:#2f5496}\
+.vi-uitlegblok p{margin:4px 0}\
+.vi-uitlegblok ol,.vi-uitlegblok ul{margin:4px 0 4px 20px;padding:0}\
+.vi-uitlegblok li{margin:2px 0}\
+.vi-uitlegblok .vi-besproken{display:inline-flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;font-weight:600;color:#323130}\
 @media (max-width:760px){.vi-achter{padding:0}.vi-nav{display:none}.vi-uitleg{left:8px;right:8px;width:auto}}';
 
   var stijlGezet = false;
@@ -221,7 +245,12 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       + '<div class="vi-score" title="Kansrijkheid: alleen voor intern gebruik, staat niet in het startdocument"><b>–</b><span>kansrijk<br><em style="font-style:normal">0% ingevuld</em></span></div>'
       + '</div>'
       + '<div class="vi-romp"><nav class="vi-nav"></nav><div class="vi-inhoud"></div></div>'
-      + '<div class="vi-voet"><div class="vi-status"></div>'
+      + '<div class="vi-voet">'
+      + '<button type="button" class="vi-knop klein" data-doe="download" title="Startdocument met de antwoorden erin downloaden, om in de dossiermap te bewaren">Downloaden</button>'
+      + '<button type="button" class="vi-knop klein" data-doe="deel" title="Startdocument met de antwoorden delen via Windows (bijvoorbeeld Teams of Outlook)" style="display:none">Delen</button>'
+      + '<button type="button" class="vi-knop klein" data-doe="kopieer" title="Antwoorden naar het klembord kopiëren">Kopiëren</button>'
+      + '<button type="button" class="vi-knop klein" data-doe="inlezen" title="Antwoorden inlezen uit een gedownload startdocument of van het klembord">Inlezen</button>'
+      + '<div class="vi-status"></div>'
       + '<button type="button" class="vi-knop" data-doe="sluit">Sluiten</button>'
       + '<button type="button" class="vi-knop" data-doe="startdoc">Startdocument</button>'
       + '<button type="button" class="vi-knop hoofd" data-doe="opslaan">Opslaan</button></div>'
@@ -288,13 +317,14 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     var herreken = function () {
       var s = score(a);
       if (!s) return;
-      scoreEl.querySelector('b').textContent = s.score === null ? '–' : s.score;
+      // Pas een score tonen als er genoeg is ingevuld; anders zegt één antwoord al '100'.
+      scoreEl.querySelector('b').textContent = s.score === null || s.volledigheid < 25 ? '–' : s.score;
       scoreEl.querySelector('em').textContent = s.volledigheid + '% ingevuld';
       tekenUitleg(s);
       // voortgang per sectie in de navigatie
       secties.forEach(function (sec) {
         if (sec.feiten) return;
-        var vr = (sec.vragen || []).filter(function (v) { return zichtbaar(v, a); });
+        var vr = (sec.vragen || []).filter(function (v) { return zichtbaar(v, a) && (v.type !== 'uitleg' || v.besproken); });
         var klaar = vr.filter(function (v) { return !leeg(a[v.id]); }).length;
         var el = nav.querySelector('[data-sectie="' + sec.id + '"] small');
         if (el) el.textContent = klaar + '/' + vr.length;
@@ -313,7 +343,19 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       herreken();
     };
 
+    var tekenUitlegBlok = function (v) {
+      var div = document.createElement('div');
+      div.className = 'vi-uitlegblok';
+      div.setAttribute('data-vraag', v.id);
+      div.innerHTML = '<div class="vi-vt">' + esc(v.vraag) + '</div>' + uitlegHtml(v, esc)
+        + (v.besproken ? '<label class="vi-besproken"><input type="checkbox"' + (a[v.id] ? ' checked' : '') + '> Besproken</label>' : '');
+      var vink = div.querySelector('input');
+      if (vink) vink.addEventListener('change', function () { wijzig(v.id, vink.checked ? 'Ja' : ''); });
+      return div;
+    };
+
     var tekenVraag = function (v) {
+      if (v.type === 'uitleg') return tekenUitlegBlok(v);
       var div = document.createElement('div');
       div.className = 'vi-vraag';
       div.setAttribute('data-vraag', v.id);
@@ -454,6 +496,112 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       return true;
     };
 
+    // ── bewaren buiten de browser ──
+    // Het dashboard bewaart in de browser; dat is kwetsbaar. Daarom kan de intake
+    // ook als bestand (het startdocument met de antwoorden erin) of via het
+    // klembord worden bewaard, en later weer worden ingelezen.
+    var pakket = function () {
+      var s = score(a) || {};
+      return { soort: 'vve-intake', vveId: opt.vveId, naam: opt.naam || '', versie: c.versie || '', antwoorden: a,
+        score: s.score, volledigheid: s.volledigheid, opgeslagen: (bewaard && bewaard.opgeslagen) || '', door: opt.gebruiker || '',
+        gekopieerd: new Date().toISOString() };
+    };
+    var bestand = function () {
+      var html = startdocumentHtml({ naam: opt.naam, feiten: feiten, antwoorden: a, gebruiker: opt.gebruiker }, pakket());
+      var datum = new Date().toISOString().slice(0, 10);
+      var basis = String(opt.bestandsnaam || opt.naam || opt.vveId || 'vve').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim();
+      return { naam: 'Startdocument ' + basis + ' ' + datum + '.html', blob: new Blob([html], { type: 'text/html' }) };
+    };
+    // Delen via het deelvenster van Windows/de browser, als die bestanden kan delen.
+    var kanDelen = (function () {
+      try { return !!(navigator.canShare && navigator.canShare({ files: [new File(['x'], 'x.html', { type: 'text/html' })] })); } catch (e) { return false; }
+    })();
+    var delen = function () {
+      var b = bestand();
+      var f = new File([b.blob], b.naam, { type: 'text/html' });
+      navigator.share({ files: [f], title: b.naam }).then(function () {
+        statusEl.textContent = 'Gedeeld.';
+      }, function (e) {
+        if (e && e.name === 'AbortError') return;
+        statusEl.textContent = 'Delen lukte niet; gebruik Downloaden.';
+      });
+    };
+    var downloaden = function () {
+      var b = bestand();
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(b.blob);
+      link.download = b.naam;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(function () { URL.revokeObjectURL(link.href); link.remove(); }, 1000);
+      statusEl.textContent = 'Gedownload. Zet het bestand in de dossiermap van de VvE.';
+    };
+    var kopieer = function () {
+      var tekst = JSON.stringify(pakket());
+      var gelukt = function () { statusEl.textContent = 'Antwoorden staan op het klembord.'; };
+      var oud = function () {
+        var ta = document.createElement('textarea');
+        ta.value = tekst; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); gelukt(); } catch (e) { alert('Kopiëren lukte niet.'); }
+        ta.remove();
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tekst).then(gelukt, oud); else oud();
+    };
+    var leesPakket = function (tekst) {
+      var m = /<script[^>]*id="vve-intake-data"[^>]*>([\s\S]*?)<\/script>/.exec(tekst);
+      var p;
+      try { p = JSON.parse(m ? m[1] : tekst.trim()); } catch (e) { p = null; }
+      if (!p || p.soort !== 'vve-intake' || typeof p.antwoorden !== 'object') {
+        alert('Hierin staat geen intake. Kies een gedownload startdocument of plak gekopieerde antwoorden.');
+        return;
+      }
+      if (p.vveId && opt.vveId && p.vveId !== opt.vveId &&
+          !confirm('Deze intake hoort bij ' + (p.naam || p.vveId) + ', niet bij ' + (opt.naam || opt.vveId) + '. Toch inlezen?')) return;
+      var heeftAntwoorden = Object.keys(a).some(function (k) { return !leeg(a[k]); });
+      if (heeftAntwoorden && !confirm('De antwoorden die nu in het formulier staan worden vervangen. Doorgaan?')) return;
+      document.removeEventListener('keydown', toets);
+      achter.remove();
+      var nieuweOpt = {};
+      Object.keys(opt).forEach(function (k) { nieuweOpt[k] = opt[k]; });
+      nieuweOpt.opgeslagen = { versie: p.versie, antwoorden: p.antwoorden, opgeslagen: bewaard && bewaard.opgeslagen, door: bewaard && bewaard.door };
+      nieuweOpt._ingelezen = true;
+      open(nieuweOpt);
+    };
+    var inleesMenu = null;
+    var inlezen = function () {
+      if (inleesMenu) { inleesMenu.remove(); inleesMenu = null; return; }
+      inleesMenu = document.createElement('div');
+      inleesMenu.className = 'vi-inlees';
+      inleesMenu.innerHTML = '<button type="button" data-in="bestand">Uit een bestand (gedownload startdocument)</button>'
+        + '<button type="button" data-in="plak">Van het klembord plakken</button>';
+      achter.querySelector('.vi-paneel').appendChild(inleesMenu);
+      inleesMenu.addEventListener('click', function (e) {
+        var soort = e.target.getAttribute('data-in');
+        if (!soort) return;
+        inleesMenu.remove(); inleesMenu = null;
+        if (soort === 'bestand') {
+          var inp = document.createElement('input');
+          inp.type = 'file'; inp.accept = '.html,.htm,.json,.txt';
+          inp.addEventListener('change', function () {
+            var f = inp.files && inp.files[0];
+            if (!f) return;
+            var r = new FileReader();
+            r.onload = function () { leesPakket(String(r.result || '')); };
+            r.readAsText(f);
+          });
+          inp.click();
+        } else {
+          var handmatig = function () {
+            var t = prompt('Plak hier de gekopieerde antwoorden:');
+            if (t) leesPakket(t);
+          };
+          if (navigator.clipboard && navigator.clipboard.readText) navigator.clipboard.readText().then(function (t) { if (t) leesPakket(t); else handmatig(); }, handmatig);
+          else handmatig();
+        }
+      });
+    };
+
     var sluit = function () {
       if (gewijzigd && !confirm('Er zijn wijzigingen die nog niet zijn opgeslagen. Toch sluiten?')) return;
       document.removeEventListener('keydown', toets);
@@ -468,13 +616,19 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       var doe = e.target.getAttribute && e.target.getAttribute('data-doe');
       if (doe === 'sluit') sluit();
       if (doe === 'opslaan') opslaan();
+      if (doe === 'download') downloaden();
+      if (doe === 'deel') delen();
+      if (doe === 'kopieer') kopieer();
+      if (doe === 'inlezen') inlezen();
       if (doe === 'startdoc') {
         if (gewijzigd && !opslaan()) return;
         startdocument({ naam: opt.naam, feiten: feiten, antwoorden: a, gebruiker: opt.gebruiker });
       }
     });
 
-    zetStatus();
+    if (kanDelen) achter.querySelector('[data-doe="deel"]').style.display = '';
+    if (opt._ingelezen) { gewijzigd = true; zetStatus(); statusEl.textContent = 'Ingelezen. Klik op Opslaan om het bij deze VvE te bewaren.'; }
+    else zetStatus();
     herreken();
   };
 
@@ -482,8 +636,20 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
   // Leesbaar en af te drukken, met akkoordtekst uit de config. Zonder score:
   // die is voor intern gebruik.
   var startdocument = function (opt) {
+    var html = startdocumentHtml(opt, null);
+    if (!html) return;
+    var w = window.open('', '_blank');
+    if (!w) { alert('Het startdocument kon niet worden geopend. Sta pop-ups toe voor het dashboard.'); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+  };
+
+  // De HTML van het startdocument. Met een pakket erbij (bij Downloaden) gaan de
+  // antwoorden onzichtbaar mee in het bestand, zodat het later weer in te lezen is.
+  var startdocumentHtml = function (opt, pakket) {
     var c = cfg();
-    if (!c) return;
+    if (!c) return '';
     var a = opt.antwoorden || {};
     var vandaag = new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
     var td = 'style="padding:4px 8px;border:1px solid #bbb;vertical-align:top;font-size:11pt;"';
@@ -495,14 +661,25 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       .map(function (f) { return '<tr><td ' + tl + '>' + esc(f[0]) + '</td><td ' + td + '>' + (f[2] ? f[1] : esc(f[1])) + '</td></tr>'; }).join('');
 
     var sectiesHtml = (c.secties || []).filter(function (s) { return !s.nietInStartdocument; }).map(function (s) {
-      var rijen = (s.vragen || []).filter(function (v) { return zichtbaar(v, a) && !v.nietInStartdocument; }).map(function (v) {
+      // vragen als tabel; uitlegblokken (met inStartdocument) als tekst ertussen
+      var uit = '', rijen = '';
+      var sluitTabel = function () { if (rijen) { uit += '<table ' + tab + '>' + rijen + '</table>'; rijen = ''; } };
+      (s.vragen || []).forEach(function (v) {
+        if (!zichtbaar(v, a) || v.nietInStartdocument) return;
+        if (v.type === 'uitleg') {
+          if (!v.inStartdocument) return;
+          sluitTabel();
+          uit += '<h3 style="font-size:11.5pt;margin:12px 0 4px;">' + esc(v.vraag) + '</h3>' + uitlegHtml(v, esc);
+          return;
+        }
         var t = antwoordTekst(v, a[v.id]);
-        return '<tr><td ' + tl + '>' + esc(v.kort || v.vraag) + '</td><td ' + td + '>' + (t ? esc(t).replace(/\n/g, '<br>') : '<span style="color:#999">–</span>') + '</td></tr>';
-      }).join('');
-      return rijen ? '<h2 ' + h2 + '>' + esc(s.titel) + '</h2><table ' + tab + '>' + rijen + '</table>' : '';
+        rijen += '<tr><td ' + tl + '>' + esc(v.kort || v.vraag) + '</td><td ' + td + '>' + (t ? esc(t).replace(/\n/g, '<br>') : '<span style="color:#999">–</span>') + '</td></tr>';
+      });
+      sluitTabel();
+      return uit ? '<h2 ' + h2 + '>' + esc(s.titel) + '</h2>' + uit : '';
     }).join('');
 
-    var akkoord = typeof c.akkoordHtml === 'function' ? c.akkoordHtml({ naam: opt.naam, datum: vandaag }) : (c.akkoordHtml || '');
+    var akkoord = typeof c.akkoordHtml === 'function' ? c.akkoordHtml({ naam: opt.naam, datum: vandaag, antwoorden: a, esc: esc }) : (c.akkoordHtml || '');
 
     var html = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Startdocument verduurzamingsadvies - ' + esc(opt.naam || 'VvE') + '</title>'
       + '<style>body{font-family:Calibri,sans-serif;font-size:11pt;color:#333;max-width:700px;margin:20px auto;padding:15px;line-height:1.4}'
@@ -514,12 +691,9 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       + (feitenRijen ? '<h2 ' + h2 + '>Gegevens van het gebouw</h2><table ' + tab + '>' + feitenRijen + '</table>' : '')
       + sectiesHtml
       + akkoord
+      + (pakket ? '<script type="application/json" id="vve-intake-data">' + JSON.stringify(pakket).replace(/</g, '\\u003c') + '</script>' : '')
       + '</body></html>';
-    var w = window.open('', '_blank');
-    if (!w) { alert('Het startdocument kon niet worden geopend. Sta pop-ups toe voor het dashboard.'); return; }
-    w.document.write(html);
-    w.document.close();
-    w.focus();
+    return html;
   };
 
   window.VveIntake = { open: open, score: score, startdocument: startdocument, beschikbaar: function () { return !!cfg(); } };

@@ -4112,6 +4112,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     window.VveIntake.open({
       vveId: item.vve_identificatie,
       naam: item.statutairenaam,
+      bestandsnaam: getMapnaam(item.vve_identificatie) || item.statutairenaam,
       feiten: feiten,
       opgeslagen: opgeslagen,
       gebruiker: _getCurrentUser(),
