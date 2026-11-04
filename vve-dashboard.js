@@ -274,7 +274,7 @@ var VERSE_EP = {};
             // Vergelijk nieuwe waarden met huidige en log gewijzigde velden
             const oldData = loadEnrichmentData()[vveId] || {};
             const fieldsToLog = ['nickname','adviestraject','bureau','intake','procesbegeleider','mwa','verdieping','uitvoering','notities','beheerder','kvkNummer','dossierStatus','dossierStatusOp','huidigeLocatie',
-                'bestuurNaam','bestuurEmail','bestuurTelefoon','duurzaamheidNaam','duurzaamheidEmail','duurzaamheidTelefoon'];
+                'bestuurNaam','bestuurEmail','bestuurTelefoon','duurzaamheidNaam','duurzaamheidEmail','duurzaamheidTelefoon','intakeForm'];
             const user = _getCurrentUser();
             const ts = Date.now();
 
@@ -292,7 +292,9 @@ var VERSE_EP = {};
                     const oldVal = oldData[field] || '';
                     const newVal = enrichment[field] || '';
                     if (oldVal !== newVal) {
-                        _currentUserEnrichData.log.push({ ts, user, vve_id: vveId, vve_naam: vveNaam, field, old: oldVal, new: newVal });
+                        // Het intakeformulier is een groot JSON-blok; in het logboek alleen dat het is bijgewerkt.
+                        const kortLog = v => field === 'intakeForm' ? (v ? 'formulier' : '') : v;
+                        _currentUserEnrichData.log.push({ ts, user, vve_id: vveId, vve_naam: vveNaam, field, old: kortLog(oldVal), new: kortLog(newVal) });
                         if (!_currentUserEnrichData.data[vveId]) _currentUserEnrichData.data[vveId] = {};
                         _currentUserEnrichData.data[vveId][field] = { v: newVal, ts };
                     }
@@ -1089,11 +1091,20 @@ var exporteerFiltersInc = combinaties => {
 // Dezelfde acties staan onder Acties in de witte balk en in het menu onder de
 // rechtermuisknop op een rij. Het detailpaneel voert ze uit (het weet welke VvE
 // geselecteerd is); het rechtermuisknopmenu vraagt erom met het event 'vve-actie'.
+// Het intakeformulier staat in een eigen bestand naast deze code (zelfde APP_BASE).
+(function () {
+  if (typeof document === 'undefined' || window.VveIntake) return;
+  var s = document.createElement('script');
+  s.src = (window.APP_BASE || '.') + '/vve-intake.js';
+  s.onerror = function () { console.info('vve-intake.js niet geladen — intakeformulier niet beschikbaar.'); };
+  document.head.appendChild(s);
+})();
 var VVE_ACTIES = [
   { key: 'bewerken', label: 'Bewerken', als: 'dossier' },
   { key: 'crm', label: 'CRM openen', als: 'crm' },
   { key: 'kopieer', label: 'Samenvatting kopiëren' },
   { key: 'startdoc', label: 'Startdocument' },
+  { key: 'intake', label: 'Intakeformulier', als: 'dossier' },
   { key: 'herbouw', label: 'Herbouwwaarde', lab: true }
 ];
 var vveActiesVoor = (dossier, crm) => VVE_ACTIES.filter(a => !a.als || (a.als === 'dossier' ? dossier : crm));
@@ -3985,7 +3996,8 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
       });
     });
   };
-  var openStartdocument = () => {
+  // Alles wat het dashboard al over deze VvE weet, voor het startdocument en het intakeformulier.
+  var startdocGegevens = () => {
     var warmte = getWarmteProg(item);
     var today = new Date();
     var datum = `${today.getDate().toString().padStart(2, '0')}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getFullYear()}`;
@@ -4053,11 +4065,63 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     }).join('<br>');
 
     // c = checkbox helper (unicode, klikbaar), e = editable div helper (HTML-escaped), ehtml = editable div met vertrouwde HTML (bijv. <br> uit officiële dataset)
-    if (typeof bouwStartdocument !== 'function') { alert('Het sjabloon voor het startdocument (config/document_sjabloon.inc) is niet gevonden in de dashboardmap.'); return; } var html = bouwStartdocument({ item: item, enrichment: enrichment, warmte: warmte, datum: datum, bestuur: bestuur, duurzaamheid: duurzaamheid, bouwjaarStr: bouwjaarStr, woningtypen: woningtypen, avgWoz: avgWoz, avgEnergy: avgEnergy, isMonument: isMonument, beschermdGezicht: beschermdGezicht, funderingStr: funderingStr, ontwikkelzoneStr: ontwikkelzoneStr, mjgbStr: mjgbStr, grondwaterStr: grondwaterStr, pandIds: pandIds, adressenStr: adressenStr });;
+    return { item: item, enrichment: enrichment, warmte: warmte, datum: datum, bestuur: bestuur, duurzaamheid: duurzaamheid, bouwjaarStr: bouwjaarStr, woningtypen: woningtypen, avgWoz: avgWoz, avgEnergy: avgEnergy, isMonument: isMonument, beschermdGezicht: beschermdGezicht, funderingStr: funderingStr, ontwikkelzoneStr: ontwikkelzoneStr, mjgbStr: mjgbStr, grondwaterStr: grondwaterStr, pandIds: pandIds, adressenStr: adressenStr };
+  };
+  var openStartdocument = () => {
+    if (typeof bouwStartdocument !== 'function') { alert('Het sjabloon voor het startdocument (config/document_sjabloon.inc) is niet gevonden in de dashboardmap.'); return; }
+    var html = bouwStartdocument(startdocGegevens());
     var newWindow = window.open('', '_blank');
     newWindow.document.write(html);
     newWindow.document.close();
     newWindow.focus();
+  };
+  // Intakeformulier (vve-intake.js): vaste keuzes per VvE, opgeslagen als
+  // dossierveld intakeForm (JSON-tekst, zodat het meegaat in de gedeelde
+  // enrichment-bestanden en dossier.inc). Maakt ook het nieuwe startdocument.
+  var openIntake = () => {
+    if (!window.VveIntake) { alert('Het intakeformulier is nog niet geladen. Probeer het over een paar seconden opnieuw.'); return; }
+    var g = startdocGegevens();
+    var ge = vveSummary.gespikkeldEntry;
+    var corp = ge ? ge.blok.map(b => `${b.corporatie}: ${b.corp_woningen} van ${b.woningen_in_blok} woningen`).join('; ') : '';
+    var feiten = [
+      ['VvE', item.statutairenaam || ''],
+      ['KvK-nummer', vveSummary.kvkNummer && vveSummary.kvkNummer !== '-' ? vveSummary.kvkNummer : ''],
+      ['Adres(sen)', g.adressenStr, true],
+      ['Buurt en wijk', [item.buurt, item.wijk].filter(Boolean).join(', ')],
+      ['Aantal woningen', item.aantal_woon_adr_in_vve || ''],
+      ['Bouwjaar', g.bouwjaarStr],
+      ['Woningtypen', g.woningtypen],
+      ['Gemiddeld energielabel', g.avgEnergy && g.avgEnergy !== '-' ? g.avgEnergy : ''],
+      ['Gemiddelde WOZ-waarde', g.avgWoz ? '\u20AC ' + g.avgWoz.toLocaleString('nl-NL') : ''],
+      ['Monument', g.isMonument ? (item.monumentale_status || 'Ja') : 'Nee'],
+      ['Beschermd stadsgezicht', g.beschermdGezicht || 'Nee'],
+      ['Warmteprogramma', g.warmte ? [g.warmte.warmte, g.warmte.tijdvak].filter(Boolean).join(', ') : ''],
+      ['Grond', vveSummary.erfpacht !== '-' ? vveSummary.erfpacht : ''],
+      // Niet in data/gespikkeld.inc betekent onbekend, niet 'geen corporatie'.
+      ['Corporatiebezit', corp],
+      ['Fundering', g.funderingStr],
+      ['Ontwikkelzone', g.ontwikkelzoneStr],
+      ['Gepland wegonderhoud (MJGB)', g.mjgbStr],
+      ['Grondwater', g.grondwaterStr],
+      ['Contact bestuur', g.bestuur],
+      ['Contact duurzaamheid', g.duurzaamheid],
+      ['Gebouwen (BAG)', g.pandIds.join(', ')]
+    ];
+    var opgeslagen = null;
+    try { opgeslagen = enrichment && enrichment.intakeForm ? JSON.parse(enrichment.intakeForm) : null; } catch (e) { opgeslagen = null; }
+    window.VveIntake.open({
+      vveId: item.vve_identificatie,
+      naam: item.statutairenaam,
+      feiten: feiten,
+      opgeslagen: opgeslagen,
+      gebruiker: _getCurrentUser(),
+      onOpslaan: obj => {
+        var nieuw = { ...(getVveEnrichment(item.vve_identificatie) || {}), intakeForm: JSON.stringify(obj) };
+        setVveEnrichment(item.vve_identificatie, nieuw);
+        setEnrichment(nieuw);
+        if (onEnrichmentChange) onEnrichmentChange();
+      }
+    });
   };
   // VvE-actieknoppen: staan normaal in de hoofdbalk bovenaan (portal), niet in dit
   // (smalle) detailpaneel. Alleen als er geen portal-doel is (mobiele weergave) worden ze
@@ -4178,6 +4242,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     crm: () => setShowCrmModal(true),
     kopieer: () => setShowSummaryModal(true),
     startdoc: openStartdocument,
+    intake: openIntake,
     herbouw: () => setShowHerbouwModal(true)
   };
   var toolbarTarget = showToolbarPortal && typeof document !== 'undefined' ? document.getElementById('vve-toolbar-actions') : null;
