@@ -522,5 +522,25 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     w.focus();
   };
 
-  window.VveIntake = { open: open, score: score, startdocument: startdocument, beschikbaar: function () { return !!cfg(); } };
+  // ── voor de exportdialoog ──────────────────────────────────────────
+  // Eén kolom per vraag: id, label, sectie en of de vraag voor het
+  // adviesbureau is bedoeld (a: true). exportWaarde geeft het antwoord als
+  // tekst, leeg als de vraag bij deze antwoorden niet aan de orde is.
+  var exportVelden = function () {
+    var c = cfg();
+    if (!c) return [];
+    return alleVragen(c).filter(function (x) { return x.vraag && x.vraag.id; }).map(function (x) {
+      var v = x.vraag;
+      return { id: v.id, label: v.kort || v.vraag, vraag: v.vraag, sectie: x.sectie.titel, adv: !!v.a, k: !!v.k, type: v.type };
+    });
+  };
+  var exportWaarde = function (id, antwoorden) {
+    var c = cfg();
+    if (!c || !antwoorden) return '';
+    var x = alleVragen(c).filter(function (y) { return y.vraag.id === id; })[0];
+    if (!x || !zichtbaar(x.vraag, antwoorden)) return '';
+    return antwoordTekst(x.vraag, antwoorden[id]);
+  };
+
+  window.VveIntake = { open: open, score: score, startdocument: startdocument, exportVelden: exportVelden, exportWaarde: exportWaarde, beschikbaar: function () { return !!cfg(); } };
 })();
