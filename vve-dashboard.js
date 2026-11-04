@@ -2136,8 +2136,38 @@ var KaartView = ({
 // ── Statistieken tab ───────────────────────────────────────────────────────
 var StatistiekenView = ({
   groups,
-  totalAddresses
+  totalAddresses,
+  filters
 }) => {
+  // De hele statistiekpagina in een nieuw venster zetten en het afdrukvenster openen;
+  // daar kiest de gebruiker "Opslaan als PDF". Kop met datum, aantallen en actieve filters.
+  var exporteerPdf = () => {
+    var bron = document.getElementById('vd-statistieken');
+    if (!bron) return;
+    var w = window.open('', '_blank');
+    if (!w) { alert('Het afdrukvenster is geblokkeerd. Sta pop-ups toe voor het dashboard en probeer het opnieuw.'); return; }
+    var esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    var stijlen = Array.prototype.map.call(document.querySelectorAll('link[rel="stylesheet"], style'), n => n.outerHTML).join('');
+    var kloon = bron.cloneNode(true);
+    kloon.querySelectorAll('.vd-geen-print').forEach(n => n.remove());
+    kloon.removeAttribute('id');
+    kloon.style.overflow = 'visible';
+    kloon.style.background = '#fff';
+    kloon.style.padding = '0';
+    var datum = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+    var woningen = groups.reduce((s, g) => s + (g.vve.aantal_woon_adr_in_vve || 0), 0);
+    var f = (filters || []).length ? 'Filters: ' + filters.map(esc).join(' \u00b7 ') : 'Geen filters: alle VvE\'s';
+    w.document.open();
+    w.document.write('<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Statistieken VvE-dashboard ' + esc(datum) + '</title>' + stijlen
+      + '<style>@page{size:A4 landscape;margin:12mm}html,body{background:#fff!important;margin:0}body{font-family:"Segoe UI",system-ui,sans-serif;padding:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      + '.vd-print-kop{border-bottom:2px solid var(--vd-accent,#217346);margin-bottom:12px;padding-bottom:6px}.vd-print-kop h1{font-size:18px;margin:0}.vd-print-kop p{font-size:11px;color:#555;margin:3px 0 0}'
+      + 'div[style*="border: 1px solid"]{break-inside:avoid}@media print{body{padding:0}}</style></head><body>'
+      + '<div class="vd-print-kop"><h1>Statistieken VvE-dashboard</h1><p>' + esc(datum) + ' \u00b7 ' + groups.length.toLocaleString('nl-NL') + ' VvE\'s \u00b7 '
+      + (totalAddresses || 0).toLocaleString('nl-NL') + ' adressen \u00b7 ' + woningen.toLocaleString('nl-NL') + ' woningen</p><p>' + f + '</p></div>'
+      + kloon.outerHTML + '</body></html>');
+    w.document.close();
+    setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 600);
+  };
   var MiniBar = ({
     label,
     count,
@@ -2186,6 +2216,9 @@ var StatistiekenView = ({
       flexShrink: 0
     }
   }, count));
+
+  // Woningen: woonadressen per VvE, opgeteld (zelfde telling als de statusbalk)
+  var totalWoningen = groups.reduce((sum, g) => sum + (g.vve.aantal_woon_adr_in_vve || 0), 0);
 
   // Buurt distribution
   var buurtMap = {};
@@ -2317,6 +2350,7 @@ var StatistiekenView = ({
   var buurtMax = buurten[0]?.[1] || 1;
   var lblMax = Math.max(...labels.map(l => labelMap[l] || 0), 1);
   return /*#__PURE__*/React.createElement("div", {
+    id: 'vd-statistieken',
     style: {
       flex: 1,
       overflow: 'auto',
@@ -2324,6 +2358,13 @@ var StatistiekenView = ({
       background: '#f5f5f5'
     }
   }, /*#__PURE__*/React.createElement("div", {
+    className: 'vd-geen-print',
+    style: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: exporteerPdf,
+    title: 'De hele statistiekpagina afdrukken of opslaan als PDF (kies in het afdrukvenster: Opslaan als PDF)',
+    style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'white', border: '1px solid #c8c6c4', borderRadius: 4, cursor: 'pointer', color: '#323130' }
+  }, '\u2913 Exporteren als PDF')), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 10,
@@ -2339,8 +2380,12 @@ var StatistiekenView = ({
     value: totalAddresses.toLocaleString(),
     color: '#1565c0'
   }, {
-    label: 'Gem. adressen/VvE',
-    value: groups.length ? (totalAddresses / groups.length).toFixed(1) : '—',
+    label: 'Woningen gefilterd',
+    value: totalWoningen.toLocaleString(),
+    color: '#2e7d32'
+  }, {
+    label: 'Gem. woningen/VvE',
+    value: groups.length ? (totalWoningen / groups.length).toFixed(1).replace('.', ',') : '—',
     color: '#6a1099'
   }, {
     label: 'Buurten',
@@ -2638,8 +2683,8 @@ var StatistiekenView = ({
       vvesWithLbl.length && {label:'Beste gem. energielabel', main:vveNm(vvesWithLbl[0].vve), sub:vvesWithLbl[0].addresses.length+' wooneenheden', badge:vvesWithLbl[0].label, item:vvesWithLbl[0].vve},
       woningen.length && {label:'Duurste appartement (WOZ 2025)', main:fmt(woningen[0].woz2025), sub:addrStr(woningen[0]), item:woningen[0]},
       woningen.length && {label:'Goedkoopste appartement (WOZ 2025)', main:fmt(woningen[woningen.length-1].woz2025), sub:addrStr(woningen[woningen.length-1]), item:woningen[woningen.length-1]},
-      groups.length && {label:'Grootste VvE', main:vveNm(groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve), sub:(groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve.aantal_woon_adr_in_vve||'?')+' adressen', item:groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve},
-      grootsteMetSlecht && {label:'Grootste VvE met slechtste label', main:vveNm(grootsteMetSlecht.vve), sub:(grootsteMetSlecht.vve.aantal_woon_adr_in_vve||'?')+' adressen', badge:grootsteMetSlecht.label, item:grootsteMetSlecht.vve},
+      groups.length && {label:'Grootste VvE', main:vveNm(groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve), sub:(groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve.aantal_woon_adr_in_vve||'?')+' woningen', item:groups.slice().sort(function(a,b){return (b.vve.aantal_woon_adr_in_vve||0)-(a.vve.aantal_woon_adr_in_vve||0);})[0].vve},
+      grootsteMetSlecht && {label:'Grootste VvE met slechtste label', main:vveNm(grootsteMetSlecht.vve), sub:(grootsteMetSlecht.vve.aantal_woon_adr_in_vve||'?')+' woningen', badge:grootsteMetSlecht.label, item:grootsteMetSlecht.vve},
       metBouwjaar.length && {label:'Oudste pand', main:addrStr(metBouwjaar[0]), sub:'Bouwjaar '+metBouwjaar[0].bouwjaar_gerelateerd_pand, item:metBouwjaar[0]},
       metBouwjaar.length && {label:'Nieuwste pand', main:addrStr(metBouwjaar[metBouwjaar.length-1]), sub:'Bouwjaar '+metBouwjaar[metBouwjaar.length-1].bouwjaar_gerelateerd_pand, item:metBouwjaar[metBouwjaar.length-1]},
       vvesMetWoz.length && {label:'Hoogste gem. WOZ per VvE', main:fmt(vvesMetWoz[0].avgWoz), sub:vveNm(vvesMetWoz[0].vve), item:vvesMetWoz[0].vve},
@@ -3367,8 +3412,8 @@ var ExtreemModal = function(_ref_ex) {
       besteLabel && E(Card, {label:'Beste gem. energielabel',main:vveName(besteLabel.vve),sub:besteLabel.addresses.length+' wooneenheden',badge:besteLabel.label,onClick:nav(besteLabel.vve)}),
       duurste && E(Card, {label:'Duurste appartement (WOZ 2025)',main:fmt(duurste.woz2025),sub:addrStr(duurste),onClick:nav(duurste)}),
       goedkoopste && E(Card, {label:'Goedkoopste appartement (WOZ 2025)',main:fmt(goedkoopste.woz2025),sub:addrStr(goedkoopste),onClick:nav(goedkoopste)}),
-      grootsteVve && E(Card, {label:'Grootste VvE',main:vveName(grootsteVve.vve),sub:grootsteVve.vve.aantal_woon_adr_in_vve+' adressen',onClick:nav(grootsteVve.vve)}),
-      grootsteMetSlecht && E(Card, {label:'Grootste VvE met slechtste label',main:vveName(grootsteMetSlecht.vve),sub:grootsteMetSlecht.vve.aantal_woon_adr_in_vve+' adressen',badge:grootsteMetSlecht.label,onClick:nav(grootsteMetSlecht.vve)}),
+      grootsteVve && E(Card, {label:'Grootste VvE',main:vveName(grootsteVve.vve),sub:grootsteVve.vve.aantal_woon_adr_in_vve+' woningen',onClick:nav(grootsteVve.vve)}),
+      grootsteMetSlecht && E(Card, {label:'Grootste VvE met slechtste label',main:vveName(grootsteMetSlecht.vve),sub:grootsteMetSlecht.vve.aantal_woon_adr_in_vve+' woningen',badge:grootsteMetSlecht.label,onClick:nav(grootsteMetSlecht.vve)}),
       oudstePand && E(Card, {label:'Oudste pand',main:String(oudstePand.bouwjaar_gerelateerd_pand),sub:addrStr(oudstePand),onClick:nav(oudstePand)}),
       nieuwstePand && E(Card, {label:'Nieuwste pand',main:String(nieuwstePand.bouwjaar_gerelateerd_pand),sub:addrStr(nieuwstePand),onClick:nav(nieuwstePand)}),
       hoogsteGemWoz && E(Card, {label:'Hoogste gem. WOZ per VvE',main:fmt(hoogsteGemWoz.avgWoz),sub:vveName(hoogsteGemWoz.vve),onClick:nav(hoogsteGemWoz.vve)}),
@@ -11572,7 +11617,8 @@ var App = () => {
     groups: groupedByVve
   }), activeSheet === 'statistieken' && /*#__PURE__*/React.createElement(StatistiekenView, {
     groups: groupedByVve,
-    totalAddresses: totalAddressCount
+    totalAddresses: totalAddressCount,
+    filters: vdActief.map(f => f.groep + ': ' + f.label)
   }), activeSheet === 'vves' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
