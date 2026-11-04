@@ -134,7 +134,7 @@
   // ── stijl ───────────────────────────────────────────────────────────
   var STIJL = '\
 .vi-achter{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:flex;align-items:stretch;justify-content:center;padding:24px;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:13px;color:#323130}\
-.vi-paneel{background:#fff;width:100%;max-width:1120px;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25);min-height:0}\
+.vi-paneel{position:relative;background:#fff;width:100%;max-width:1120px;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25);min-height:0}\
 .vi-kop{display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid #e1dfdd}\
 .vi-kop h2{font-size:16px;font-weight:600;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\
 .vi-kop .vi-sub{font-size:12px;color:#605e5c;font-weight:400}\
@@ -147,7 +147,7 @@
 .vi-nav a:hover{background:#f3f2f1}\
 .vi-nav a.is-aan{border-left-color:var(--vd-accent,#217346);background:#fff;font-weight:600}\
 .vi-nav a small{color:#a19f9d;font-weight:400;font-variant-numeric:tabular-nums}\
-.vi-inhoud{flex:1;overflow:auto;padding:4px 24px 40px;min-width:0}\
+.vi-inhoud{flex:1;overflow:auto;padding:4px 24px 240px;min-width:0}\
 .vi-sectie h3{font-size:14px;font-weight:600;color:var(--vd-accent,#217346);margin:22px 0 4px;padding-bottom:4px;border-bottom:1px solid #edebe9}\
 .vi-feiten{display:grid;grid-template-columns:minmax(140px,220px) 1fr;gap:3px 14px;margin:8px 0 4px}\
 .vi-feiten div:nth-child(odd){color:#605e5c}\
@@ -180,6 +180,14 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
 .vi-uitleg .vi-balk{height:4px;background:#edebe9;margin-top:3px}\
 .vi-uitleg .vi-balk i{display:block;height:4px;background:var(--vd-accent,#217346)}\
 .vi-uitleg p{color:#605e5c;font-size:11px;margin:8px 0 0}\
+.vi-notities{position:absolute;right:20px;bottom:62px;width:330px;background:#fffbe6;border:1px solid #e3d48a;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:3;display:flex;flex-direction:column}\
+.vi-notities header{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #eee2a8;font-weight:600;cursor:pointer}\
+.vi-notities header span{flex:1}\
+.vi-notities header small{font-weight:400;color:#8a7a2a}\
+.vi-notities textarea{font:inherit;border:0;background:transparent;padding:8px 10px;height:170px;resize:vertical;outline:none}\
+.vi-notities.dicht{width:auto}\
+.vi-notities.dicht textarea{display:none}\
+.vi-notities.dicht header{border-bottom:0}\
 @media (max-width:760px){.vi-achter{padding:0}.vi-nav{display:none}.vi-uitleg{left:8px;right:8px;width:auto}}';
 
   var stijlGezet = false;
@@ -226,6 +234,36 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     var statusEl = achter.querySelector('.vi-status');
     var kop = achter.querySelector('.vi-kop');
     var uitleg = null;
+
+    // Zwevend notitieveld voor vragen en punten die buiten de volgorde opkomen.
+    // Wordt bewaard bij de antwoorden (_notities), staat niet in het startdocument.
+    var notities = document.createElement('div');
+    notities.className = 'vi-notities' + (a._notities ? '' : ' dicht');
+    notities.innerHTML = '<header title="Openen of inklappen (Alt+N)"><span>Notities buiten de flow</span><small></small><b aria-hidden="true">\u2013</b></header>'
+      + '<textarea placeholder="Vragen of punten die tussendoor opkomen. Eén punt per regel; ze worden bewaard maar staan niet in het startdocument."></textarea>';
+    achter.querySelector('.vi-paneel').appendChild(notities);
+    var notTekst = notities.querySelector('textarea');
+    var notTeller = notities.querySelector('small');
+    var notKnop = notities.querySelector('b');
+    notTekst.value = a._notities || '';
+    var telNotities = function () {
+      var n = notTekst.value.split('\n').filter(function (r) { return r.trim(); }).length;
+      notTeller.textContent = n ? '(' + n + ')' : '';
+      notKnop.textContent = notities.classList.contains('dicht') ? '+' : '\u2013';
+    };
+    var wisselNotities = function (open) {
+      notities.classList.toggle('dicht', open === undefined ? !notities.classList.contains('dicht') : !open);
+      telNotities();
+      if (!notities.classList.contains('dicht')) notTekst.focus();
+    };
+    notities.querySelector('header').addEventListener('click', function () { wisselNotities(); });
+    notTekst.addEventListener('input', function () {
+      if (notTekst.value.trim()) a._notities = notTekst.value; else delete a._notities;
+      gewijzigd = true;
+      zetStatus();
+      telNotities();
+    });
+    telNotities();
 
     var zetStatus = function () {
       if (gewijzigd) statusEl.textContent = 'Niet opgeslagen wijzigingen';
@@ -355,7 +393,7 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       link.innerHTML = '<span>' + esc(sec.titel) + '</span><small></small>';
       link.addEventListener('click', function () {
         var doel = inhoud.querySelector('[data-sectie-blok="' + sec.id + '"]');
-        if (doel) inhoud.scrollTop = doel.offsetTop - 8;
+        if (doel) inhoud.scrollTop += doel.getBoundingClientRect().top - inhoud.getBoundingClientRect().top - 8;
       });
       if (i === 0) link.classList.add('is-aan');
       nav.appendChild(link);
@@ -386,7 +424,7 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     inhoud.addEventListener('scroll', function () {
       var actief = null;
       inhoud.querySelectorAll('[data-sectie-blok]').forEach(function (b) {
-        if (b.offsetTop - inhoud.scrollTop <= 40) actief = b.getAttribute('data-sectie-blok');
+        if (b.getBoundingClientRect().top - inhoud.getBoundingClientRect().top <= 40) actief = b.getAttribute('data-sectie-blok');
       });
       nav.querySelectorAll('a').forEach(function (l) { l.classList.toggle('is-aan', l.getAttribute('data-sectie') === (actief || '_feiten')); });
     });
@@ -421,7 +459,9 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       document.removeEventListener('keydown', toets);
       achter.remove();
     };
-    var toets = function (e) { if (e.key === 'Escape') { if (uitleg) { uitleg.remove(); uitleg = null; } else sluit(); } };
+    var toets = function (e) {
+      if (e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN')) { e.preventDefault(); wisselNotities(); return; }
+      if (e.key === 'Escape') { if (uitleg) { uitleg.remove(); uitleg = null; } else sluit(); } };
     document.addEventListener('keydown', toets);
 
     achter.querySelector('.vi-voet').addEventListener('click', function (e) {
