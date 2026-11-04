@@ -12568,7 +12568,13 @@ var App = () => {
     style: {
       opacity: 0.4
     }
-  }, "·"), /*#__PURE__*/React.createElement("span", null, totalAddressCount.toLocaleString(), " adressen"), hasActiveFilters && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+  }, "·"), /*#__PURE__*/React.createElement("span", null, totalAddressCount.toLocaleString(), " adressen"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      opacity: 0.4
+    }
+  }, "·"), /*#__PURE__*/React.createElement("span", {
+    title: "Aantal woningen (woonadressen) in de gefilterde VvE's"
+  }, totalWoningenCount.toLocaleString(), " woningen"), hasActiveFilters && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
       opacity: 0.4
     }
