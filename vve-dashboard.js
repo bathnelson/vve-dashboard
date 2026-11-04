@@ -2145,7 +2145,8 @@ var KaartView = ({
 var StatistiekenView = ({
   groups,
   totalAddresses,
-  filters
+  filters,
+  chips
 }) => {
   // De hele statistiekpagina in een nieuw venster zetten en het afdrukvenster openen;
   // daar kiest de gebruiker "Opslaan als PDF". Kop met datum, aantallen en actieve filters.
@@ -2367,11 +2368,13 @@ var StatistiekenView = ({
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: 'vd-geen-print',
-    style: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }
-  }, /*#__PURE__*/React.createElement("button", {
+    style: { display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { flex: 1, minWidth: 0 }
+  }, chips || null), /*#__PURE__*/React.createElement("button", {
     onClick: exporteerPdf,
     title: 'De hele statistiekpagina afdrukken of opslaan als PDF (kies in het afdrukvenster: Opslaan als PDF)',
-    style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'white', border: '1px solid #c8c6c4', borderRadius: 4, cursor: 'pointer', color: '#323130' }
+    style: { flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'white', border: '1px solid #c8c6c4', borderRadius: 4, cursor: 'pointer', color: '#323130' }
   }, '\u2913 Exporteren als PDF')), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -10889,7 +10892,8 @@ var App = () => {
   }), activeSheet === 'statistieken' && /*#__PURE__*/React.createElement(StatistiekenView, {
     groups: groupedByVve,
     totalAddresses: totalAddressCount,
-    filters: vdActief.map(f => f.groep + ': ' + f.label)
+    filters: vdActief.map(f => f.groep + ': ' + f.label),
+    chips: vdChips
   }), activeSheet === 'vves' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
