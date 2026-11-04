@@ -147,72 +147,105 @@
 
   // ── stijl ───────────────────────────────────────────────────────────
   var STIJL = '\
-.vi-achter{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000;display:flex;align-items:stretch;justify-content:center;padding:24px;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:13px;color:#323130}\
-.vi-paneel{position:relative;background:#fff;width:100%;max-width:1120px;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25);min-height:0}\
-.vi-kop{display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid #e1dfdd}\
-.vi-kop h2{font-size:16px;font-weight:600;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\
-.vi-kop .vi-sub{font-size:12px;color:#605e5c;font-weight:400}\
-.vi-score{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 10px;border:1px solid #e1dfdd;background:#faf9f8}\
-.vi-score b{font-size:20px;font-variant-numeric:tabular-nums;color:var(--vd-accent,#217346)}\
-.vi-score span{font-size:11px;color:#605e5c;line-height:1.3}\
+.vi-achter{--a:var(--vd-accent,#217346);--ad:var(--vd-accent-donker,#1a5c38);--al:var(--vd-accent-licht,#eaf6ef);--rand:#e3e6ea;--zacht:#f4f6f8;--tekst:#1f2933;--grijs:#5f6b7a;position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:10000;display:flex;align-items:stretch;justify-content:center;padding:24px;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;font-size:13.5px;color:var(--tekst);animation:vi-in .15s ease-out}\
+@keyframes vi-in{from{opacity:0}to{opacity:1}}\
+.vi-achter *{box-sizing:border-box}\
+.vi-paneel{position:relative;background:var(--zacht);width:100%;max-width:1160px;display:flex;flex-direction:column;border-radius:14px;overflow:clip;box-shadow:0 24px 64px rgba(0,0,0,.28);min-height:0}\
+.vi-kop{display:flex;align-items:center;gap:18px;padding:16px 22px 18px;background:linear-gradient(120deg,var(--ad),var(--a));color:#fff}\
+.vi-kop .vi-titel{flex:1;min-width:0}\
+.vi-kop .vi-boven{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.8}\
+.vi-kop h2{font-size:20px;font-weight:600;margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\
+.vi-kop .vi-sub{font-size:12px;opacity:.85;margin-top:2px;min-height:16px}\
+.vi-score{display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 14px 6px 6px;border-radius:40px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);transition:background .15s}\
+.vi-score:hover{background:rgba(255,255,255,.24)}\
+.vi-ring{--p:0;width:46px;height:46px;border-radius:50%;background:conic-gradient(#fff calc(var(--p)*1%),rgba(255,255,255,.25) 0);display:grid;place-items:center;flex-shrink:0}\
+.vi-ring b{width:36px;height:36px;border-radius:50%;background:var(--a);display:grid;place-items:center;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}\
+.vi-score span{font-size:11px;line-height:1.35;opacity:.95}\
+.vi-score span strong{display:block;font-size:12px;font-weight:600}\
+.vi-voortgang{height:4px;background:var(--rand)}\
+.vi-voortgang i{display:block;height:100%;width:0;background:var(--a);transition:width .3s ease}\
 .vi-romp{display:flex;flex:1;min-height:0}\
-.vi-nav{width:210px;border-right:1px solid #e1dfdd;overflow:auto;padding:8px 0;flex-shrink:0;background:#faf9f8}\
-.vi-nav a{display:flex;justify-content:space-between;gap:6px;padding:7px 14px;color:#323130;text-decoration:none;cursor:pointer;border-left:3px solid transparent}\
-.vi-nav a:hover{background:#f3f2f1}\
-.vi-nav a.is-aan{border-left-color:var(--vd-accent,#217346);background:#fff;font-weight:600}\
-.vi-nav a small{color:#a19f9d;font-weight:400;font-variant-numeric:tabular-nums}\
-.vi-inhoud{flex:1;overflow:auto;padding:4px 24px 240px;min-width:0}\
-.vi-sectie h3{font-size:14px;font-weight:600;color:var(--vd-accent,#217346);margin:22px 0 4px;padding-bottom:4px;border-bottom:1px solid #edebe9}\
-.vi-feiten{display:grid;grid-template-columns:minmax(140px,220px) 1fr;gap:3px 14px;margin:8px 0 4px}\
-.vi-feiten div:nth-child(odd){color:#605e5c}\
-.vi-vraag{padding:10px 0;border-bottom:1px solid #f3f2f1}\
-.vi-vraag>label,.vi-vraag>.vi-vt{display:block;font-weight:600;margin-bottom:6px}\
-.vi-tag{display:inline-block;font-size:10px;font-weight:600;padding:0 4px;margin-left:6px;border:1px solid #c8c6c4;color:#605e5c;vertical-align:1px}\
-.vi-tag.k{border-color:var(--vd-accent,#217346);color:var(--vd-accent,#217346)}\
-.vi-hulp{font-weight:400;color:#605e5c;font-size:12px;margin:-3px 0 6px}\
-.vi-opties{display:flex;flex-wrap:wrap;gap:6px}\
-.vi-opties label{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid #c8c6c4;cursor:pointer;background:#fff;user-select:none}\
-.vi-opties label:hover{border-color:#8a8886}\
+.vi-nav{width:236px;overflow:auto;padding:14px 10px;flex-shrink:0;background:#fff;border-right:1px solid var(--rand)}\
+.vi-nav a{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;padding:8px 10px;margin-bottom:2px;border-radius:8px;color:var(--tekst);text-decoration:none;cursor:pointer;line-height:1.3}\
+.vi-nav a:hover{background:var(--zacht)}\
+.vi-nav a.is-aan{background:var(--al);color:var(--ad);font-weight:600}\
+.vi-nav a small{color:var(--grijs);font-weight:400;font-size:11px;font-variant-numeric:tabular-nums}\
+.vi-nav a.is-klaar small{color:var(--a);font-weight:600}\
+.vi-nav a.is-klaar small::before{content:"\\2713  "}\
+.vi-nav a em{grid-column:1/-1;height:3px;border-radius:2px;background:#edf0f3;overflow:hidden;display:block}\
+.vi-nav a em i{display:block;height:100%;width:0;background:var(--a);transition:width .3s}\
+.vi-inhoud{flex:1;overflow:auto;padding:18px 26px 260px;min-width:0}\
+.vi-sectie{background:#fff;border:1px solid var(--rand);border-radius:12px;padding:6px 22px 10px;margin-bottom:16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}\
+.vi-sectie h3{font-size:16px;font-weight:600;color:var(--tekst);margin:14px 0 2px;display:flex;align-items:center;gap:10px}\
+.vi-sectie h3::before{content:"";width:4px;height:18px;border-radius:2px;background:var(--a)}\
+.vi-sectie>.vi-hulp{margin:0 0 6px 14px}\
+.vi-feiten{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin:12px 0 6px}\
+.vi-feiten>div{background:var(--zacht);border-radius:8px;padding:8px 12px;min-width:0;overflow-wrap:anywhere}\
+.vi-feiten>div span{display:block;font-size:11px;color:var(--grijs);margin-bottom:2px}\
+.vi-feiten>div.breed{grid-column:1/-1}\
+.vi-vraag{padding:14px 0 14px 14px;margin-left:-14px;border-bottom:1px solid #f0f2f4;border-left:3px solid transparent;transition:border-color .2s}\
+.vi-vraag:last-child{border-bottom:0}\
+.vi-vraag.is-ingevuld{border-left-color:var(--al)}\
+.vi-vraag>label,.vi-vraag>.vi-vt{display:block;font-weight:600;font-size:14px;margin-bottom:8px}\
+.vi-tag{display:inline-block;font-size:10px;font-weight:700;line-height:16px;padding:0 6px;margin-left:6px;border-radius:8px;background:#eef1f4;color:var(--grijs);vertical-align:2px}\
+.vi-tag.k{background:var(--al);color:var(--ad)}\
+.vi-hulp{font-weight:400;color:var(--grijs);font-size:12.5px;margin:-4px 0 8px}\
+.vi-vt .vi-hulp{font-size:12px}\
+.vi-opties{display:flex;flex-wrap:wrap;gap:8px}\
+.vi-opties label{position:relative;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border:1px solid #d5dae0;border-radius:999px;cursor:pointer;background:#fff;user-select:none;transition:all .12s}\
+.vi-opties label:hover{border-color:var(--a);background:#fbfdfc}\
+.vi-opties label:focus-within{box-shadow:0 0 0 3px var(--al)}\
 .vi-opties input{position:absolute;opacity:0;pointer-events:none}\
-.vi-opties label.is-aan{border-color:var(--vd-accent,#217346);background:var(--vd-accent-licht,#f0faf4);color:var(--vd-accent-donker,#1a5c38)}\
-.vi-opties label.onbekend{color:#8a8886;border-style:dashed}\
-.vi-opties label.onbekend.is-aan{color:#605e5c;background:#f3f2f1;border-color:#8a8886}\
-.vi-inv{font:inherit;padding:5px 8px;border:1px solid #c8c6c4;min-width:180px}\
-.vi-inv:focus{outline:none;border-color:var(--vd-accent,#217346)}\
-textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
-.vi-voet{display:flex;align-items:center;gap:8px;padding:10px 18px;border-top:1px solid #e1dfdd;background:#faf9f8}\
-.vi-voet .vi-status{flex:1;color:#605e5c;font-size:12px}\
-.vi-knop{font:600 13px "Segoe UI",system-ui,sans-serif;padding:6px 16px;border:1px solid #8a8886;background:#fff;color:#323130;cursor:pointer}\
-.vi-knop:hover{background:#f3f2f1}\
-.vi-knop.klein{font-weight:400;padding:6px 10px}\
-.vi-inlees{position:absolute;left:18px;bottom:52px;background:#fff;border:1px solid #c8c6c4;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column;z-index:4}\
-.vi-inlees button{font:inherit;text-align:left;padding:6px 12px;border:0;background:none;cursor:pointer}\
-.vi-inlees button:hover{background:#f3f2f1}\
-.vi-knop.hoofd{background:var(--vd-accent,#217346);border-color:var(--vd-accent,#217346);color:#fff}\
-.vi-knop.hoofd:hover{background:var(--vd-accent-donker,#1a5c38)}\
-.vi-uitleg{position:absolute;right:18px;top:58px;width:380px;max-height:70vh;overflow:auto;background:#fff;border:1px solid #c8c6c4;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:12px 14px;z-index:2}\
-.vi-uitleg h4{margin:0 0 6px;font-size:13px}\
+.vi-opties label.is-aan{border-color:var(--a);background:var(--a);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}\
+.vi-opties label.is-aan::before{content:"\\2713";font-weight:700;font-size:12px}\
+.vi-opties label.onbekend{color:var(--grijs);border-style:dashed;background:transparent}\
+.vi-opties label.onbekend.is-aan{color:var(--tekst);background:#e9ecef;border-color:#adb5bd;border-style:solid;box-shadow:none}\
+.vi-inv{font:inherit;padding:8px 11px;border:1px solid #d5dae0;border-radius:8px;min-width:200px;background:#fff;color:var(--tekst);transition:border-color .12s,box-shadow .12s}\
+.vi-inv:hover{border-color:#b8c0c9}\
+.vi-inv:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--al)}\
+textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
+.vi-voet{display:flex;align-items:center;gap:8px;padding:12px 22px;border-top:1px solid var(--rand);background:#fff}\
+.vi-voet .vi-status{flex:1;color:var(--grijs);font-size:12px;display:flex;align-items:center;gap:6px;min-width:0}\
+.vi-voet .vi-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#adb5bd;flex-shrink:0}\
+.vi-voet .vi-status.is-gewijzigd::before{background:#f0a020}\
+.vi-voet .vi-status.is-bewaard::before{background:var(--a)}\
+.vi-knop{font:600 13px "Segoe UI",system-ui,sans-serif;padding:8px 16px;border:1px solid #d0d5dc;border-radius:8px;background:#fff;color:var(--tekst);cursor:pointer;transition:all .12s}\
+.vi-knop:hover{background:var(--zacht);border-color:#b8c0c9}\
+.vi-knop.klein{font-weight:500;padding:7px 10px;border-color:transparent;color:var(--grijs)}\
+.vi-knop.klein:hover{background:var(--zacht);color:var(--tekst)}\
+.vi-knop.hoofd{background:var(--a);border-color:var(--a);color:#fff;padding:8px 22px;box-shadow:0 1px 3px rgba(0,0,0,.15)}\
+.vi-knop.hoofd:hover{background:var(--ad);border-color:var(--ad)}\
+.vi-scheid{width:1px;height:22px;background:var(--rand);margin:0 2px}\
+.vi-inlees{position:absolute;left:22px;bottom:60px;background:#fff;border:1px solid var(--rand);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column;z-index:4}\
+.vi-inlees button{font:inherit;text-align:left;padding:8px 14px;border:0;border-radius:6px;background:none;cursor:pointer}\
+.vi-inlees button:hover{background:var(--zacht)}\
+.vi-uitleg{position:absolute;right:22px;top:76px;width:390px;max-height:70vh;overflow:auto;background:#fff;color:var(--tekst);border:1px solid var(--rand);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.22);padding:14px 16px;z-index:5}\
+.vi-uitleg h4{margin:0 0 8px;font-size:14px}\
 .vi-uitleg table{width:100%;border-collapse:collapse;font-size:12px}\
-.vi-uitleg td{padding:3px 4px;border-bottom:1px solid #f3f2f1;vertical-align:top}\
+.vi-uitleg td{padding:4px 4px;border-bottom:1px solid #f0f2f4;vertical-align:top}\
 .vi-uitleg td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}\
-.vi-uitleg .vi-balk{height:4px;background:#edebe9;margin-top:3px}\
-.vi-uitleg .vi-balk i{display:block;height:4px;background:var(--vd-accent,#217346)}\
-.vi-uitleg p{color:#605e5c;font-size:11px;margin:8px 0 0}\
-.vi-notities{position:absolute;right:20px;bottom:62px;width:330px;background:#fffbe6;border:1px solid #e3d48a;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:3;display:flex;flex-direction:column}\
-.vi-notities header{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #eee2a8;font-weight:600;cursor:pointer}\
+.vi-uitleg .vi-balk{height:5px;border-radius:3px;background:#edf0f3;margin-top:4px;overflow:hidden}\
+.vi-uitleg .vi-balk i{display:block;height:100%;background:var(--a);border-radius:3px}\
+.vi-uitleg p{color:var(--grijs);font-size:11px;margin:10px 0 0}\
+.vi-notities{position:absolute;right:26px;bottom:72px;width:340px;background:#fff8d6;border:1px solid #efd97a;border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.18);z-index:3;display:flex;flex-direction:column;overflow:hidden}\
+.vi-notities header{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f1e3a0;font-weight:600;cursor:pointer;color:#5c4a00}\
 .vi-notities header span{flex:1}\
-.vi-notities header small{font-weight:400;color:#8a7a2a}\
-.vi-notities textarea{font:inherit;border:0;background:transparent;padding:8px 10px;height:170px;resize:vertical;outline:none}\
-.vi-notities.dicht{width:auto}\
+.vi-notities header span::before{content:"\\270E  "}\
+.vi-notities header small{font-weight:600;color:#8a7a2a}\
+.vi-notities textarea{font:inherit;border:0;background:transparent;padding:10px 12px;height:180px;resize:vertical;outline:none;line-height:1.5}\
+.vi-notities.dicht{width:auto;border-radius:999px}\
 .vi-notities.dicht textarea{display:none}\
-.vi-notities.dicht header{border-bottom:0}\
-.vi-uitlegblok{margin:12px 0 4px;padding:10px 14px;background:#f3f8fc;border-left:3px solid #2f5496}\
-.vi-uitlegblok .vi-vt{color:#2f5496}\
-.vi-uitlegblok p{margin:4px 0}\
-.vi-uitlegblok ol,.vi-uitlegblok ul{margin:4px 0 4px 20px;padding:0}\
-.vi-uitlegblok li{margin:2px 0}\
-.vi-uitlegblok .vi-besproken{display:inline-flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;font-weight:600;color:#323130}\
-@media (max-width:760px){.vi-achter{padding:0}.vi-nav{display:none}.vi-uitleg{left:8px;right:8px;width:auto}}';
+.vi-notities.dicht header{border-bottom:0;padding:8px 16px}\
+.vi-uitlegblok{margin:14px 0 6px;padding:14px 18px;background:#f2f7fd;border:1px solid #d8e6f6;border-radius:10px}\
+.vi-uitlegblok .vi-vt{color:#1f4e8c;font-weight:600;font-size:14px;margin-bottom:4px}\
+.vi-uitlegblok .vi-vt::before{content:"i";display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#2f6db5;color:#fff;font-size:11px;font-weight:700;font-style:italic;margin-right:8px;vertical-align:1px}\
+.vi-uitlegblok p{margin:5px 0;line-height:1.5}\
+.vi-uitlegblok ol,.vi-uitlegblok ul{margin:4px 0 4px 22px;padding:0;line-height:1.5}\
+.vi-uitlegblok li{margin:3px 0}\
+.vi-uitlegblok .vi-besproken{display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:5px 12px;border-radius:999px;background:#fff;border:1px solid #c9daef;cursor:pointer;font-weight:600;color:#1f4e8c}\
+.vi-uitlegblok .vi-besproken:has(input:checked){background:#2f6db5;border-color:#2f6db5;color:#fff}\
+.vi-uitlegblok .vi-besproken input{accent-color:#2f6db5;margin:0}\
+@media (max-width:760px){.vi-achter{padding:0}.vi-paneel{border-radius:0}.vi-nav{display:none}.vi-inhoud{padding:12px 12px 260px}.vi-sectie{padding:4px 14px 8px}.vi-uitleg{left:8px;right:8px;width:auto}.vi-voet{flex-wrap:wrap}.vi-score span{display:none}}';
 
   var stijlGezet = false;
   var zetStijl = function () {
@@ -241,9 +274,10 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     achter.innerHTML =
       '<div class="vi-paneel" role="dialog" aria-modal="true" aria-label="Intakeformulier">'
       + '<div class="vi-kop" style="position:relative">'
-      + '<h2>Intakeformulier <span class="vi-sub">' + esc(opt.naam || opt.vveId) + '</span></h2>'
-      + '<div class="vi-score" title="Kansrijkheid: alleen voor intern gebruik, staat niet in het startdocument"><b>–</b><span>kansrijk<br><em style="font-style:normal">0% ingevuld</em></span></div>'
+      + '<div class="vi-titel"><div class="vi-boven">Intakeformulier</div><h2>' + esc(opt.naam || opt.vveId) + '</h2><div class="vi-sub"></div></div>'
+      + '<div class="vi-score" title="Kansrijkheid: alleen voor intern gebruik, staat niet in het startdocument. Klik voor de opbouw."><div class="vi-ring"><b>–</b></div><span><strong>Kansrijkheid</strong><em style="font-style:normal">0% ingevuld</em></span></div>'
       + '</div>'
+      + '<div class="vi-voortgang"><i></i></div>'
       + '<div class="vi-romp"><nav class="vi-nav"></nav><div class="vi-inhoud"></div></div>'
       + '<div class="vi-voet">'
       + '<button type="button" class="vi-knop klein" data-doe="download" title="Startdocument met de antwoorden erin downloaden, om in de dossiermap te bewaren">Downloaden</button>'
@@ -252,6 +286,7 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       + '<button type="button" class="vi-knop klein" data-doe="inlezen" title="Antwoorden inlezen uit een gedownload startdocument of van het klembord">Inlezen</button>'
       + '<div class="vi-status"></div>'
       + '<button type="button" class="vi-knop" data-doe="sluit">Sluiten</button>'
+      + '<span class="vi-scheid"></span>'
       + '<button type="button" class="vi-knop" data-doe="startdoc">Startdocument</button>'
       + '<button type="button" class="vi-knop hoofd" data-doe="opslaan">Opslaan</button></div>'
       + '</div>';
@@ -262,6 +297,8 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     var scoreEl = achter.querySelector('.vi-score');
     var statusEl = achter.querySelector('.vi-status');
     var kop = achter.querySelector('.vi-kop');
+    var voortgangEl = achter.querySelector('.vi-voortgang i');
+    var subEl = achter.querySelector('.vi-sub');
     var uitleg = null;
 
     // Zwevend notitieveld voor vragen en punten die buiten de volgorde opkomen.
@@ -295,6 +332,8 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     telNotities();
 
     var zetStatus = function () {
+      statusEl.classList.toggle('is-gewijzigd', !!gewijzigd);
+      statusEl.classList.toggle('is-bewaard', !gewijzigd && !!bewaard.opgeslagen);
       if (gewijzigd) statusEl.textContent = 'Niet opgeslagen wijzigingen';
       else if (bewaard.opgeslagen) statusEl.textContent = 'Opgeslagen ' + new Date(bewaard.opgeslagen).toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' }) + (bewaard.door ? ' door ' + bewaard.door : '');
       else statusEl.textContent = 'Nog niet opgeslagen';
@@ -318,17 +357,28 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       var s = score(a);
       if (!s) return;
       // Pas een score tonen als er genoeg is ingevuld; anders zegt één antwoord al '100'.
-      scoreEl.querySelector('b').textContent = s.score === null || s.volledigheid < 25 ? '–' : s.score;
+      var toon = s.score !== null && s.volledigheid >= 25;
+      scoreEl.querySelector('b').textContent = toon ? s.score : '–';
+      scoreEl.querySelector('.vi-ring').style.setProperty('--p', toon ? s.score : 0);
       scoreEl.querySelector('em').textContent = s.volledigheid + '% ingevuld';
+      var totaal = 0, totKlaar = 0;
       tekenUitleg(s);
       // voortgang per sectie in de navigatie
       secties.forEach(function (sec) {
         if (sec.feiten) return;
         var vr = (sec.vragen || []).filter(function (v) { return zichtbaar(v, a) && (v.type !== 'uitleg' || v.besproken); });
         var klaar = vr.filter(function (v) { return !leeg(a[v.id]); }).length;
-        var el = nav.querySelector('[data-sectie="' + sec.id + '"] small');
-        if (el) el.textContent = klaar + '/' + vr.length;
+        totaal += vr.length; totKlaar += klaar;
+        var l = nav.querySelector('[data-sectie="' + sec.id + '"]');
+        if (!l) return;
+        l.querySelector('small').textContent = klaar + '/' + vr.length;
+        l.querySelector('em i').style.width = (vr.length ? Math.round(100 * klaar / vr.length) : 0) + '%';
+        l.classList.toggle('is-klaar', vr.length > 0 && klaar === vr.length);
       });
+      voortgangEl.style.width = (totaal ? Math.round(100 * totKlaar / totaal) : 0) + '%';
+      voortgangEl.parentNode.title = totKlaar + ' van ' + totaal + ' vragen beantwoord';
+      subEl.textContent = [a.procesbegeleider ? 'Intake door ' + a.procesbegeleider : '', a.datum_intake ? antwoordTekst({ type: 'datum' }, a.datum_intake) : ''].filter(Boolean).join(' \u00b7 ');
+      inhoud.querySelectorAll('.vi-vraag[data-vraag]').forEach(function (el) { el.classList.toggle('is-ingevuld', !leeg(a[el.getAttribute('data-vraag')])); });
       // vragen met een voorwaarde tonen of verbergen
       alleVragen(c).forEach(function (x) {
         var el = inhoud.querySelector('[data-vraag="' + x.vraag.id + '"]');
@@ -432,7 +482,7 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     secties.forEach(function (sec, i) {
       var link = document.createElement('a');
       link.setAttribute('data-sectie', sec.id);
-      link.innerHTML = '<span>' + esc(sec.titel) + '</span><small></small>';
+      link.innerHTML = '<span>' + esc(sec.titel) + '</span><small></small>' + (sec.feiten ? '' : '<em><i></i></em>');
       link.addEventListener('click', function () {
         var doel = inhoud.querySelector('[data-sectie-blok="' + sec.id + '"]');
         if (doel) inhoud.scrollTop += doel.getBoundingClientRect().top - inhoud.getBoundingClientRect().top - 8;
@@ -448,7 +498,7 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
         var g = document.createElement('div');
         g.className = 'vi-feiten';
         g.innerHTML = feiten.filter(function (f) { return f[1] !== '' && f[1] != null; }).map(function (f) {
-          return '<div>' + esc(f[0]) + '</div><div>' + (f[2] ? f[1] : esc(f[1])) + '</div>';
+          return '<div' + (f[2] || String(f[1]).length > 60 ? ' class="breed"' : '') + '><span>' + esc(f[0]) + '</span>' + (f[2] ? f[1] : esc(f[1])) + '</div>';
         }).join('');
         blok.appendChild(g);
         var noot = document.createElement('div');
