@@ -502,7 +502,7 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       return rijen ? '<h2 ' + h2 + '>' + esc(s.titel) + '</h2><table ' + tab + '>' + rijen + '</table>' : '';
     }).join('');
 
-    var akkoord = typeof c.akkoordHtml === 'function' ? c.akkoordHtml({ naam: opt.naam, datum: vandaag }) : (c.akkoordHtml || '');
+    var akkoord = typeof c.akkoordHtml === 'function' ? c.akkoordHtml({ naam: opt.naam, datum: vandaag, antwoorden: a, esc: esc }) : (c.akkoordHtml || '');
 
     var html = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Startdocument verduurzamingsadvies - ' + esc(opt.naam || 'VvE') + '</title>'
       + '<style>body{font-family:Calibri,sans-serif;font-size:11pt;color:#333;max-width:700px;margin:20px auto;padding:15px;line-height:1.4}'
