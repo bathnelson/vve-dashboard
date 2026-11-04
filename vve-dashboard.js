@@ -1095,7 +1095,7 @@ var exporteerFiltersInc = combinaties => {
 (function () {
   if (typeof document === 'undefined' || window.VveIntake) return;
   var s = document.createElement('script');
-  s.src = (window.APP_BASE || '.') + '/vve-intake.js';
+  s.src = (window.APP_BASE || '.') + '/vve-intake.js?v=' + (window.APP_V || Math.floor(Date.now() / 600000)); // nieuwste versie, niet uit de browsercache
   s.onerror = function () { console.info('vve-intake.js niet geladen — intakeformulier niet beschikbaar.'); };
   document.head.appendChild(s);
 })();
@@ -4091,6 +4091,15 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     var g = startdocGegevens();
     var ge = vveSummary.gespikkeldEntry;
     var corp = ge ? ge.blok.map(b => `${b.corporatie}: ${b.corp_woningen} van ${b.woningen_in_blok} woningen`).join('; ') : '';
+    // Gemengd: zowel woningen als andere eenheden (zelfde regel als het filter Gemengde VvE).
+    var nietWoon = item.aantal_niet_woon_adr_in_vve || 0;
+    var gemengd = nietWoon > 0 && (item.aantal_woon_adr_in_vve || 0) > 0;
+    var doelen = {};
+    (vveSummary.adresDetails || []).forEach(a => {
+      var d = (a.gebruiksdoel || '').toLowerCase();
+      if (d && !/woonfunctie/.test(d)) d.split(/\s*,\s*/).forEach(x => { if (x && !/woonfunctie/.test(x)) doelen[x] = (doelen[x] || 0) + 1; });
+    });
+    var doelenStr = Object.keys(doelen).map(d => d + (doelen[d] > 1 ? ' (' + doelen[d] + ')' : '')).join(', ');
     var feiten = [
       ['VvE', item.statutairenaam || ''],
       ['KvK-nummer', vveSummary.kvkNummer && vveSummary.kvkNummer !== '-' ? vveSummary.kvkNummer : ''],
@@ -4099,6 +4108,7 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
       ['Aantal woningen', item.aantal_woon_adr_in_vve || ''],
       ['Bouwjaar', g.bouwjaarStr],
       ['Woningtypen', g.woningtypen],
+      ['Gemengde VvE', gemengd ? 'Ja, ' + nietWoon + ' andere eenheid' + (nietWoon === 1 ? '' : 'en') + (doelenStr ? ': ' + doelenStr : '') : 'Nee, alleen wonen'],
       ['Gemiddeld energielabel', g.avgEnergy && g.avgEnergy !== '-' ? g.avgEnergy : ''],
       ['Gemiddelde WOZ-waarde', g.avgWoz ? '\u20AC ' + g.avgWoz.toLocaleString('nl-NL') : ''],
       ['Monument', g.isMonument ? (item.monumentale_status || 'Ja') : 'Nee'],
@@ -4120,7 +4130,9 @@ Warmte\t${vveSummary.warmtevoorziening}${enrichmentText}${vveSummary.adresDetail
     window.VveIntake.open({
       vveId: item.vve_identificatie,
       naam: item.statutairenaam,
+      bestandsnaam: getMapnaam(item.vve_identificatie) || item.statutairenaam,
       feiten: feiten,
+      dashboard: { gemengd: gemengd, nietWoon: nietWoon, doelen: Object.keys(doelen), bureau: (enrichment && enrichment.bureau) || '' },
       opgeslagen: opgeslagen,
       gebruiker: _getCurrentUser(),
       onOpslaan: obj => {
@@ -11646,7 +11658,13 @@ var App = () => {
     style: {
       opacity: 0.4
     }
-  }, "·"), /*#__PURE__*/React.createElement("span", null, totalAddressCount.toLocaleString(), " adressen"), hasActiveFilters && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+  }, "·"), /*#__PURE__*/React.createElement("span", null, totalAddressCount.toLocaleString(), " adressen"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      opacity: 0.4
+    }
+  }, "·"), /*#__PURE__*/React.createElement("span", {
+    title: "Aantal woningen (woonadressen) in de gefilterde VvE's"
+  }, totalWoningenCount.toLocaleString(), " woningen"), hasActiveFilters && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
       opacity: 0.4
     }
