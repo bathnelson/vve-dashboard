@@ -15,6 +15,11 @@
 //   VveIntake.open({ vveId, naam, feiten: [[label, waarde], ...],
 //                    opgeslagen: <object of null>, gebruiker, onOpslaan: fn(obj) })
 //   VveIntake.score(antwoorden) -> { score, volledigheid, onderdelen: [...] }
+//
+// Naast vragen kent de config 'uitleg'-blokken: tekst voor de gespreksleider om
+// toe te lichten (bijvoorbeeld hoe het traject verloopt). Met besproken: true
+// krijgt het blok een vinkje 'Besproken'; met inStartdocument: true komt de
+// tekst ook in het startdocument.
 
 (function () {
   'use strict';
@@ -124,6 +129,15 @@
     };
   };
 
+  // tekst: string of lijst van alinea's; punten: genummerde lijst; lijst: opsomming
+  var uitlegHtml = function (v, esc) {
+    var h = '';
+    [].concat(v.tekst || []).forEach(function (p) { h += '<p>' + esc(p) + '</p>'; });
+    if (v.punten) h += '<ol>' + v.punten.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ol>';
+    if (v.lijst) h += '<ul>' + v.lijst.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>';
+    return h;
+  };
+
   var antwoordTekst = function (v, w) {
     if (leeg(w)) return '';
     if (Array.isArray(w)) return w.join(', ');
@@ -188,6 +202,12 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
 .vi-notities.dicht{width:auto}\
 .vi-notities.dicht textarea{display:none}\
 .vi-notities.dicht header{border-bottom:0}\
+.vi-uitlegblok{margin:12px 0 4px;padding:10px 14px;background:#f3f8fc;border-left:3px solid #2f5496}\
+.vi-uitlegblok .vi-vt{color:#2f5496}\
+.vi-uitlegblok p{margin:4px 0}\
+.vi-uitlegblok ol,.vi-uitlegblok ul{margin:4px 0 4px 20px;padding:0}\
+.vi-uitlegblok li{margin:2px 0}\
+.vi-uitlegblok .vi-besproken{display:inline-flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;font-weight:600;color:#323130}\
 @media (max-width:760px){.vi-achter{padding:0}.vi-nav{display:none}.vi-uitleg{left:8px;right:8px;width:auto}}';
 
   var stijlGezet = false;
@@ -288,13 +308,14 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
     var herreken = function () {
       var s = score(a);
       if (!s) return;
-      scoreEl.querySelector('b').textContent = s.score === null ? '–' : s.score;
+      // Pas een score tonen als er genoeg is ingevuld; anders zegt één antwoord al '100'.
+      scoreEl.querySelector('b').textContent = s.score === null || s.volledigheid < 25 ? '–' : s.score;
       scoreEl.querySelector('em').textContent = s.volledigheid + '% ingevuld';
       tekenUitleg(s);
       // voortgang per sectie in de navigatie
       secties.forEach(function (sec) {
         if (sec.feiten) return;
-        var vr = (sec.vragen || []).filter(function (v) { return zichtbaar(v, a); });
+        var vr = (sec.vragen || []).filter(function (v) { return zichtbaar(v, a) && (v.type !== 'uitleg' || v.besproken); });
         var klaar = vr.filter(function (v) { return !leeg(a[v.id]); }).length;
         var el = nav.querySelector('[data-sectie="' + sec.id + '"] small');
         if (el) el.textContent = klaar + '/' + vr.length;
@@ -313,7 +334,19 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       herreken();
     };
 
+    var tekenUitlegBlok = function (v) {
+      var div = document.createElement('div');
+      div.className = 'vi-uitlegblok';
+      div.setAttribute('data-vraag', v.id);
+      div.innerHTML = '<div class="vi-vt">' + esc(v.vraag) + '</div>' + uitlegHtml(v, esc)
+        + (v.besproken ? '<label class="vi-besproken"><input type="checkbox"' + (a[v.id] ? ' checked' : '') + '> Besproken</label>' : '');
+      var vink = div.querySelector('input');
+      if (vink) vink.addEventListener('change', function () { wijzig(v.id, vink.checked ? 'Ja' : ''); });
+      return div;
+    };
+
     var tekenVraag = function (v) {
+      if (v.type === 'uitleg') return tekenUitlegBlok(v);
       var div = document.createElement('div');
       div.className = 'vi-vraag';
       div.setAttribute('data-vraag', v.id);
@@ -495,11 +528,22 @@ textarea.vi-inv{width:100%;min-height:64px;resize:vertical}\
       .map(function (f) { return '<tr><td ' + tl + '>' + esc(f[0]) + '</td><td ' + td + '>' + (f[2] ? f[1] : esc(f[1])) + '</td></tr>'; }).join('');
 
     var sectiesHtml = (c.secties || []).filter(function (s) { return !s.nietInStartdocument; }).map(function (s) {
-      var rijen = (s.vragen || []).filter(function (v) { return zichtbaar(v, a) && !v.nietInStartdocument; }).map(function (v) {
+      // vragen als tabel; uitlegblokken (met inStartdocument) als tekst ertussen
+      var uit = '', rijen = '';
+      var sluitTabel = function () { if (rijen) { uit += '<table ' + tab + '>' + rijen + '</table>'; rijen = ''; } };
+      (s.vragen || []).forEach(function (v) {
+        if (!zichtbaar(v, a) || v.nietInStartdocument) return;
+        if (v.type === 'uitleg') {
+          if (!v.inStartdocument) return;
+          sluitTabel();
+          uit += '<h3 style="font-size:11.5pt;margin:12px 0 4px;">' + esc(v.vraag) + '</h3>' + uitlegHtml(v, esc);
+          return;
+        }
         var t = antwoordTekst(v, a[v.id]);
-        return '<tr><td ' + tl + '>' + esc(v.kort || v.vraag) + '</td><td ' + td + '>' + (t ? esc(t).replace(/\n/g, '<br>') : '<span style="color:#999">–</span>') + '</td></tr>';
-      }).join('');
-      return rijen ? '<h2 ' + h2 + '>' + esc(s.titel) + '</h2><table ' + tab + '>' + rijen + '</table>' : '';
+        rijen += '<tr><td ' + tl + '>' + esc(v.kort || v.vraag) + '</td><td ' + td + '>' + (t ? esc(t).replace(/\n/g, '<br>') : '<span style="color:#999">–</span>') + '</td></tr>';
+      });
+      sluitTabel();
+      return uit ? '<h2 ' + h2 + '>' + esc(s.titel) + '</h2>' + uit : '';
     }).join('');
 
     var akkoord = typeof c.akkoordHtml === 'function' ? c.akkoordHtml({ naam: opt.naam, datum: vandaag, antwoorden: a, esc: esc }) : (c.akkoordHtml || '');
