@@ -2163,6 +2163,18 @@ var StatistiekenView = ({
     kloon.style.overflow = 'visible';
     kloon.style.background = '#fff';
     kloon.style.padding = '0';
+    // Op het scherm staan de grafieken in rijen die zich naar de schermbreedte voegen;
+    // op papier zetten we ze in één raster van 3 gelijke kolommen, zodat elke balk ruimte krijgt.
+    var panelen = Array.prototype.slice.call(kloon.querySelectorAll('.vd-stat-paneel'));
+    if (panelen.length) {
+      var raster = document.createElement('div');
+      raster.className = 'vd-print-raster';
+      var eersteRij = panelen[0].parentNode;
+      eersteRij.parentNode.insertBefore(raster, eersteRij);
+      var rijen = [];
+      panelen.forEach(p => { if (rijen.indexOf(p.parentNode) < 0) rijen.push(p.parentNode); raster.appendChild(p); });
+      rijen.forEach(r => { if (!r.children.length) r.remove(); });
+    }
     var datum = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
     var woningen = groups.reduce((s, g) => s + (g.vve.aantal_woon_adr_in_vve || 0), 0);
     var f = (filters || []).length ? 'Filters: ' + filters.map(esc).join(' \u00b7 ') : 'Geen filters: alle VvE\'s';
@@ -2170,7 +2182,11 @@ var StatistiekenView = ({
     w.document.write('<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Statistieken VvE-dashboard ' + esc(datum) + '</title>' + stijlen
       + '<style>@page{size:A4 landscape;margin:12mm}html,body{background:#fff!important;margin:0}body{font-family:"Segoe UI",system-ui,sans-serif;padding:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
       + '.vd-print-kop{border-bottom:2px solid var(--vd-accent,#217346);margin-bottom:12px;padding-bottom:6px}.vd-print-kop h1{font-size:18px;margin:0}.vd-print-kop p{font-size:11px;color:#555;margin:3px 0 0}'
-      + 'div[style*="border: 1px solid"]{break-inside:avoid}@media print{body{padding:0}}</style></head><body>'
+      + '.vd-stat-kpi{display:grid!important;grid-template-columns:repeat(7,1fr);gap:8px!important;margin-bottom:12px!important}.vd-stat-kpi>div{min-width:0!important;padding:6px 10px!important}'
+      + '.vd-print-raster{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:stretch}'
+      + '.vd-stat-paneel{min-width:0!important;break-inside:avoid;page-break-inside:avoid}.vd-mini-label{width:45%!important}'
+      + '.vd-stat-opmerkelijk{break-before:page;page-break-before:always;margin-top:0!important}.vd-stat-kaarten{grid-template-columns:repeat(4,1fr)!important}.vd-stat-kaarten>div{break-inside:avoid}'
+      + '@media print{body{padding:0}}</style></head><body>'
       + '<div class="vd-print-kop"><h1>Statistieken VvE-dashboard</h1><p>' + esc(datum) + ' \u00b7 ' + groups.length.toLocaleString('nl-NL') + ' VvE\'s \u00b7 '
       + (totalAddresses || 0).toLocaleString('nl-NL') + ' adressen \u00b7 ' + woningen.toLocaleString('nl-NL') + ' woningen</p><p>' + f + '</p></div>'
       + kloon.outerHTML + '</body></html>');
@@ -2190,6 +2206,7 @@ var StatistiekenView = ({
       marginBottom: 3
     }
   }, /*#__PURE__*/React.createElement("div", {
+    className: 'vd-mini-label',
     style: {
       width: 130,
       fontSize: 11,
@@ -2336,6 +2353,7 @@ var StatistiekenView = ({
     title,
     children
   }) => /*#__PURE__*/React.createElement("div", {
+    className: 'vd-stat-paneel',
     style: {
       background: 'white',
       border: '1px solid #d0d0d0',
@@ -2376,6 +2394,7 @@ var StatistiekenView = ({
     title: 'De hele statistiekpagina afdrukken of opslaan als PDF (kies in het afdrukvenster: Opslaan als PDF)',
     style: { flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'white', border: '1px solid #c8c6c4', borderRadius: 4, cursor: 'pointer', color: '#323130' }
   }, '\u2913 Exporteren als PDF')), /*#__PURE__*/React.createElement("div", {
+    className: 'vd-stat-kpi',
     style: {
       display: 'flex',
       gap: 10,
@@ -2705,9 +2724,9 @@ var StatistiekenView = ({
       footprints.length ? {label:'Kleinste footprint', main:footprints[0].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[0].vve)+' · '+footprints[0].detail, item:footprints[0].vve} : null,
       footprints.length ? {label:'Grootste footprint', main:footprints[footprints.length-1].footprint.toLocaleString('nl-NL')+' m²', sub:vveNm(footprints[footprints.length-1].vve)+' · '+footprints[footprints.length-1].detail, item:footprints[footprints.length-1].vve} : {label:'Footprint', main:'Nog niet opgehaald', sub:'Haal de panddata op in de beheertool (tabblad Panddata)'}
     ].filter(Boolean);
-    return /*#__PURE__*/React.createElement("div", {style:{marginTop:14}},
+    return /*#__PURE__*/React.createElement("div", {className:'vd-stat-opmerkelijk',style:{marginTop:14}},
       /*#__PURE__*/React.createElement("div", {style:{fontSize:13,fontWeight:700,color:'var(--vd-accent-donker)',borderBottom:'2px solid var(--vd-accent)',paddingBottom:6,marginBottom:10}}, "Opmerkelijke VvE's — in gefilterde selectie"),
-      /*#__PURE__*/React.createElement("div", {style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8}},
+      /*#__PURE__*/React.createElement("div", {className:'vd-stat-kaarten',style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:8}},
         cards.map(function(c, i) {
           return /*#__PURE__*/React.createElement("div", {
             key: i,
