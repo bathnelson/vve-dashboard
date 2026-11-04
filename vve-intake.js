@@ -143,6 +143,9 @@
   var contactTekst = function (k) {
     return [k.naam, k.rol ? '(' + k.rol + ')' : '', k.email, k.telefoon].filter(Boolean).join(' ').replace(/\) /, '), ');
   };
+  var hulpTekst = function (v, a) {
+    try { return typeof v.hulp === 'function' ? (v.hulp(a) || '') : v.hulp; } catch (e) { return ''; }
+  };
   var antwoordTekst = function (v, w) {
     if (leeg(w)) return '';
     if (v.type === 'contacten') return Array.isArray(w) ? w.map(contactTekst).join('\n') : String(w);
@@ -281,6 +284,15 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
     var bewaard = opt.opgeslagen || {};
     var a = JSON.parse(JSON.stringify(bewaard.antwoorden || {}));
     var gewijzigd = false;
+    // Wat het dashboard over de VvE weet (bijv. gemengd wonen en bedrijf). Wordt bij de
+    // antwoorden bewaard als momentopname; vragen kunnen het gebruiken in als, hulp en standaard.
+    if (opt.dashboard) a._dashboard = opt.dashboard;
+    // Vooraf invullen vanuit het dashboard, alleen als de vraag nog leeg is.
+    alleVragen(c).forEach(function (x) {
+      var v = x.vraag;
+      if (typeof v.standaard !== 'function' || !leeg(a[v.id])) return;
+      try { var w = v.standaard(a); if (!leeg(w)) a[v.id] = w; } catch (e) {}
+    });
     var feiten = opt.feiten || [];
 
     var achter = document.createElement('div');
@@ -430,7 +442,7 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
       var h = '';
       if (v.type === 'keuze' || v.type === 'meer') {
         h += '<div class="vi-vt">' + esc(v.vraag) + tags + (v.type === 'meer' ? ' <span class="vi-hulp" style="font-weight:400">(meerdere mogelijk)</span>' : '') + '</div>';
-        if (v.hulp) h += '<div class="vi-hulp">' + esc(v.hulp) + '</div>';
+        if (hulpTekst(v, a)) h += '<div class="vi-hulp">' + esc(hulpTekst(v, a)) + '</div>';
         h += '<div class="vi-opties" role="' + (v.type === 'keuze' ? 'radiogroup' : 'group') + '">';
         (v.opties || []).forEach(function (o) {
           var t = optTekst(o);
@@ -442,14 +454,14 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
         h += '</div>';
       } else if (v.type === 'contacten') {
         h += '<div class="vi-vt">' + esc(v.vraag) + tags + '</div>';
-        if (v.hulp) h += '<div class="vi-hulp">' + esc(v.hulp) + '</div>';
+        if (hulpTekst(v, a)) h += '<div class="vi-hulp">' + esc(hulpTekst(v, a)) + '</div>';
         if (typeof w === 'string' && w) h += '<div class="vi-hulp vi-oud">Eerder als tekst ingevuld: ' + esc(w) + '</div>';
         h += '<div class="vi-contacten"><div class="vi-crij vi-ckop"><span>Naam</span><span>Rol</span><span>E-mail</span><span>Telefoon</span><span></span></div></div>'
           + '<button type="button" class="vi-knop klein vi-cplus">+ Contactpersoon toevoegen</button>'
           + '<datalist id="' + naam + '-rollen">' + (v.rollen || []).map(function (r) { return '<option value="' + esc(r) + '">'; }).join('') + '</datalist>';
       } else {
         h += '<label for="' + naam + '">' + esc(v.vraag) + tags + '</label>';
-        if (v.hulp) h += '<div class="vi-hulp">' + esc(v.hulp) + '</div>';
+        if (hulpTekst(v, a)) h += '<div class="vi-hulp">' + esc(hulpTekst(v, a)) + '</div>';
         if (v.type === 'tekst') h += '<textarea class="vi-inv" id="' + naam + '">' + esc(w || '') + '</textarea>';
         else h += '<input class="vi-inv" id="' + naam + '" type="' + (v.type === 'getal' ? 'number' : v.type === 'datum' ? 'date' : 'text') + '"'
           + (v.type === 'getal' ? ' inputmode="decimal" step="any"' + (v.min != null ? ' min="' + v.min + '"' : '') + (v.max != null ? ' max="' + v.max + '"' : '') : '')
