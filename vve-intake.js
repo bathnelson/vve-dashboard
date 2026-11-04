@@ -30,7 +30,7 @@
   (function laadConfig() {
     if (typeof window.INTAKE_VRAGEN !== 'undefined') return;
     var s = document.createElement('script');
-    s.src = 'config/intake_vragen.inc';
+    s.src = 'config/intake_vragen.inc?v=' + Math.floor(Date.now() / 600000);
     s.onerror = function () { console.info('config/intake_vragen.inc niet gevonden — intakeformulier niet beschikbaar.'); };
     document.head.appendChild(s);
   })();
@@ -138,8 +138,17 @@
     return h;
   };
 
+  // contactpersonen: lijst van { naam, rol, email, telefoon }
+  var CONTACTVELDEN = ['naam', 'rol', 'email', 'telefoon'];
+  var contactTekst = function (k) {
+    return [k.naam, k.rol ? '(' + k.rol + ')' : '', k.email, k.telefoon].filter(Boolean).join(' ').replace(/\) /, '), ');
+  };
+  var hulpTekst = function (v, a) {
+    try { return typeof v.hulp === 'function' ? (v.hulp(a) || '') : v.hulp; } catch (e) { return ''; }
+  };
   var antwoordTekst = function (v, w) {
     if (leeg(w)) return '';
+    if (v.type === 'contacten') return Array.isArray(w) ? w.map(contactTekst).join('\n') : String(w);
     if (Array.isArray(w)) return w.join(', ');
     if (v.type === 'datum' && /^\d{4}-\d{2}-\d{2}$/.test(w)) { var d = w.split('-'); return d[2] + '-' + d[1] + '-' + d[0]; }
     return String(w) + (v.eenheid ? ' ' + v.eenheid : '');
@@ -204,6 +213,14 @@
 .vi-inv:hover{border-color:#b8c0c9}\
 .vi-inv:focus{outline:none;border-color:var(--a);box-shadow:0 0 0 3px var(--al)}\
 textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
+.vi-contacten{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}\
+.vi-crij{display:grid;grid-template-columns:1.3fr 1fr 1.4fr 1fr 28px;gap:6px;align-items:center}\
+.vi-crij .vi-inv{min-width:0;width:100%}\
+.vi-crij .vi-inv[type=email]:not(:placeholder-shown):invalid{border-color:#d13438}\
+.vi-ckop span{font-size:11px;font-weight:600;color:var(--grijs);padding-left:2px}\
+.vi-cweg{width:28px;height:28px;border:0;border-radius:6px;background:none;color:var(--grijs);font-size:18px;cursor:pointer}\
+.vi-cweg:hover{background:#fde7e9;color:#a4262c}\
+.vi-cplus{padding-left:2px!important;color:var(--a)!important;font-weight:600!important}\
 .vi-voet{display:flex;align-items:center;gap:8px;padding:12px 22px;border-top:1px solid var(--rand);background:#fff}\
 .vi-voet .vi-status{flex:1;color:var(--grijs);font-size:12px;display:flex;align-items:center;gap:6px;min-width:0}\
 .vi-voet .vi-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#adb5bd;flex-shrink:0}\
@@ -221,6 +238,8 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
 .vi-inlees button:hover{background:var(--zacht)}\
 .vi-uitleg{position:absolute;right:22px;top:76px;width:390px;max-height:70vh;overflow:auto;background:#fff;color:var(--tekst);border:1px solid var(--rand);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.22);padding:14px 16px;z-index:5}\
 .vi-uitleg h4{margin:0 0 8px;font-size:14px}\
+.vi-uitleg p.vi-wat{color:var(--tekst);font-size:12px;line-height:1.5;margin:0 0 12px}\
+.vi-vraagteken{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid rgba(255,255,255,.7);font-size:10px;font-weight:700;margin-left:3px;vertical-align:1px}\
 .vi-uitleg table{width:100%;border-collapse:collapse;font-size:12px}\
 .vi-uitleg td{padding:4px 4px;border-bottom:1px solid #f0f2f4;vertical-align:top}\
 .vi-uitleg td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}\
@@ -267,6 +286,15 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
     var bewaard = opt.opgeslagen || {};
     var a = JSON.parse(JSON.stringify(bewaard.antwoorden || {}));
     var gewijzigd = false;
+    // Wat het dashboard over de VvE weet (bijv. gemengd wonen en bedrijf). Wordt bij de
+    // antwoorden bewaard als momentopname; vragen kunnen het gebruiken in als, hulp en standaard.
+    if (opt.dashboard) a._dashboard = opt.dashboard;
+    // Vooraf invullen vanuit het dashboard, alleen als de vraag nog leeg is.
+    alleVragen(c).forEach(function (x) {
+      var v = x.vraag;
+      if (typeof v.standaard !== 'function' || !leeg(a[v.id])) return;
+      try { var w = v.standaard(a); if (!leeg(w)) a[v.id] = w; } catch (e) {}
+    });
     var feiten = opt.feiten || [];
 
     var achter = document.createElement('div');
@@ -275,7 +303,7 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
       '<div class="vi-paneel" role="dialog" aria-modal="true" aria-label="Intakeformulier">'
       + '<div class="vi-kop" style="position:relative">'
       + '<div class="vi-titel"><div class="vi-boven">Intakeformulier</div><h2>' + esc(opt.naam || opt.vveId) + '</h2><div class="vi-sub"></div></div>'
-      + '<div class="vi-score" title="Kansrijkheid: alleen voor intern gebruik, staat niet in het startdocument. Klik voor de opbouw."><div class="vi-ring"><b>–</b></div><span><strong>Kansrijkheid</strong><em style="font-style:normal">0% ingevuld</em></span></div>'
+      + '<div class="vi-score" title="Kansrijkheid 0-100: inschatting van de kans dat de VvE na het advies doorpakt met uitvoering. Alleen intern, staat niet in het startdocument. Klik voor uitleg en opbouw."><div class="vi-ring"><b>–</b></div><span><strong>Kansrijkheid <span class="vi-vraagteken">?</span></strong><em style="font-style:normal">0% ingevuld</em></span></div>'
       + '</div>'
       + '<div class="vi-voortgang"><i></i></div>'
       + '<div class="vi-romp"><nav class="vi-nav"></nav><div class="vi-inhoud"></div></div>'
@@ -349,7 +377,11 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
         return '<tr><td>' + esc(o.label) + '<div class="vi-balk"><i style="width:' + pct + '%"></i></div></td>'
           + '<td class="n">' + (o.punten === null ? '<span style="color:#a19f9d">–</span>' : (o.punten - o.min) + ' / ' + (o.max - o.min)) + '</td></tr>';
       }).join('');
-      uitleg.innerHTML = '<h4>Opbouw kansrijkheid</h4><table>' + rijen + '</table>'
+      uitleg.innerHTML = '<h4>Wat betekent dit getal?</h4>'
+        + '<p class="vi-wat">De kansrijkheid (0 tot 100) is een inschatting van hoe groot de kans is dat deze VvE na het advies doorpakt met uitvoering. '
+        + 'Hoe hoger, hoe kansrijker. Elke vraag met een K levert punten op; de score is het aandeel van de maximaal haalbare punten over de beantwoorde K-vragen. '
+        + 'Een 66 betekent dus: op de ingevulde punten scoort de VvE 66% van het maximum. Het getal verschijnt vanaf 25% ingevuld en wordt betrouwbaarder naarmate meer is ingevuld.</p>'
+        + '<h4>Opbouw</h4><table>' + rijen + '</table>'
         + '<p>Een streepje betekent onbeantwoord of onbekend: die vraag telt niet mee. De punten zijn een eerste inschatting en worden later geijkt op afgeronde trajecten. De score staat niet in het startdocument.</p>';
     };
 
@@ -416,7 +448,7 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
       var h = '';
       if (v.type === 'keuze' || v.type === 'meer') {
         h += '<div class="vi-vt">' + esc(v.vraag) + tags + (v.type === 'meer' ? ' <span class="vi-hulp" style="font-weight:400">(meerdere mogelijk)</span>' : '') + '</div>';
-        if (v.hulp) h += '<div class="vi-hulp">' + esc(v.hulp) + '</div>';
+        if (hulpTekst(v, a)) h += '<div class="vi-hulp">' + esc(hulpTekst(v, a)) + '</div>';
         h += '<div class="vi-opties" role="' + (v.type === 'keuze' ? 'radiogroup' : 'group') + '">';
         (v.opties || []).forEach(function (o) {
           var t = optTekst(o);
@@ -426,9 +458,16 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
             + esc(t) + '</label>';
         });
         h += '</div>';
+      } else if (v.type === 'contacten') {
+        h += '<div class="vi-vt">' + esc(v.vraag) + tags + '</div>';
+        if (hulpTekst(v, a)) h += '<div class="vi-hulp">' + esc(hulpTekst(v, a)) + '</div>';
+        if (typeof w === 'string' && w) h += '<div class="vi-hulp vi-oud">Eerder als tekst ingevuld: ' + esc(w) + '</div>';
+        h += '<div class="vi-contacten"><div class="vi-crij vi-ckop"><span>Naam</span><span>Rol</span><span>E-mail</span><span>Telefoon</span><span></span></div></div>'
+          + '<button type="button" class="vi-knop klein vi-cplus">+ Contactpersoon toevoegen</button>'
+          + '<datalist id="' + naam + '-rollen">' + (v.rollen || []).map(function (r) { return '<option value="' + esc(r) + '">'; }).join('') + '</datalist>';
       } else {
         h += '<label for="' + naam + '">' + esc(v.vraag) + tags + '</label>';
-        if (v.hulp) h += '<div class="vi-hulp">' + esc(v.hulp) + '</div>';
+        if (hulpTekst(v, a)) h += '<div class="vi-hulp">' + esc(hulpTekst(v, a)) + '</div>';
         if (v.type === 'tekst') h += '<textarea class="vi-inv" id="' + naam + '">' + esc(w || '') + '</textarea>';
         else h += '<input class="vi-inv" id="' + naam + '" type="' + (v.type === 'getal' ? 'number' : v.type === 'datum' ? 'date' : 'text') + '"'
           + (v.type === 'getal' ? ' inputmode="decimal" step="any"' + (v.min != null ? ' min="' + v.min + '"' : '') + (v.max != null ? ' max="' + v.max + '"' : '') : '')
@@ -436,7 +475,45 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
       }
       div.innerHTML = h;
 
-      if (v.type === 'keuze' || v.type === 'meer') {
+      if (v.type === 'contacten') {
+        var lijst = div.querySelector('.vi-contacten');
+        var plus = div.querySelector('.vi-cplus');
+        var max = v.max || 4;
+        var lees = function () {
+          var rijen = Array.prototype.slice.call(lijst.querySelectorAll('.vi-crij:not(.vi-ckop)')).map(function (r) {
+            var k = {};
+            CONTACTVELDEN.forEach(function (f) { var x = r.querySelector('[data-veld="' + f + '"]').value.trim(); if (x) k[f] = x; });
+            return k;
+          }).filter(function (k) { return Object.keys(k).length; });
+          plus.style.display = lijst.querySelectorAll('.vi-crij:not(.vi-ckop)').length >= max ? 'none' : '';
+          // een oud tekstantwoord blijft staan tot er een contactpersoon is ingevuld
+          if (!rijen.length && typeof a[v.id] === 'string') return;
+          if (rijen.length) { var oud = div.querySelector('.vi-oud'); if (oud) oud.remove(); }
+          wijzig(v.id, rijen);
+        };
+        var voegToe = function (k) {
+          k = k || {};
+          var r = document.createElement('div');
+          r.className = 'vi-crij';
+          r.innerHTML = '<input class="vi-inv" data-veld="naam" type="text" autocomplete="off" placeholder="Naam" aria-label="Naam">'
+            + '<input class="vi-inv" data-veld="rol" type="text" list="' + naam + '-rollen" autocomplete="off" placeholder="Kies of typ" aria-label="Rol">'
+            + '<input class="vi-inv" data-veld="email" type="email" autocomplete="off" placeholder="naam@voorbeeld.nl" aria-label="E-mail">'
+            + '<input class="vi-inv" data-veld="telefoon" type="tel" autocomplete="off" placeholder="06 12345678" aria-label="Telefoon">'
+            + '<button type="button" class="vi-cweg" title="Verwijderen" aria-label="Contactpersoon verwijderen">\u00d7</button>';
+          CONTACTVELDEN.forEach(function (f) { r.querySelector('[data-veld="' + f + '"]').value = k[f] || ''; });
+          r.addEventListener('input', lees);
+          r.querySelector('.vi-cweg').addEventListener('click', function () {
+            r.remove();
+            if (!lijst.querySelector('.vi-crij:not(.vi-ckop)')) voegToe();
+            lees();
+          });
+          lijst.appendChild(r);
+          return r;
+        };
+        (Array.isArray(w) && w.length ? w : [{}]).forEach(function (k) { voegToe(k); });
+        plus.addEventListener('click', function () { voegToe().querySelector('input').focus(); lees(); });
+        plus.style.display = lijst.querySelectorAll('.vi-crij:not(.vi-ckop)').length >= max ? 'none' : '';
+      } else if (v.type === 'keuze' || v.type === 'meer') {
         div.querySelectorAll('input').forEach(function (inp) {
           inp.addEventListener('change', function () {
             var waarde;
@@ -697,50 +774,126 @@ textarea.vi-inv{width:100%;min-height:72px;resize:vertical;line-height:1.45}\
 
   // De HTML van het startdocument. Met een pakket erbij (bij Downloaden) gaan de
   // antwoorden onzichtbaar mee in het bestand, zodat het later weer in te lezen is.
+  // Huisstijl van het startdocument. Alles staat als inline stijl op elementen
+  // die Word kent (h1-h3, p, table/td, ol/ul), zodat kopiëren en plakken in Word
+  // de opmaak behoudt. Kleur, lettertype, logo en afzender kunnen in de config
+  // (INTAKE_VRAGEN.huisstijl) worden overschreven.
+  var huisstijl = function (c) {
+    var h = c.huisstijl || {};
+    var kleur = h.kleur || '#c8102e';
+    var font = h.font || 'Arial, Helvetica, sans-serif';
+    var tekst = '#1a1a1a', grijs = '#5a5a5a', lijn = '#bfbfbf', vlak = h.vlak || '#f3f3f3';
+    var basis = 'font-family:' + font + ';';
+    return {
+      kleur: kleur, font: font, grijs: grijs, logo: h.logo || '', logoBreedte: h.logoBreedte || 150,
+      afzender: h.afzender || 'Gemeente Haarlem', afdeling: h.afdeling || 'VvE-ondersteuningsaanbod',
+      h1: 'style="' + basis + 'font-size:20pt;font-weight:bold;color:' + kleur + ';margin:14pt 0 2pt;"',
+      h2: 'style="' + basis + 'font-size:13pt;font-weight:bold;color:' + kleur + ';margin:18pt 0 6pt;padding-bottom:3pt;border-bottom:1pt solid ' + kleur + ';"',
+      h3: 'style="' + basis + 'font-size:11pt;font-weight:bold;color:' + tekst + ';margin:10pt 0 3pt;"',
+      p: 'style="' + basis + 'font-size:10pt;color:' + tekst + ';line-height:1.4;margin:0 0 6pt;"',
+      klein: 'style="' + basis + 'font-size:8.5pt;color:' + grijs + ';margin:0 0 4pt;"',
+      lijst: 'style="' + basis + 'font-size:10pt;color:' + tekst + ';margin:0 0 6pt;padding-left:20pt;"',
+      tab: 'width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 10pt;"',
+      tl: 'width="38%" style="' + basis + 'font-size:10pt;font-weight:bold;color:' + tekst + ';background:' + vlak + ';border:0.75pt solid ' + lijn + ';padding:4pt 7pt;vertical-align:top;"',
+      td: 'style="' + basis + 'font-size:10pt;color:' + tekst + ';border:0.75pt solid ' + lijn + ';padding:4pt 7pt;vertical-align:top;"',
+      leeg: '<span style="color:#9a9a9a;">&ndash;</span>',
+      uitleg: 'style="' + basis + 'font-size:10pt;background:' + vlak + ';border-left:3pt solid ' + kleur + ';padding:6pt 10pt;vertical-align:top;"'
+    };
+  };
+
   var startdocumentHtml = function (opt, pakket) {
     var c = cfg();
     if (!c) return '';
     var a = opt.antwoorden || {};
+    var S = huisstijl(c);
     var vandaag = new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    var td = 'style="padding:4px 8px;border:1px solid #bbb;vertical-align:top;font-size:11pt;"';
-    var tl = 'style="padding:4px 8px;border:1px solid #bbb;vertical-align:top;font-size:11pt;font-weight:bold;background:#f2f2f2;width:42%;"';
-    var tab = 'style="border-collapse:collapse;width:100%;margin-bottom:14px;table-layout:fixed;"';
-    var h2 = 'style="font-size:13pt;color:#2F5496;margin:18px 0 6px;"';
+    var rij = function (label, waarde) { return '<tr><td ' + S.tl + '>' + label + '</td><td ' + S.td + '>' + (waarde || S.leeg) + '</td></tr>'; };
+    var tabel = function (rijen) { return '<table ' + S.tab + '>' + rijen + '</table>'; };
+    // uitleg als één cel met een rode streep: div-achtergronden gaan in Word verloren, tabelcellen niet
+    var uitlegBlok = function (v) {
+      var h = '<p style="font-family:' + S.font + ';font-size:10.5pt;font-weight:bold;color:' + S.kleur + ';margin:0 0 4pt;">' + esc(v.vraag) + '</p>';
+      [].concat(v.tekst || []).forEach(function (t) { h += '<p ' + S.p + '>' + esc(t) + '</p>'; });
+      if (v.punten) h += '<ol ' + S.lijst + '>' + v.punten.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ol>';
+      if (v.lijst) h += '<ul ' + S.lijst + '>' + v.lijst.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>';
+      return '<table ' + S.tab + '><tr><td ' + S.uitleg + '>' + h + '</td></tr></table>';
+    };
 
     var feitenRijen = (opt.feiten || []).filter(function (f) { return f[1] !== '' && f[1] != null; })
-      .map(function (f) { return '<tr><td ' + tl + '>' + esc(f[0]) + '</td><td ' + td + '>' + (f[2] ? f[1] : esc(f[1])) + '</td></tr>'; }).join('');
+      .map(function (f) { return rij(esc(f[0]), f[2] ? f[1] : esc(f[1])); }).join('');
 
     var sectiesHtml = (c.secties || []).filter(function (s) { return !s.nietInStartdocument; }).map(function (s) {
-      // vragen als tabel; uitlegblokken (met inStartdocument) als tekst ertussen
       var uit = '', rijen = '';
-      var sluitTabel = function () { if (rijen) { uit += '<table ' + tab + '>' + rijen + '</table>'; rijen = ''; } };
+      var sluitTabel = function () { if (rijen) { uit += tabel(rijen); rijen = ''; } };
       (s.vragen || []).forEach(function (v) {
         if (!zichtbaar(v, a) || v.nietInStartdocument) return;
         if (v.type === 'uitleg') {
           if (!v.inStartdocument) return;
           sluitTabel();
-          uit += '<h3 style="font-size:11.5pt;margin:12px 0 4px;">' + esc(v.vraag) + '</h3>' + uitlegHtml(v, esc);
+          uit += uitlegBlok(v);
+          return;
+        }
+        if (v.type === 'contacten' && Array.isArray(a[v.id])) {
+          sluitTabel();
+          var kop = function (t) { return '<td ' + S.tl.replace('width="38%" ', '') + '>' + t + '</td>'; };
+          uit += '<p ' + S.h3 + '>' + esc(v.kort || v.vraag) + '</p>'
+            + tabel('<tr>' + kop('Naam') + kop('Rol') + kop('E-mail') + kop('Telefoon') + '</tr>'
+              + a[v.id].map(function (k) {
+                return '<tr>' + CONTACTVELDEN.map(function (f) { return '<td ' + S.td + '>' + (k[f] ? esc(k[f]) : S.leeg) + '</td>'; }).join('') + '</tr>';
+              }).join(''));
           return;
         }
         var t = antwoordTekst(v, a[v.id]);
-        rijen += '<tr><td ' + tl + '>' + esc(v.kort || v.vraag) + '</td><td ' + td + '>' + (t ? esc(t).replace(/\n/g, '<br>') : '<span style="color:#999">–</span>') + '</td></tr>';
+        rijen += rij(esc(v.kort || v.vraag), t ? esc(t).replace(/\n/g, '<br>') : '');
       });
       sluitTabel();
-      return uit ? '<h2 ' + h2 + '>' + esc(s.titel) + '</h2>' + uit : '';
+      return uit ? '<h2 ' + S.h2 + '>' + esc(s.titel) + '</h2>' + uit : '';
     }).join('');
 
-    var akkoord = typeof c.akkoordHtml === 'function' ? c.akkoordHtml({ naam: opt.naam, datum: vandaag, antwoorden: a, esc: esc }) : (c.akkoordHtml || '');
+    var akkoord = typeof c.akkoordHtml === 'function' ? c.akkoordHtml({ naam: opt.naam, datum: vandaag, antwoorden: a, esc: esc, stijl: S }) : (c.akkoordHtml || '');
 
-    var html = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Startdocument verduurzamingsadvies - ' + esc(opt.naam || 'VvE') + '</title>'
-      + '<style>body{font-family:Calibri,sans-serif;font-size:11pt;color:#333;max-width:700px;margin:20px auto;padding:15px;line-height:1.4}'
-      + '.knoppen{position:sticky;top:0;background:#fff;padding:6px 0;text-align:right}.knoppen button{font:600 12px Calibri,sans-serif;padding:5px 14px;cursor:pointer}'
-      + '@media print{.knoppen{display:none}body{margin:1.5cm}}</style></head><body>'
-      + '<div class="knoppen"><button onclick="window.print()">Afdrukken of opslaan als PDF</button></div>'
-      + '<h1 style="font-size:18pt;color:#2F5496;margin-bottom:4px;">Startdocument verduurzamingsadvies ' + esc(opt.naam || '') + '</h1>'
-      + '<p style="color:#666;font-size:9pt;margin-top:0;">Opgesteld op ' + vandaag + (a.procesbegeleider ? ' door ' + esc(a.procesbegeleider) : (opt.gebruiker ? ' door ' + esc(opt.gebruiker) : '')) + '</p>'
-      + (feitenRijen ? '<h2 ' + h2 + '>Gegevens van het gebouw</h2><table ' + tab + '>' + feitenRijen + '</table>' : '')
+    var door = a.procesbegeleider || opt.gebruiker || '';
+    // het bureau komt uit het dossier in het dashboard, niet uit de intake
+    var bureau = (a._dashboard && a._dashboard.bureau) || '';
+    var meta = [['Vereniging van Eigenaren', opt.naam || ''], ['Datum', vandaag]];
+    if (door) meta.push(['Intakegesprek gevoerd door', door + ' (' + S.afzender + ')']);
+    if (bureau) meta.push(['Adviesbureau', bureau]);
+
+    // kop: logo (uit de config) of de naam van de afzender, met een rode lijn eronder
+    var merk = S.logo
+      ? '<img src="' + esc(S.logo) + '" alt="' + esc(S.afzender) + '" width="' + S.logoBreedte + '" style="width:' + S.logoBreedte + 'px;height:auto;">'
+      : '<span style="font-family:' + S.font + ';font-size:16pt;font-weight:bold;color:' + S.kleur + ';">' + esc(S.afzender) + '</span>';
+    var kop = '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 4pt;"><tr>'
+      + '<td style="vertical-align:bottom;padding:0 0 6pt;border-bottom:2.25pt solid ' + S.kleur + ';">' + merk + '</td>'
+      + '<td style="vertical-align:bottom;text-align:right;padding:0 0 6pt;border-bottom:2.25pt solid ' + S.kleur + ';font-family:' + S.font + ';font-size:9pt;color:' + S.grijs + ';">' + esc(S.afdeling) + '</td>'
+      + '</tr></table>';
+
+    var inhoud = kop
+      + '<h1 ' + S.h1 + '>Startdocument verduurzamingsadvies</h1>'
+      + '<p style="font-family:' + S.font + ';font-size:13pt;color:' + S.grijs + ';margin:0 0 12pt;">' + esc(opt.naam || '') + '</p>'
+      + tabel(meta.map(function (m) { return rij(esc(m[0]), esc(m[1])); }).join(''))
+      + (feitenRijen ? '<h2 ' + S.h2 + '>Gegevens van het gebouw</h2>' + tabel(feitenRijen) : '')
       + sectiesHtml
       + akkoord
+      + '<p ' + S.klein + '>&nbsp;</p><p ' + S.klein + '>' + esc(S.afzender) + ' &middot; ' + esc(S.afdeling) + ' &middot; startdocument van ' + vandaag + '</p>';
+
+    var html = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Startdocument verduurzamingsadvies - ' + esc(opt.naam || 'VvE') + '</title>'
+      + '<style>body{margin:0;background:#e9e9e9;font-family:' + S.font + ';}'
+      + '#doc{background:#fff;max-width:720px;margin:0 auto 30px;padding:40px 56px;box-shadow:0 1px 6px rgba(0,0,0,.15)}'
+      + '#doc li{margin:0 0 3pt}'
+      + '.knoppen{position:sticky;top:0;z-index:1;background:#e9e9e9;padding:10px 0;text-align:center}'
+      + '.knoppen button{font:600 13px ' + S.font + ';padding:7px 16px;margin:0 4px;cursor:pointer;border:1px solid #bbb;border-radius:4px;background:#fff}'
+      + '.knoppen button.hoofd{background:' + S.kleur + ';border-color:' + S.kleur + ';color:#fff}'
+      + '.knoppen span{display:block;font:12px ' + S.font + ';color:#555;margin-top:6px;min-height:15px}'
+      + '@media print{body{background:#fff}.knoppen{display:none}#doc{box-shadow:none;max-width:none;margin:0;padding:0}@page{margin:2cm}}</style></head><body>'
+      + '<div class="knoppen"><button class="hoofd" onclick="kopieerVoorWord()">Kopiëren voor Word</button>'
+      + '<button onclick="window.print()">Afdrukken of opslaan als PDF</button><span id="melding"></span></div>'
+      + '<div id="doc">' + inhoud + '</div>'
+      + '<script>function kopieerVoorWord(){var d=document.getElementById("doc"),m=document.getElementById("melding");'
+      + 'var html="<html><head><meta charset=\\"utf-8\\"></head><body>"+d.innerHTML+"</body></html>";'
+      + 'var klaar=function(){m.textContent="Gekopieerd. Plak het in Word met Ctrl+V.";};'
+      + 'var oud=function(){var r=document.createRange();r.selectNodeContents(d);var s=getSelection();s.removeAllRanges();s.addRange(r);'
+      + 'try{document.execCommand("copy");klaar();}catch(e){m.textContent="Kopi\\u00ebren lukte niet. Selecteer alles met Ctrl+A en kopieer met Ctrl+C.";}s.removeAllRanges();};'
+      + 'try{if(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([html],{type:"text/html"}),"text/plain":new Blob([d.innerText],{type:"text/plain"})})]).then(klaar,oud);}else{oud();}}catch(e){oud();}}</script>'
       + (pakket ? '<script type="application/json" id="vve-intake-data">' + JSON.stringify(pakket).replace(/</g, '\\u003c') + '</script>' : '')
       + '</body></html>';
     return html;
