@@ -2136,8 +2136,38 @@ var KaartView = ({
 // ── Statistieken tab ───────────────────────────────────────────────────────
 var StatistiekenView = ({
   groups,
-  totalAddresses
+  totalAddresses,
+  filters
 }) => {
+  // De hele statistiekpagina in een nieuw venster zetten en het afdrukvenster openen;
+  // daar kiest de gebruiker "Opslaan als PDF". Kop met datum, aantallen en actieve filters.
+  var exporteerPdf = () => {
+    var bron = document.getElementById('vd-statistieken');
+    if (!bron) return;
+    var w = window.open('', '_blank');
+    if (!w) { alert('Het afdrukvenster is geblokkeerd. Sta pop-ups toe voor het dashboard en probeer het opnieuw.'); return; }
+    var esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    var stijlen = Array.prototype.map.call(document.querySelectorAll('link[rel="stylesheet"], style'), n => n.outerHTML).join('');
+    var kloon = bron.cloneNode(true);
+    kloon.querySelectorAll('.vd-geen-print').forEach(n => n.remove());
+    kloon.removeAttribute('id');
+    kloon.style.overflow = 'visible';
+    kloon.style.background = '#fff';
+    kloon.style.padding = '0';
+    var datum = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+    var woningen = groups.reduce((s, g) => s + (g.vve.aantal_woon_adr_in_vve || 0), 0);
+    var f = (filters || []).length ? 'Filters: ' + filters.map(esc).join(' \u00b7 ') : 'Geen filters: alle VvE\'s';
+    w.document.open();
+    w.document.write('<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Statistieken VvE-dashboard ' + esc(datum) + '</title>' + stijlen
+      + '<style>@page{size:A4 landscape;margin:12mm}html,body{background:#fff!important;margin:0}body{font-family:"Segoe UI",system-ui,sans-serif;padding:16px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      + '.vd-print-kop{border-bottom:2px solid var(--vd-accent,#217346);margin-bottom:12px;padding-bottom:6px}.vd-print-kop h1{font-size:18px;margin:0}.vd-print-kop p{font-size:11px;color:#555;margin:3px 0 0}'
+      + 'div[style*="border: 1px solid"]{break-inside:avoid}@media print{body{padding:0}}</style></head><body>'
+      + '<div class="vd-print-kop"><h1>Statistieken VvE-dashboard</h1><p>' + esc(datum) + ' \u00b7 ' + groups.length.toLocaleString('nl-NL') + ' VvE\'s \u00b7 '
+      + (totalAddresses || 0).toLocaleString('nl-NL') + ' adressen \u00b7 ' + woningen.toLocaleString('nl-NL') + ' woningen</p><p>' + f + '</p></div>'
+      + kloon.outerHTML + '</body></html>');
+    w.document.close();
+    setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 600);
+  };
   var MiniBar = ({
     label,
     count,
@@ -2320,6 +2350,7 @@ var StatistiekenView = ({
   var buurtMax = buurten[0]?.[1] || 1;
   var lblMax = Math.max(...labels.map(l => labelMap[l] || 0), 1);
   return /*#__PURE__*/React.createElement("div", {
+    id: 'vd-statistieken',
     style: {
       flex: 1,
       overflow: 'auto',
@@ -2327,6 +2358,13 @@ var StatistiekenView = ({
       background: '#f5f5f5'
     }
   }, /*#__PURE__*/React.createElement("div", {
+    className: 'vd-geen-print',
+    style: { display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: exporteerPdf,
+    title: 'De hele statistiekpagina afdrukken of opslaan als PDF (kies in het afdrukvenster: Opslaan als PDF)',
+    style: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, background: 'white', border: '1px solid #c8c6c4', borderRadius: 4, cursor: 'pointer', color: '#323130' }
+  }, '\u2913 Exporteren als PDF')), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 10,
@@ -11579,7 +11617,8 @@ var App = () => {
     groups: groupedByVve
   }), activeSheet === 'statistieken' && /*#__PURE__*/React.createElement(StatistiekenView, {
     groups: groupedByVve,
-    totalAddresses: totalAddressCount
+    totalAddresses: totalAddressCount,
+    filters: vdActief.map(f => f.groep + ': ' + f.label)
   }), activeSheet === 'vves' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
